@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0f1e">
+<title>Room Display</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-authentication-library-for-js/3.10.0/msal-browser.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#040810;--panel:#0d1526;--panel2:#111d35;
+  --border:rgba(99,179,255,0.12);--border2:rgba(99,179,255,0.22);
+  --blue:#3b9eff;--cyan:#00e5c8;--red:#ff4d6a;--amber:#ffb340;--green:#00d68f;
+  --text:#e8f0ff;--muted:#6b82a8;--hint:#3a4d6b;
+  --font-head:'Syne',sans-serif;--font-mono:'DM Mono',monospace;
+  --radius:16px;--radius-sm:10px;
+}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-family:var(--font-mono);overflow:hidden;-webkit-font-smoothing:antialiased;}
+
+/* CONFIG */
+#config-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px;z-index:1000;overflow-y:auto;}
+#config-screen.hidden{display:none;}
+.config-logo{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--blue);letter-spacing:.05em;margin:16px 0 4px;text-align:center;}
+.config-sub{font-size:12px;color:var(--muted);margin-bottom:24px;text-align:center;}
+.config-card{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;width:100%;max-width:420px;margin-bottom:14px;}
+.config-card h3{font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;letter-spacing:.05em;}
+.field input,.field select{width:100%;padding:9px 11px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color .2s;}
+.field input:focus,.field select:focus{border-color:var(--blue);}
+.field select option{background:var(--panel2);}
+.field .hint{font-size:10px;color:var(--hint);margin-top:4px;line-height:1.5;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
+.toggle-row .tr-label{font-size:12px;color:var(--text);}
+.toggle-row .tr-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.tog{position:relative;width:42px;height:24px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;position:absolute;}
+.tog-slider{position:absolute;inset:0;background:var(--hint);border-radius:12px;cursor:pointer;transition:.25s;}
+.tog-slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.25s;}
+.tog input:checked+.tog-slider{background:var(--amber);}
+.tog input:checked+.tog-slider::before{transform:translateX(18px);}
+.btn-primary{width:100%;padding:13px;background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-head);font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.03em;transition:opacity .2s,transform .1s;margin-top:6px;}
+.btn-primary:active{transform:scale(.98);opacity:.85;}
+.config-note{background:rgba(59,158,255,.07);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:11px;color:var(--muted);line-height:1.7;margin-top:6px;max-width:420px;width:100%;}
+.config-note strong{color:var(--blue);}
+.config-note code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:10px;color:var(--cyan);}
+.approval-fields{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+
+/* AUTH */
+#auth-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:500;padding:24px;}
+#auth-overlay.hidden{display:none;}
+.auth-icon{font-size:44px;}
+.auth-title{font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--text);text-align:center;}
+.auth-sub{font-size:12px;color:var(--muted);text-align:center;line-height:1.6;}
+.auth-btn{padding:13px 32px;background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-head);font-size:14px;font-weight:700;cursor:pointer;}
+.auth-btn:active{opacity:.8;}
+
+/* MAIN APP */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;}
+#app.hidden{display:none;}
+#app::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(59,158,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(59,158,255,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+
+.hdr{padding:20px 20px 0;flex-shrink:0;position:relative;z-index:1;}
+.hdr-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;}
+.room-name{font-family:var(--font-head);font-size:26px;font-weight:800;line-height:1.1;color:var(--text);letter-spacing:-.01em;}
+.room-badge{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:3px;}
+.clock-time{font-family:var(--font-head);font-size:26px;font-weight:700;color:var(--blue);line-height:1;font-variant-numeric:tabular-nums;}
+.clock-date{font-size:10px;color:var(--muted);letter-spacing:.07em;margin-top:3px;text-align:right;}
+.hdr-divider{height:1px;background:linear-gradient(90deg,var(--blue) 0%,transparent 80%);margin:12px 0 0;opacity:.4;}
+
+.status-strip{display:flex;align-items:center;gap:8px;padding:10px 20px;flex-shrink:0;position:relative;z-index:1;}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sdot.available{background:var(--green);animation:pg 2s infinite;}
+.sdot.busy{background:var(--red);animation:pr 2s infinite;}
+.sdot.soon{background:var(--amber);}
+.sdot.pending{background:var(--amber);animation:pg 1.4s infinite;}
+@keyframes pg{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pr{0%,100%{opacity:1}50%{opacity:.5}}
+.slbl{font-family:var(--font-head);font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;}
+.slbl.available{color:var(--green);}
+.slbl.busy{color:var(--red);}
+.slbl.soon,.slbl.pending{color:var(--amber);}
+.suntil{font-size:11px;color:var(--muted);margin-left:auto;}
+
+.current-wrap{padding:0 16px;flex-shrink:0;position:relative;z-index:1;}
+.current-card{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;transition:all .35s ease;}
+.current-card.busy{border-color:rgba(255,77,106,.35);background:rgba(255,77,106,.05);}
+.current-card.available{border-color:rgba(0,214,143,.25);background:rgba(0,214,143,.03);}
+.current-card.pending{border-color:rgba(255,179,64,.35);background:rgba(255,179,64,.05);}
+.current-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;border-radius:4px 0 0 4px;}
+.current-card.busy::before{background:var(--red);}
+.current-card.available::before{background:var(--green);}
+.current-card.pending::before{background:var(--amber);}
+.ctag{font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px;}
+.ctitle{font-family:var(--font-head);font-size:18px;font-weight:700;line-height:1.25;margin-bottom:9px;color:var(--text);}
+.ctitle.empty{color:var(--green);font-size:16px;}
+.cmeta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.mi{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+.tbar-wrap{margin-bottom:12px;}
+.tbar-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--hint);margin-bottom:4px;}
+.tbar{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;}
+.tbar-fill{height:100%;border-radius:2px;background:var(--red);transition:width 10s linear;}
+
+.action-row{display:flex;gap:8px;}
+.abtn{flex:1;padding:12px 8px;border:none;border-radius:var(--radius-sm);font-family:var(--font-head);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;letter-spacing:.03em;position:relative;overflow:hidden;}
+.abtn:active{transform:scale(.97);}
+.abtn-checkin{background:var(--blue);color:#fff;}
+.abtn-checkin.checked{background:var(--green);}
+.abtn-checkin.off{background:var(--panel2);color:var(--hint);cursor:default;}
+.abtn-book{background:var(--cyan);color:#040810;}
+.abtn-pending{background:rgba(255,179,64,.1);color:var(--amber);border:1px solid rgba(255,179,64,.3);cursor:default;flex:2;}
+.cdown{font-size:10px;color:var(--red);text-align:center;margin-top:5px;min-height:14px;font-weight:500;}
+
+.upcoming-hdr{padding:14px 20px 7px;font-size:10px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;flex-shrink:0;position:relative;z-index:1;}
+.upcoming-list{flex:1;overflow-y:auto;padding:0 16px 80px;position:relative;z-index:1;-webkit-overflow-scrolling:touch;}
+.upcoming-list::-webkit-scrollbar{width:3px;}
+.upcoming-list::-webkit-scrollbar-thumb{background:var(--hint);border-radius:2px;}
+.uitem{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:7px;position:relative;}
+.uitem.next{border-color:rgba(255,179,64,.3);}
+.uitem.pslot{border-color:rgba(255,179,64,.4);background:rgba(255,179,64,.04);}
+.utcol{flex-shrink:0;text-align:right;width:48px;}
+.ut{font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--blue);font-variant-numeric:tabular-nums;}
+.ut.am{color:var(--amber);}
+.ud{font-size:9px;color:var(--hint);margin-top:2px;}
+.usep{width:1px;background:var(--border);align-self:stretch;flex-shrink:0;}
+.uinfo{flex:1;min-width:0;}
+.utitle{font-family:var(--font-head);font-size:12px;font-weight:600;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.uorg{font-size:10px;color:var(--muted);margin-top:2px;}
+.stag{position:absolute;top:7px;right:7px;font-size:9px;border-radius:4px;padding:2px 6px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;}
+.stag.next{color:var(--amber);background:rgba(255,179,64,.12);border:1px solid rgba(255,179,64,.22);}
+.stag.pend{color:var(--amber);background:rgba(255,179,64,.1);border:1px solid rgba(255,179,64,.2);}
+
+/* BOOKING MODAL */
+#booking-modal{position:fixed;inset:0;background:rgba(4,8,16,.88);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+#booking-modal.hidden{display:none;}
+.msheet{background:var(--panel);border:1px solid var(--border2);border-radius:24px 24px 0 0;padding:24px 20px 44px;width:100%;max-width:480px;animation:sUp .3s ease;}
+@keyframes sUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mdrag{width:36px;height:4px;background:var(--hint);border-radius:2px;margin:0 auto 20px;}
+.mtitle{font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--text);margin-bottom:3px;}
+.msub{font-size:11px;color:var(--muted);margin-bottom:18px;}
+.appr-banner{background:rgba(255,179,64,.09);border:1px solid rgba(255,179,64,.3);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:15px;font-size:11px;color:var(--amber);line-height:1.6;}
+.appr-banner strong{display:block;font-size:12px;margin-bottom:2px;}
+.mfield{margin-bottom:13px;}
+.mfield label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;letter-spacing:.05em;}
+.mfield input{width:100%;padding:11px 13px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-mono);font-size:13px;outline:none;transition:border-color .2s;}
+.mfield input:focus{border-color:var(--blue);}
+.tprev{font-size:11px;color:var(--muted);margin-bottom:13px;padding:8px 12px;background:var(--panel2);border-radius:var(--radius-sm);}
+.tprev span{color:var(--text);font-weight:500;}
+.dur-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+.dchip{padding:10px 4px;text-align:center;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--font-head);font-weight:600;transition:all .15s;}
+.dchip.sel{background:rgba(59,158,255,.15);border-color:rgba(59,158,255,.4);color:var(--blue);}
+.dchip.asel{background:rgba(255,179,64,.14);border-color:rgba(255,179,64,.4);color:var(--amber);}
+.mactions{display:flex;gap:10px;margin-top:4px;}
+.mcancel{flex:1;padding:13px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-family:var(--font-head);font-size:13px;font-weight:700;cursor:pointer;}
+.mconfirm{flex:2;padding:13px;border:none;border-radius:var(--radius-sm);font-family:var(--font-head);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+.mconfirm.inst{background:var(--blue);color:#fff;}
+.mconfirm.appr{background:var(--amber);color:#1a0e00;}
+.mconfirm:active{transform:scale(.97);}
+.mconfirm:disabled{opacity:.6;cursor:default;transform:none;}
+
+/* TOAST */
+#toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border2);border-radius:50px;padding:10px 20px;font-size:12px;color:var(--text);z-index:400;white-space:nowrap;pointer-events:none;transition:opacity .3s;}
+#toast.hidden{opacity:0;}
+#toast.success{border-color:rgba(0,214,143,.45);color:var(--green);}
+#toast.error{border-color:rgba(255,77,106,.45);color:var(--red);}
+#toast.warn{border-color:rgba(255,179,64,.45);color:var(--amber);}
+
+.gear-btn{position:fixed;bottom:20px;right:16px;width:36px;height:36px;background:var(--panel);border:1px solid var(--border);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:100;opacity:.4;transition:opacity .2s;}
+.gear-btn:hover,.gear-btn:active{opacity:1;}
+.spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle;}
+.spinner.lg{width:28px;height:28px;display:block;margin:20px auto;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fadeUp .4s ease both;}
+@keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+.scan-ln{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:scan 1.4s ease-in-out infinite;pointer-events:none;}
+</style>
+</head>
+<body>
+
+<!-- CONFIG SCREEN -->
+<div id="config-screen">
+  <div class="config-logo">⬡ ROOM DISPLAY</div>
+  <div class="config-sub">Meeting Room Kiosk — Setup</div>
+
+  <div class="config-card">
+    <h3>Azure AD / Microsoft 365</h3>
+    <div class="field">
+      <label>TENANT ID</label>
+      <input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      <div class="hint">Azure Portal → Azure Active Directory → Overview</div>
+    </div>
+    <div class="field">
+      <label>CLIENT (APPLICATION) ID</label>
+      <input type="text" id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      <div class="hint">Azure Portal → App Registrations → your app</div>
+    </div>
+  </div>
+
+  <div class="config-card">
+    <h3>Room Settings</h3>
+    <div class="field">
+      <label>ROOM DISPLAY NAME</label>
+      <input type="text" id="cfg-roomname" placeholder="e.g. Meeting Room A / Boardroom">
+    </div>
+    <div class="field">
+      <label>ROOM EMAIL (mailbox)</label>
+      <input type="text" id="cfg-roomemail" placeholder="room-a@yourcompany.com">
+      <div class="hint">Shared room mailbox in Exchange / M365</div>
+    </div>
+    <div class="field">
+      <label>AUTO-RELEASE (minutes without check-in)</label>
+      <select id="cfg-release">
+        <option value="0">Disabled</option>
+        <option value="5">5 minutes</option>
+        <option value="10" selected>10 minutes</option>
+        <option value="15">15 minutes</option>
+        <option value="20">20 minutes</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="config-card">
+    <h3>Booking Settings</h3>
+    <div class="toggle-row">
+      <div>
+        <div class="tr-label">Allow instant booking from tablet</div>
+        <div class="tr-sub">Anyone can book this room directly on the display</div>
+      </div>
+      <label class="tog">
+        <input type="checkbox" id="cfg-booking" checked onchange="toggleApprovalSection()">
+        <span class="tog-slider"></span>
+      </label>
+    </div>
+    <div class="approval-fields" id="approval-fields">
+      <div class="toggle-row" style="padding-top:0">
+        <div>
+          <div class="tr-label">Require owner approval</div>
+          <div class="tr-sub">Request email sent before room is confirmed</div>
+        </div>
+        <label class="tog">
+          <input type="checkbox" id="cfg-approval" onchange="toggleOwnerField()">
+          <span class="tog-slider"></span>
+        </label>
+      </div>
+      <div id="owner-field" style="display:none">
+        <div class="field" style="margin-bottom:0;margin-top:10px">
+          <label>ROOM OWNER EMAIL</label>
+          <input type="text" id="cfg-owner" placeholder="owner@yourcompany.com">
+          <div class="hint">Approval request email will be sent to this address</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-primary" onclick="saveConfig()">Save &amp; Launch Display</button>
+
+  <div class="config-note">
+    <strong>Azure App Registration — required API permissions (Delegated):</strong><br>
+    • <code>Calendars.ReadWrite</code> — read room calendar &amp; create bookings<br>
+    • <code>Mail.Send</code> — send approval request emails<br>
+    • <code>User.Read</code> — identify signed-in user<br><br>
+    Redirect URI → <strong>Single-page application (SPA)</strong> → this page's URL.<br>
+    Grant admin consent after adding permissions.
+  </div>
+</div>
+
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay" class="hidden">
+  <div class="auth-icon">🔐</div>
+  <div class="auth-title">Sign in to Microsoft 365</div>
+  <div class="auth-sub">Sign in with an account that has access<br>to the room calendar to continue.</div>
+  <button class="auth-btn" onclick="doSignIn()">Sign in with Microsoft</button>
+  <div style="font-size:11px;color:var(--hint);text-align:center;margin-top:8px" id="auth-error"></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+  <div class="hdr fade-up">
+    <div class="hdr-top">
+      <div>
+        <div class="room-name" id="disp-name">Room</div>
+        <div class="room-badge" id="disp-badge">—</div>
+      </div>
+      <div>
+        <div class="clock-time" id="clock-time">--:--</div>
+        <div class="clock-date" id="clock-date">---</div>
+      </div>
+    </div>
+    <div class="hdr-divider"></div>
+  </div>
+
+  <div class="status-strip fade-up" style="animation-delay:.05s">
+    <div class="sdot" id="sdot"></div>
+    <div class="slbl" id="slbl">Loading</div>
+    <div class="suntil" id="suntil"></div>
+  </div>
+
+  <div class="current-wrap fade-up" style="animation-delay:.1s">
+    <div class="current-card" id="ccard">
+      <div class="ctag" id="ctag">NOW</div>
+      <div class="ctitle" id="ctitle">Loading…</div>
+      <div class="cmeta" id="cmeta"></div>
+      <div class="tbar-wrap" id="tbar-wrap" style="display:none">
+        <div class="tbar-lbl"><span id="bar-s"></span><span id="bar-e"></span></div>
+        <div class="tbar"><div class="tbar-fill" id="tbar-fill"></div></div>
+      </div>
+      <div class="action-row" id="action-row"></div>
+      <div class="cdown" id="cdown"></div>
+    </div>
+  </div>
+
+  <div class="upcoming-hdr fade-up" style="animation-delay:.15s">Upcoming today</div>
+  <div class="upcoming-list fade-up" id="upcoming-list" style="animation-delay:.2s">
+    <div class="spinner lg"></div>
+  </div>
+
+  <button class="gear-btn" onclick="showConfig()" aria-label="Settings">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</div>
+
+<!-- BOOKING MODAL -->
+<div id="booking-modal" class="hidden">
+  <div class="msheet">
+    <div class="mdrag"></div>
+    <div class="mtitle" id="modal-title">Book this room</div>
+    <div class="msub" id="modal-sub"></div>
+    <div class="appr-banner" id="appr-banner" style="display:none">
+      <strong>✉ Approval required</strong>
+      An email will be sent to the room owner. The room shows as pending until they approve or decline.
+    </div>
+    <div class="mfield">
+      <label>YOUR NAME</label>
+      <input type="text" id="book-name" placeholder="Enter your name" autocomplete="off">
+    </div>
+    <div class="mfield">
+      <label>MEETING TITLE</label>
+      <input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off">
+    </div>
+    <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
+    <label style="font-size:11px;color:var(--muted);letter-spacing:.05em;display:block;margin-bottom:8px">DURATION</label>
+    <div class="dur-grid">
+      <div class="dchip" data-min="30" onclick="selDur(this)">30m</div>
+      <div class="dchip sel" data-min="60" onclick="selDur(this)">1h</div>
+      <div class="dchip" data-min="90" onclick="selDur(this)">1h 30m</div>
+      <div class="dchip" data-min="120" onclick="selDur(this)">2h</div>
+    </div>
+    <div class="mactions">
+      <button class="mcancel" onclick="closeModal()">Cancel</button>
+      <button class="mconfirm inst" id="mconfirm" onclick="confirmBooking()">
+        <span id="mconfirm-lbl">Confirm booking</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="hidden"></div>
+
+<script>
+// ── STATE ──
+const CFG_KEY = 'roomdisplay_v2';
+let cfg = {}, msalInst = null, account = null;
+let meetings = [], pendingLocal = [], checkedIn = false, selDurMin = 60;
+
+// ── CONFIG ──
+function loadCfg() { try { cfg = JSON.parse(localStorage.getItem(CFG_KEY)||'{}'); } catch(e){ cfg={}; } }
+
+function saveConfig() {
+  const v = id => document.getElementById(id).value.trim();
+  const b = id => document.getElementById(id).checked;
+  if (!v('cfg-tenant')||!v('cfg-client')||!v('cfg-roomname')||!v('cfg-roomemail')) { alert('Fill in all required fields.'); return; }
+  if (b('cfg-booking')&&b('cfg-approval')&&!v('cfg-owner')) { alert('Enter room owner email for approval.'); return; }
+  cfg = { tenant:v('cfg-tenant'), client:v('cfg-client'), roomname:v('cfg-roomname'),
+    roomemail:v('cfg-roomemail'), release:parseInt(document.getElementById('cfg-release').value),
+    booking:b('cfg-booking'), approval:b('cfg-approval'), owner:v('cfg-owner') };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  initMsal();
+}
+
+function showConfig() {
+  show('config-screen'); hide('app'); hide('auth-overlay'); hide('booking-modal');
+  if (cfg.tenant)    setVal('cfg-tenant', cfg.tenant);
+  if (cfg.client)    setVal('cfg-client', cfg.client);
+  if (cfg.roomname)  setVal('cfg-roomname', cfg.roomname);
+  if (cfg.roomemail) setVal('cfg-roomemail', cfg.roomemail);
+  if (cfg.release!=null) document.getElementById('cfg-release').value = cfg.release;
+  document.getElementById('cfg-booking').checked  = cfg.booking !== false;
+  document.getElementById('cfg-approval').checked = !!cfg.approval;
+  if (cfg.owner) setVal('cfg-owner', cfg.owner);
+  toggleApprovalSection(); toggleOwnerField();
+}
+
+function toggleApprovalSection() {
+  const on = document.getElementById('cfg-booking').checked;
+  document.getElementById('approval-fields').style.display = on ? 'block' : 'none';
+}
+function toggleOwnerField() {
+  const on = document.getElementById('cfg-approval').checked;
+  document.getElementById('owner-field').style.display = on ? 'block' : 'none';
+}
+
+// ── MSAL ──
+async function initMsal() {
+  hide('config-screen');
+  msalInst = new msal.PublicClientApplication({
+    auth: { clientId:cfg.client, authority:`https://login.microsoftonline.com/${cfg.tenant}`,
+      redirectUri: location.href.split('?')[0].split('#')[0] },
+    cache: { cacheLocation:'localStorage', storeAuthStateInCookie:true }
+  });
+  try {
+    await msalInst.initialize();
+    const r = await msalInst.handleRedirectPromise();
+    if (r?.account) { account = r.account; launch(); return; }
+    const acts = msalInst.getAllAccounts();
+    if (acts.length) { account = acts[0]; launch(); }
+    else showAuth();
+  } catch(e) { document.getElementById('auth-error').textContent = e.message; showAuth(); }
+}
+
+function showAuth() { show('auth-overlay'); hide('app'); }
+
+async function doSignIn() {
+  try { await msalInst.loginRedirect({ scopes:['Calendars.ReadWrite','Mail.Send','User.Read'], prompt:'select_account' }); }
+  catch(e) { document.getElementById('auth-error').textContent = e.message; }
+}
+
+async function getToken() {
+  try { const r = await msalInst.acquireTokenSilent({ scopes:['Calendars.ReadWrite','Mail.Send','User.Read'], account }); return r.accessToken; }
+  catch(e) { await msalInst.acquireTokenRedirect({ scopes:['Calendars.ReadWrite','Mail.Send','User.Read'] }); return null; }
+}
+
+// ── LAUNCH ──
+function launch() {
+  hide('auth-overlay'); show('app');
+  document.getElementById('disp-name').textContent  = cfg.roomname;
+  document.getElementById('disp-badge').textContent = cfg.roomemail;
+  startClock(); fetchCal();
+  setInterval(fetchCal, 90000);
+}
+
+// ── CLOCK ──
+function startClock() {
+  const tick = () => {
+    const n = new Date();
+    document.getElementById('clock-time').textContent = pad(n.getHours())+':'+pad(n.getMinutes());
+    document.getElementById('clock-date').textContent = n.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short'});
+    updateDisplay();
+  };
+  tick(); setInterval(tick, 15000);
+}
+
+// ── CALENDAR ──
+async function fetchCal() {
+  const tok = await getToken(); if (!tok) return;
+  const today = new Date();
+  const s = new Date(today); s.setHours(0,0,0,0);
+  const e = new Date(today); e.setHours(23,59,59,999);
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.roomemail)}/calendarView`
+    +`?startDateTime=${s.toISOString()}&endDateTime=${e.toISOString()}`
+    +`&$select=subject,organizer,start,end,attendees&$orderby=start/dateTime&$top=25`;
+  try {
+    const r = await fetch(url, { headers:{ Authorization:`Bearer ${tok}` } });
+    if (!r.ok) { const er = await r.json(); setErr(er.error?.message||'Calendar error'); return; }
+    const d = await r.json();
+    meetings = (d.value||[]).map(ev => ({
+      id:ev.id, title:ev.subject||'(No title)',
+      organizer:ev.organizer?.emailAddress?.name||ev.organizer?.emailAddress?.address||'',
+      start:gDate(ev.start), end:gDate(ev.end),
+      attendees:(ev.attendees||[]).length, isPending:false
+    }));
+    pendingLocal.forEach(pb => {
+      if (!meetings.some(m=>Math.abs(m.start-pb.start)<60000&&m.title===pb.title)) meetings.push(pb);
+    });
+    meetings.sort((a,b)=>a.start-b.start);
+    updateDisplay(); renderUpcoming();
+  } catch(e) { setErr(e.message); }
+}
+
+function gDate(o) { const s=o.dateTime; return new Date(s.endsWith('Z')?s:s+'Z'); }
+function setErr(msg) { const t=document.getElementById('ctitle'); t.textContent='⚠ '+msg; t.style.color='var(--amber)'; }
+
+// ── DISPLAY ──
+function getCur()  { const n=new Date(); return meetings.find(m=>m.start<=n&&m.end>=n)||null; }
+function getNext() { const n=new Date(); return meetings.find(m=>m.start>n)||null; }
+function ft(d)     { return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false}); }
+function fd(s,e)   { const m=Math.round((e-s)/60000); return m<60?m+'m':Math.floor(m/60)+'h'+(m%60?' '+(m%60)+'m':''); }
+function mu(d)     { return Math.max(0,Math.round((d-new Date())/60000)); }
+function esc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function pad(n)    { return String(n).padStart(2,'0'); }
+
+function updateDisplay() {
+  const n=new Date(), cur=getCur(), nxt=getNext();
+  const card=el('ccard'), dot=el('sdot'), lbl=el('slbl'), unt=el('suntil');
+  const tag=el('ctag'), title=el('ctitle'), meta=el('cmeta');
+  const tbw=el('tbar-wrap'), arow=el('action-row'), cdown=el('cdown');
+  title.style.color='';
+
+  if (cur) {
+    const ip=cur.isPending;
+    setClass(card,'current-card '+(ip?'pending':'busy'));
+    setClass(dot,'sdot '+(ip?'pending':'busy'));
+    setClass(lbl,'slbl '+(ip?'pending':'busy'));
+    lbl.textContent=ip?'PENDING APPROVAL':'IN USE';
+    unt.textContent=ip?`Requested ${ft(cur.start)}–${ft(cur.end)}`:`Until ${ft(cur.end)}`;
+    tag.textContent=ip?'REQUESTED':'NOW';
+    title.textContent=cur.title; title.className='ctitle';
+    meta.innerHTML=metaHtml(cur);
+    if (!ip) {
+      const pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
+      tbw.style.display='block';
+      el('bar-s').textContent=ft(cur.start); el('bar-e').textContent=ft(cur.end);
+      el('tbar-fill').style.width=pct+'%';
+    } else { tbw.style.display='none'; }
+
+    if (ip) {
+      arow.innerHTML=`<button class="abtn abtn-pending" disabled>${svgClock()} Awaiting owner approval…</button>`;
+      cdown.textContent='';
+    } else if (checkedIn) {
+      arow.innerHTML=`<button class="abtn abtn-checkin checked" disabled>${svgCheck()} Checked In ✓</button>`;
+      cdown.textContent='';
+    } else {
+      arow.innerHTML=`<button class="abtn abtn-checkin" onclick="doCheckin()" id="checkin-btn">${svgCheck()} Check In</button>`;
+      if (cfg.release>0) {
+        const ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
+        if (ml>0) { cdown.textContent=`⚠ Room releases in ${ml} min if no check-in`; cdown.style.color=ml<=2?'var(--red)':'var(--amber)'; }
+        else cdown.textContent='';
+      }
+    }
+  } else {
+    tbw.style.display='none'; checkedIn=false; tag.textContent='CURRENT';
+    title.className='ctitle empty'; title.textContent='Room is Available'; cdown.textContent='';
+    if (nxt) {
+      const m=mu(nxt.start);
+      if (m<=30) { setClass(dot,'sdot soon'); setClass(lbl,'slbl soon'); lbl.textContent='AVAILABLE SOON'; unt.textContent=`Next in ${m}m`; }
+      else        { setClass(dot,'sdot available'); setClass(lbl,'slbl available'); lbl.textContent='AVAILABLE'; unt.textContent=`Free until ${ft(nxt.start)}`; }
+      meta.innerHTML=`<div class="mi" style="color:var(--muted)">Next: <strong style="color:var(--text);margin-left:4px">${esc(nxt.title)}</strong>&nbsp;at ${ft(nxt.start)}</div>`;
+    } else {
+      setClass(dot,'sdot available'); setClass(lbl,'slbl available');
+      lbl.textContent='AVAILABLE'; unt.textContent='Free for the rest of the day';
+      meta.innerHTML='<div class="mi" style="color:var(--muted)">No more meetings today</div>';
+    }
+    setClass(card,'current-card available');
+    const bookBtn = cfg.booking!==false
+      ? `<button class="abtn abtn-book" onclick="openModal()">${svgCal()} Book room</button>` : '';
+    arow.innerHTML=`<button class="abtn abtn-checkin off" disabled>No active meeting</button>${bookBtn}`;
+  }
+}
+
+function metaHtml(m) {
+  let h='';
+  if(m.organizer) h+=`<div class="mi">${svgUser()}${esc(m.organizer)}</div>`;
+  h+=`<div class="mi">${svgClock()}${ft(m.start)} – ${ft(m.end)}</div>`;
+  if(m.attendees>0) h+=`<div class="mi">${svgPpl()}${m.attendees} attendees</div>`;
+  return h;
+}
+
+function renderUpcoming() {
+  const n=new Date(), list=el('upcoming-list');
+  const fut=meetings.filter(m=>m.start>n);
+  if (!fut.length) { list.innerHTML=`<div style="text-align:center;padding:36px 20px;color:var(--hint)">${svgCal(16,'opacity:.3;display:block;margin:0 auto 10px')}<p style="font-size:12px">No more meetings today</p></div>`; return; }
+  list.innerHTML=fut.slice(0,8).map((m,i)=>{
+    const ip=m.isPending;
+    const cls=ip?'uitem pslot':(i===0?'uitem next':'uitem');
+    const tag=ip?'<div class="stag pend">PENDING</div>':(i===0?'<div class="stag next">NEXT</div>':'');
+    return `<div class="${cls}">${tag}
+      <div class="utcol"><div class="ut ${ip?'am':''}">${ft(m.start)}</div><div class="ud">${fd(m.start,m.end)}</div></div>
+      <div class="usep"></div>
+      <div class="uinfo"><div class="utitle">${esc(m.title)}</div><div class="uorg">${esc(ip?m.organizer+' · pending':m.organizer)}</div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── CHECK-IN ──
+async function doCheckin() {
+  const btn=el('checkin-btn'); if(!btn) return;
+  btn.disabled=true;
+  const sc=document.createElement('div'); sc.className='scan-ln'; btn.appendChild(sc);
+  await sleep(1200); sc.remove();
+  checkedIn=true; updateDisplay(); toast('✓ Checked in','success');
+}
+
+// ── BOOKING MODAL ──
+function openModal() {
+  selDurMin=60; setVal('book-name',''); setVal('book-title','');
+  el('modal-title').textContent='Book '+cfg.roomname;
+  el('modal-sub').textContent=cfg.roomemail;
+  const needsAppr = cfg.booking && cfg.approval;
+  el('appr-banner').style.display = needsAppr ? 'block' : 'none';
+  const btn=el('mconfirm');
+  btn.className='mconfirm '+(needsAppr?'appr':'inst');
+  el('mconfirm-lbl').textContent = needsAppr ? 'Send approval request' : 'Confirm booking';
+  document.querySelectorAll('.dchip').forEach(c=>{ c.classList.remove('sel','asel'); if(c.dataset.min=='60'){ c.classList.add('sel'); if(needsAppr)c.classList.add('asel'); } });
+  updatePrev(); show('booking-modal');
+  setTimeout(()=>el('book-name').focus(),350);
+}
+
+function closeModal() { hide('booking-modal'); }
+
+function selDur(chip) {
+  const needsAppr=cfg.booking&&cfg.approval;
+  document.querySelectorAll('.dchip').forEach(c=>c.classList.remove('sel','asel'));
+  chip.classList.add('sel'); if(needsAppr) chip.classList.add('asel');
+  selDurMin=parseInt(chip.dataset.min); updatePrev();
+}
+
+function updatePrev() {
+  const s=new Date(), e=new Date(s.getTime()+selDurMin*60000);
+  el('prev-s').textContent=ft(s); el('prev-e').textContent=ft(e);
+}
+
+async function confirmBooking() {
+  const name=el('book-name').value.trim(), title=el('book-title').value.trim();
+  if (!name)  { toast('Please enter your name','warn'); return; }
+  if (!title) { toast('Please enter a meeting title','warn'); return; }
+  const btn=el('mconfirm'); btn.disabled=true;
+  el('mconfirm-lbl').innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Working…';
+  const s=new Date(), e=new Date(s.getTime()+selDurMin*60000);
+  if (cfg.approval) await sendApproval(name, title, s, e);
+  else await createDirect(name, title, s, e);
+  btn.disabled=false;
+  el('mconfirm-lbl').textContent=cfg.approval?'Send approval request':'Confirm booking';
+}
+
+// Instant booking — POST to /me/events (room gets invite as resource)
+async function createDirect(name, title, s, e) {
+  const tok=await getToken(); if(!tok){closeModal();return;}
+  const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const body={
+    subject:title,
+    body:{contentType:'text',content:`Booked by ${name} from the room display.`},
+    start:{dateTime:localISO(s),timeZone:tz},
+    end:{dateTime:localISO(e),timeZone:tz},
+    attendees:[{emailAddress:{address:cfg.roomemail,name:cfg.roomname},type:'resource'}],
+    isOnlineMeeting:false
+  };
+  try {
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/events',
+      {method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (!r.ok) { const er=await r.json(); toast('Booking failed: '+(er.error?.message||r.status),'error'); closeModal(); return; }
+    closeModal(); toast('✓ Room booked!','success');
+    meetings.push({id:'loc-'+Date.now(),title,organizer:name,start:s,end:e,attendees:1,isPending:false});
+    meetings.sort((a,b)=>a.start-b.start);
+    updateDisplay(); renderUpcoming();
+    setTimeout(fetchCal,6000);
+  } catch(err) { toast('Error: '+err.message,'error'); closeModal(); }
+}
+
+// Approval booking — send email via /me/sendMail
+async function sendApproval(name, title, s, e) {
+  const tok=await getToken(); if(!tok){closeModal();return;}
+  const bid='BOOK-'+Date.now();
+  const html=approvalEmailHtml(bid, name, title, s, e);
+  const mail={message:{
+    subject:`[Approval Required] Room booking — ${cfg.roomname}: "${title}" by ${name}`,
+    body:{contentType:'html',content:html},
+    toRecipients:[{emailAddress:{address:cfg.owner}}]
+  },saveToSentItems:true};
+  try {
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',
+      {method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify(mail)});
+    if (!r.ok&&r.status!==202) { const er=await r.json().catch(()=>({})); toast('Email failed: '+(er.error?.message||r.status),'error'); closeModal(); return; }
+    const pb={id:bid,title,organizer:name,start:s,end:e,attendees:1,isPending:true};
+    pendingLocal.push(pb); meetings.push(pb); meetings.sort((a,b)=>a.start-b.start);
+    closeModal(); toast('✉ Approval request sent to owner','warn');
+    updateDisplay(); renderUpcoming();
+  } catch(err) { toast('Error: '+err.message,'error'); closeModal(); }
+}
+
+function approvalEmailHtml(bid, name, title, s, e) {
+  const dateStr = s.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0e4eb;">
+<tr><td style="background:#040810;padding:24px;text-align:center;">
+  <div style="font-size:20px;font-weight:bold;color:#3b9eff;letter-spacing:.05em;">⬡ ROOM DISPLAY</div>
+  <div style="font-size:12px;color:#6b82a8;margin-top:6px;text-transform:uppercase;letter-spacing:.1em;">Booking Approval Request</div>
+</td></tr>
+<tr><td style="padding:28px 28px 8px;">
+  <p style="font-size:15px;color:#1a1a2e;font-weight:bold;margin:0 0 20px;">A new room booking request needs your approval.</p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;font-size:13px;">
+    <tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;width:130px;border-bottom:1px solid #e8ecf0;">Room</td><td style="padding:10px 14px;font-weight:bold;color:#1a1a2e;border-bottom:1px solid #e8ecf0;">${esc(cfg.roomname)}</td></tr>
+    <tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Requested by</td><td style="padding:10px 14px;font-weight:bold;color:#1a1a2e;border-bottom:1px solid #e8ecf0;">${esc(name)}</td></tr>
+    <tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Meeting title</td><td style="padding:10px 14px;font-weight:bold;color:#1a1a2e;border-bottom:1px solid #e8ecf0;">${esc(title)}</td></tr>
+    <tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Date</td><td style="padding:10px 14px;font-weight:bold;color:#1a1a2e;border-bottom:1px solid #e8ecf0;">${dateStr}</td></tr>
+    <tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Time</td><td style="padding:10px 14px;font-weight:bold;color:#1a1a2e;border-bottom:1px solid #e8ecf0;">${ft(s)} – ${ft(e)}</td></tr>
+    <tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Duration</td><td style="padding:10px 14px;font-weight:bold;color:#1a1a2e;border-bottom:1px solid #e8ecf0;">${fd(s,e)}</td></tr>
+    <tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;">Booking ID</td><td style="padding:10px 14px;font-family:monospace;color:#888;font-size:11px;">${bid}</td></tr>
+  </table>
+</td></tr>
+<tr><td style="padding:20px 28px 8px;">
+  <p style="font-size:13px;color:#555;line-height:1.7;margin:0 0 20px;">Please approve or decline this booking request. If approved, the room will be confirmed in the calendar and the requester will be notified.</p>
+  <table width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="padding-right:8px;"><a href="mailto:${cfg.roomemail}?subject=APPROVE:${bid}&body=I approve this room booking request (ID: ${bid})." style="display:block;text-align:center;padding:14px;background:#00d68f;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:14px;">✓&nbsp; Approve Booking</a></td>
+    <td style="padding-left:8px;"><a href="mailto:${cfg.roomemail}?subject=DECLINE:${bid}&body=I decline this room booking request (ID: ${bid})." style="display:block;text-align:center;padding:14px;background:#ff4d6a;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:14px;">✗&nbsp; Decline</a></td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:20px 28px 28px;border-top:1px solid #e8ecf0;margin-top:20px;">
+  <p style="font-size:11px;color:#aaa;margin:0;text-align:center;">Sent from Room Display · ${esc(cfg.roomname)} · ${new Date().toLocaleString()}</p>
+</td></tr>
+</table></td></tr></table></body></html>`;
+}
+
+// ── HELPERS ──
+function localISO(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`; }
+function el(id)       { return document.getElementById(id); }
+function setVal(id,v) { el(id).value=v; }
+function setClass(e,c){ e.className=c; }
+function show(id)     { const e=el(id); if(e) e.classList.remove('hidden'); }
+function hide(id)     { const e=el(id); if(e) e.classList.add('hidden'); }
+function sleep(ms)    { return new Promise(r=>setTimeout(r,ms)); }
+function toast(msg,type) {
+  const t=el('toast'); t.textContent=msg; t.className=type||'';
+  t.classList.remove('hidden'); clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.add('hidden'),3500);
+}
+
+// ── ICONS (inline SVG) ──
+function svgCheck(s){ return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`; }
+function svgClock(s){ return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`; }
+function svgCal(s,st){ return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="${st||''}"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`; }
+function svgUser(s)  { return `<svg width="${s||12}" height="${s||12}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`; }
+function svgPpl(s)   { return `<svg width="${s||12}" height="${s||12}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`; }
+
+// Close modal on overlay tap
+el('booking-modal').addEventListener('click', e => { if(e.target===el('booking-modal')) closeModal(); });
+
+// ── BOOT ──
+loadCfg();
+if (cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail) initMsal();
+else showConfig();
+</script>
+</body>
+</html>
