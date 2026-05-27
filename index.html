@@ -326,7 +326,17 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 #float-gear{position:fixed;bottom:22px;right:18px;width:38px;height:38px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:9000;color:#fff;opacity:.5;transition:opacity .2s;}
 #float-gear:active{opacity:1;}
 
-/* ── PIN OVERLAY ── */
+/* ── IN-APP CONFIRM DIALOG ── */
+#confirm-dialog{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);padding:24px;}
+#confirm-dialog.hidden{display:none;}
+.cdlg-box{background:#13131e;border:1px solid var(--border2);border-radius:20px;padding:28px 24px;width:100%;max-width:320px;text-align:center;}
+.cdlg-icon{font-size:36px;margin-bottom:12px;}
+.cdlg-title{font-size:18px;font-weight:800;color:#fff;margin-bottom:6px;letter-spacing:-.02em;}
+.cdlg-sub{font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.5;}
+.cdlg-btns{display:flex;gap:10px;}
+.cdlg-cancel{flex:1;padding:13px;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:var(--rs);color:var(--text2);font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;}
+.cdlg-ok{flex:1;padding:13px;border:none;border-radius:var(--rs);font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;background:var(--busy);color:#fff;}
+.cdlg-ok:active{opacity:.85;}
 #pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(16px);}
 #pin-overlay.hidden{display:none;}
 .pin-box{background:#13131e;border:1px solid var(--border2);border-radius:24px;padding:32px 28px;width:300px;text-align:center;}
@@ -485,6 +495,19 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
   </div><!-- /pixel-drift -->
 </div>
 
+<!-- IN-APP CONFIRM DIALOG -->
+<div id="confirm-dialog" class="hidden">
+  <div class="cdlg-box">
+    <div class="cdlg-icon" id="cdlg-icon">⏹</div>
+    <div class="cdlg-title" id="cdlg-title">End meeting?</div>
+    <div class="cdlg-sub" id="cdlg-sub">This will mark the room as available immediately.</div>
+    <div class="cdlg-btns">
+      <button class="cdlg-cancel" id="cdlg-cancel">Cancel</button>
+      <button class="cdlg-ok" id="cdlg-ok">End Meeting</button>
+    </div>
+  </div>
+</div>
+
 <!-- PIN OVERLAY -->
 <div id="pin-overlay" class="hidden">
   <div class="pin-box">
@@ -563,6 +586,7 @@ let meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60;
 let activeRoom={name:'',email:''};
 let curView='today'; // 'today' | 'tomorrow'
 let moreDaysOpen=false;
+const locallyEnded=new Set(); // meeting IDs ended locally — suppressed even after fetchCal
 
 // ══════════════════════════════════════
 // HELPERS
@@ -815,6 +839,8 @@ async function fetchCal(){
       isOnline:!!ev.isOnlineMeeting
     }));
     pendingLocal.forEach(pb=>{if(!meetings.some(m=>Math.abs(m.start-pb.start)<60000&&m.title===pb.title))meetings.push(pb);});
+    // Filter out meetings the user ended locally
+    if(locallyEnded.size>0) meetings=meetings.filter(m=>!locallyEnded.has(m.id));
     meetings.sort((a,b)=>a.start-b.start);
     clearErr();
     updateCurrentCard();renderBadges();renderMeetList();renderMoreDays();
@@ -992,15 +1018,24 @@ async function doCheckin(){
 }
 function endMeeting(){
   const cur=getCur();if(!cur)return;
-  // Confirm first
-  if(!confirm('End this meeting early?'))return;
-  // Remove from local meetings array so display updates immediately
-  const idx=meetings.indexOf(cur);
-  if(idx>-1)meetings.splice(idx,1);
-  checkedIn=false;
-  updateCurrentCard();renderBadges();renderMeetList();
-  toast('Meeting ended','success');
-  setTimeout(fetchCal,4000);
+  // Show in-app confirm dialog
+  el('cdlg-title').textContent='End meeting?';
+  el('cdlg-sub').textContent=`"${cur.title}" will end now and the room will show as available.`;
+  el('cdlg-icon').textContent='⏹';
+  el('cdlg-ok').textContent='End Meeting';
+  el('cdlg-ok').style.background='var(--busy)';
+  el('cdlg-ok').onclick=()=>{
+    hide('confirm-dialog');
+    // Remember this meeting as locally ended so fetchCal won't restore it
+    if(cur.id) locallyEnded.add(cur.id);
+    const idx=meetings.indexOf(cur);
+    if(idx>-1)meetings.splice(idx,1);
+    checkedIn=false;
+    updateCurrentCard();renderBadges();renderMeetList();
+    toast('Meeting ended — room is now available','success');
+    setTimeout(fetchCal,5000);
+  };
+  show('confirm-dialog');
 }
 function extendMeeting(){
   const cur=getCur();if(!cur)return;
@@ -1190,6 +1225,10 @@ document.addEventListener('click', function(e){
   // Gear / settings — go through PIN
   if(t.id==='float-gear'||t.closest('#float-gear'))openPinOverlay();
   if(t.id==='err-settings-btn'||t.closest('#err-settings-btn'))openPinOverlay();
+
+  // In-app confirm dialog
+  if(t.id==='cdlg-cancel'||t.closest('#cdlg-cancel')){hide('confirm-dialog');return;}
+  if(t===el('confirm-dialog')){hide('confirm-dialog');return;}
 
   // PIN overlay
   if(t.id==='pin-cancel-btn'||t.closest('#pin-cancel-btn')){hide('pin-overlay');return;}
