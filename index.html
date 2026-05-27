@@ -326,7 +326,24 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 #float-gear{position:fixed;bottom:22px;right:18px;width:38px;height:38px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:9000;color:#fff;opacity:.5;transition:opacity .2s;}
 #float-gear:active{opacity:1;}
 
-/* ── UTILS ── */
+/* ── PIN OVERLAY ── */
+#pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(16px);}
+#pin-overlay.hidden{display:none;}
+.pin-box{background:#13131e;border:1px solid var(--border2);border-radius:24px;padding:32px 28px;width:300px;text-align:center;}
+.pin-title{font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-.02em;}
+.pin-sub{font-size:13px;color:var(--text3);margin-bottom:24px;}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:24px;}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.25);background:transparent;transition:all .15s;}
+.pin-dot.filled{background:#fff;border-color:#fff;}
+.pin-dot.error{background:var(--busy);border-color:var(--busy);}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+.pin-key{padding:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08);border-radius:14px;font-size:20px;font-weight:600;color:#fff;cursor:pointer;transition:all .15s;font-family:var(--font);}
+.pin-key:active{background:rgba(255,255,255,.18);transform:scale(.93);}
+.pin-key.del{font-size:16px;color:var(--text2);}
+.pin-key.empty{background:none;border-color:transparent;cursor:default;}
+.pin-cancel{width:100%;padding:12px;background:none;border:1px solid rgba(255,255,255,.08);border-radius:12px;color:var(--text3);font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;margin-top:4px;}
+.pin-cancel:active{background:rgba(255,255,255,.06);}
+.pin-setup-note{font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5;}
 .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:rgba(255,255,255,.5);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
 .spinner.lg{width:26px;height:26px;display:block;margin:32px auto;}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -466,6 +483,36 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
     </div>
 
   </div><!-- /pixel-drift -->
+</div>
+
+<!-- PIN OVERLAY -->
+<div id="pin-overlay" class="hidden">
+  <div class="pin-box">
+    <div class="pin-title" id="pin-title">Settings</div>
+    <div class="pin-sub" id="pin-sub">Enter PIN to access settings</div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-grid">
+      <div class="pin-key" data-pin="1">1</div>
+      <div class="pin-key" data-pin="2">2</div>
+      <div class="pin-key" data-pin="3">3</div>
+      <div class="pin-key" data-pin="4">4</div>
+      <div class="pin-key" data-pin="5">5</div>
+      <div class="pin-key" data-pin="6">6</div>
+      <div class="pin-key" data-pin="7">7</div>
+      <div class="pin-key" data-pin="8">8</div>
+      <div class="pin-key" data-pin="9">9</div>
+      <div class="pin-key empty"></div>
+      <div class="pin-key" data-pin="0">0</div>
+      <div class="pin-key del" data-pin="del">⌫</div>
+    </div>
+    <button class="pin-cancel" id="pin-cancel-btn">Cancel</button>
+    <div class="pin-setup-note" id="pin-setup-note"></div>
+  </div>
 </div>
 
 <!-- FLOAT GEAR -->
@@ -945,9 +992,15 @@ async function doCheckin(){
 }
 function endMeeting(){
   const cur=getCur();if(!cur)return;
-  cur.end=new Date();checkedIn=false;
+  // Confirm first
+  if(!confirm('End this meeting early?'))return;
+  // Remove from local meetings array so display updates immediately
+  const idx=meetings.indexOf(cur);
+  if(idx>-1)meetings.splice(idx,1);
+  checkedIn=false;
   updateCurrentCard();renderBadges();renderMeetList();
-  toast('Meeting ended','success');setTimeout(fetchCal,3000);
+  toast('Meeting ended','success');
+  setTimeout(fetchCal,4000);
 }
 function extendMeeting(){
   const cur=getCur();if(!cur)return;
@@ -1026,8 +1079,88 @@ async function sendApproval(name,title,s,e){
 }
 
 // ══════════════════════════════════════
-// ICONS
+// PIN PROTECTION
 // ══════════════════════════════════════
+const PIN_KEY='roomdisplay_pin';
+let pinBuffer='', pinMode='verify'; // 'verify' | 'setup' | 'confirm'
+let pinSetupFirst='';
+
+function getStoredPin(){return localStorage.getItem(PIN_KEY)||'';}
+
+function openPinOverlay(){
+  const stored=getStoredPin();
+  pinBuffer='';
+  if(!stored){
+    // First time — set up a PIN
+    pinMode='setup';
+    el('pin-title').textContent='Set a PIN';
+    el('pin-sub').textContent='Choose a 4-digit PIN to protect settings';
+    el('pin-setup-note').textContent='You will need this PIN every time you access settings.';
+  } else {
+    pinMode='verify';
+    el('pin-title').textContent='Settings';
+    el('pin-sub').textContent='Enter PIN to access settings';
+    el('pin-setup-note').textContent='';
+  }
+  updatePinDots();
+  show('pin-overlay');
+}
+
+function updatePinDots(error=false){
+  for(let i=0;i<4;i++){
+    const dot=el('pd'+i);
+    dot.className='pin-dot'+(error?' error':pinBuffer.length>i?' filled':'');
+  }
+}
+
+function pinInput(key){
+  if(key==='del'){
+    pinBuffer=pinBuffer.slice(0,-1);
+    updatePinDots();
+    return;
+  }
+  if(pinBuffer.length>=4)return;
+  pinBuffer+=key;
+  updatePinDots();
+
+  if(pinBuffer.length===4){
+    setTimeout(()=>{
+      if(pinMode==='verify'){
+        if(pinBuffer===getStoredPin()){
+          hide('pin-overlay');
+          showConfig();
+        } else {
+          updatePinDots(true);
+          el('pin-sub').textContent='Wrong PIN — try again';
+          setTimeout(()=>{pinBuffer='';updatePinDots();el('pin-sub').textContent='Enter PIN to access settings';},900);
+        }
+      } else if(pinMode==='setup'){
+        pinSetupFirst=pinBuffer;
+        pinBuffer='';
+        pinMode='confirm';
+        el('pin-title').textContent='Confirm PIN';
+        el('pin-sub').textContent='Enter the same PIN again';
+        updatePinDots();
+      } else if(pinMode==='confirm'){
+        if(pinBuffer===pinSetupFirst){
+          localStorage.setItem(PIN_KEY,pinBuffer);
+          hide('pin-overlay');
+          toast('PIN set successfully','success');
+          showConfig();
+        } else {
+          updatePinDots(true);
+          el('pin-sub').textContent='PINs don\'t match — start over';
+          setTimeout(()=>{
+            pinBuffer='';pinSetupFirst='';pinMode='setup';
+            el('pin-title').textContent='Set a PIN';
+            el('pin-sub').textContent='Choose a 4-digit PIN to protect settings';
+            updatePinDots();
+          },900);
+        }
+      }
+    },120);
+  }
+}
 function svgCheck(s){return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;}
 function svgClock(s){return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;}
 function svgCal(s){return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;}
@@ -1054,9 +1187,14 @@ document.addEventListener('click', function(e){
     msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],prompt:'select_account'}).catch(e=>{el('auth-error').textContent=e.message;});
   }
 
-  // Gear / settings
-  if(t.id==='float-gear'||t.closest('#float-gear'))showConfig();
-  if(t.id==='err-settings-btn'||t.closest('#err-settings-btn'))showConfig();
+  // Gear / settings — go through PIN
+  if(t.id==='float-gear'||t.closest('#float-gear'))openPinOverlay();
+  if(t.id==='err-settings-btn'||t.closest('#err-settings-btn'))openPinOverlay();
+
+  // PIN overlay
+  if(t.id==='pin-cancel-btn'||t.closest('#pin-cancel-btn')){hide('pin-overlay');return;}
+  const pk=t.closest('.pin-key');
+  if(pk&&!pk.classList.contains('empty')){pinInput(pk.dataset.pin);return;}
 
   // Room chips
   const chip=t.closest('.rchip');
