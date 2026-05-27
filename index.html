@@ -6,808 +6,477 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#1a1a2e">
+<meta name="theme-color" content="#0a0a12">
 <title>Room Display</title>
 <script src="msal-browser.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300&display=swap');
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 
 :root{
-  /* Status colors */
-  --available:#1a6ef5;   /* Blue */
-  --busy:#e53935;        /* Red */
-  --upcoming:#f59e0b;    /* Amber/Yellow */
+  --available:#1a6ef5;
+  --busy:#e53935;
+  --soon:#f59e0b;
   --pending:#f59e0b;
-
-  /* UI */
-  --bg:#0a0a0f;
-  --glass:rgba(255,255,255,0.06);
-  --glass2:rgba(255,255,255,0.1);
-  --border:rgba(255,255,255,0.1);
-  --border2:rgba(255,255,255,0.18);
+  --green:#10b981;
+  --bg:#0a0a12;
+  --surface:rgba(255,255,255,0.06);
+  --surface2:rgba(255,255,255,0.09);
+  --border:rgba(255,255,255,0.08);
+  --border2:rgba(255,255,255,0.15);
   --text:#ffffff;
-  --text2:rgba(255,255,255,0.7);
-  --text3:rgba(255,255,255,0.4);
+  --text2:rgba(255,255,255,0.6);
+  --text3:rgba(255,255,255,0.35);
   --font:'Inter',system-ui,sans-serif;
-  --radius:20px;--radius-sm:12px;--radius-xs:8px;
-
-  /* Current status theme (overridden by JS) */
+  --r:18px;--rs:12px;--rxs:8px;
   --accent:var(--available);
-  --accent-dim:rgba(26,110,245,0.15);
-  --accent-border:rgba(26,110,245,0.35);
 }
 
-html,body{
-  height:100%;width:100%;
-  background:var(--bg);
-  color:var(--text);
-  font-family:var(--font);
-  overflow:hidden;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
+html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;-webkit-font-smoothing:antialiased;}
+
+/* ── BACKGROUND ── */
+#bg{
+  position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse 100% 55% at 50% -5%, var(--accent) 0%, transparent 70%),
+             linear-gradient(180deg,#0a0a12 0%,#0a0a12 100%);
+  opacity:0.9;
+  transition:background 0.9s ease;
 }
 
-/* ══════════════════════════════════════
-   BURN-IN PROTECTION
-══════════════════════════════════════ */
-#burnin-overlay{
-  position:fixed;inset:0;pointer-events:none;z-index:9999;
-  opacity:0;transition:opacity .4s;
-  background:transparent;
-}
-#burnin-overlay.flash{opacity:1;}
-#pixel-drift{
-  position:fixed;inset:0;z-index:1;
-  transition:transform 8s ease-in-out;
-}
+/* ── BURN-IN ── */
+#pixel-drift{position:fixed;inset:0;z-index:1;transition:transform 10s ease-in-out;}
 
-/* ══════════════════════════════════════
-   CONFIG SCREEN
-══════════════════════════════════════ */
-#config-screen{
-  position:fixed;inset:0;background:var(--bg);
-  display:flex;flex-direction:column;align-items:center;
-  padding:32px 20px 40px;z-index:1000;overflow-y:auto;
-}
+/* ── CONFIG ── */
+#config-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:28px 20px 40px;z-index:1000;overflow-y:auto;}
 #config-screen.hidden{display:none;}
-
-.cfg-logo{
-  font-size:13px;font-weight:700;letter-spacing:.25em;
-  text-transform:uppercase;color:var(--text3);margin-bottom:6px;margin-top:8px;
-}
-.cfg-title{
-  font-size:28px;font-weight:800;color:var(--text);
-  margin-bottom:4px;letter-spacing:-.02em;
-}
-.cfg-sub{font-size:14px;color:var(--text3);margin-bottom:28px;}
-
-.cfg-card{
-  background:var(--glass);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:20px;width:100%;max-width:440px;
-  margin-bottom:12px;
-  backdrop-filter:blur(20px);
-}
-.cfg-card h3{
-  font-size:11px;font-weight:700;letter-spacing:.15em;
-  text-transform:uppercase;color:rgba(99,179,255,.8);
-  margin-bottom:16px;padding-bottom:10px;
-  border-bottom:1px solid var(--border);
-}
+.cfg-logo{font-size:11px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;margin-top:12px;}
+.cfg-title{font-size:30px;font-weight:900;color:var(--text);margin-bottom:4px;letter-spacing:-.03em;}
+.cfg-sub{font-size:13px;color:var(--text3);margin-bottom:28px;}
+.cfg-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:20px;width:100%;max-width:440px;margin-bottom:12px;}
+.cfg-card h3{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(99,179,255,.7);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
 .field{margin-bottom:12px;}
-.field label{
-  display:block;font-size:11px;font-weight:600;
-  color:var(--text3);margin-bottom:6px;letter-spacing:.08em;text-transform:uppercase;
-}
-.field input,.field select{
-  width:100%;padding:11px 14px;
-  background:rgba(255,255,255,0.05);
-  border:1px solid var(--border);
-  border-radius:var(--radius-xs);
-  color:var(--text);font-family:var(--font);font-size:14px;
-  outline:none;transition:border-color .2s;
-}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;letter-spacing:.1em;text-transform:uppercase;}
+.field input,.field select{width:100%;padding:11px 14px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--rxs);color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color .2s;}
 .field input:focus,.field select:focus{border-color:var(--available);}
-.field select option{background:#1a1a2e;}
+.field select option{background:#141420;}
 .hint{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5;}
-
 .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
 .tr-label{font-size:14px;color:var(--text);font-weight:500;}
-.tr-sub{font-size:12px;color:var(--text3);margin-top:2px;}
+.tr-sub{font-size:11px;color:var(--text3);margin-top:2px;}
 .tog{position:relative;width:44px;height:26px;flex-shrink:0;}
 .tog input{opacity:0;width:0;height:0;position:absolute;}
 .tog-slider{position:absolute;inset:0;background:rgba(255,255,255,.15);border-radius:13px;cursor:pointer;transition:.25s;}
 .tog-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,.3);}
 .tog input:checked+.tog-slider{background:var(--available);}
 .tog input:checked+.tog-slider::before{transform:translateX(18px);}
-
 .rooms-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
 .room-row{display:flex;gap:6px;align-items:center;}
-.room-row input{flex:1;padding:9px 11px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);font-family:var(--font);font-size:13px;outline:none;}
-.room-row input:focus{border-color:var(--available);}
-.rm-del{width:32px;height:32px;background:rgba(255,77,106,.1);border:1px solid rgba(255,77,106,.2);border-radius:8px;color:rgba(255,77,106,.7);cursor:pointer;font-size:16px;flex-shrink:0;transition:all .15s;}
-.rm-del:active{background:rgba(255,77,106,.25);}
-.btn-add-room{width:100%;padding:10px;background:none;border:1px dashed var(--border2);border-radius:var(--radius-xs);color:var(--text3);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;transition:all .2s;}
-.btn-add-room:active{border-color:var(--available);color:var(--available);}
+.room-row input{flex:1;padding:9px 11px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--rxs);color:var(--text);font-family:var(--font);font-size:13px;outline:none;}
+.rm-del{width:32px;height:32px;background:rgba(255,77,106,.1);border:1px solid rgba(255,77,106,.2);border-radius:8px;color:rgba(255,77,106,.7);cursor:pointer;font-size:16px;flex-shrink:0;}
+.btn-add-room{width:100%;padding:10px;background:none;border:1px dashed var(--border2);border-radius:var(--rxs);color:var(--text3);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;}
 .approval-fields{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
-
-.btn-primary{
-  width:100%;max-width:440px;padding:16px;
-  background:var(--available);border:none;
-  border-radius:var(--radius-sm);color:#fff;
-  font-family:var(--font);font-size:16px;font-weight:700;
-  cursor:pointer;letter-spacing:-.01em;
-  transition:opacity .2s,transform .1s;margin-top:8px;
-}
-.btn-primary:active{transform:scale(.98);opacity:.85;}
-.cfg-note{
-  background:rgba(99,179,255,.06);border:1px solid rgba(99,179,255,.15);
-  border-radius:var(--radius-xs);padding:14px 16px;
-  font-size:12px;color:var(--text3);line-height:1.8;
-  margin-top:8px;max-width:440px;width:100%;
-}
-.cfg-note strong{color:rgba(99,179,255,.9);}
+.btn-primary{width:100%;max-width:440px;padding:16px;background:var(--available);border:none;border-radius:var(--rs);color:#fff;font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;transition:opacity .2s;}
+.btn-primary:active{opacity:.8;}
+.cfg-note{background:rgba(99,179,255,.05);border:1px solid rgba(99,179,255,.12);border-radius:var(--rxs);padding:14px 16px;font-size:12px;color:var(--text3);line-height:1.8;margin-top:8px;max-width:440px;width:100%;margin-bottom:32px;}
+.cfg-note strong{color:rgba(99,179,255,.8);}
 .cfg-note code{background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:11px;color:#7dd3fc;}
 
-/* ══════════════════════════════════════
-   AUTH OVERLAY
-══════════════════════════════════════ */
-#auth-overlay{
-  position:fixed;inset:0;background:var(--bg);
-  display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:16px;z-index:500;padding:32px;
-}
+/* ── AUTH ── */
+#auth-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:500;padding:32px;}
 #auth-overlay.hidden{display:none;}
 .auth-icon{font-size:52px;}
-.auth-title{font-size:24px;font-weight:800;color:var(--text);text-align:center;letter-spacing:-.02em;}
+.auth-title{font-size:26px;font-weight:900;color:var(--text);text-align:center;letter-spacing:-.03em;}
 .auth-sub{font-size:14px;color:var(--text3);text-align:center;line-height:1.6;max-width:300px;}
-.auth-btn{
-  padding:15px 40px;background:var(--available);
-  border:none;border-radius:var(--radius-sm);
-  color:#fff;font-family:var(--font);font-size:16px;font-weight:700;
-  cursor:pointer;transition:opacity .2s;
-}
-.auth-btn:active{opacity:.8;}
+.auth-btn{padding:15px 40px;background:var(--available);border:none;border-radius:var(--rs);color:#fff;font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;}
 
-/* ══════════════════════════════════════
-   MAIN APP — PORTRAIT KIOSK
-══════════════════════════════════════ */
-#app{
-  position:fixed;inset:0;
-  display:flex;flex-direction:column;
-  overflow:hidden;
-}
+/* ── MAIN APP ── */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;}
 #app.hidden{display:none;}
 
-/* ── BACKGROUND ── */
-#bg-layer{
-  position:absolute;inset:0;z-index:0;
-  background:linear-gradient(180deg,var(--accent) 0%,rgba(0,0,0,0) 45%),
-    linear-gradient(180deg,#0a0a0f 45%,#0a0a0f 100%);
-  transition:background 0.8s ease;
-}
-#bg-layer::after{
-  content:'';position:absolute;inset:0;
-  background:
-    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 70%),
-    linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%);
-}
-
 /* ── HEADER ── */
-.kiosk-header{
-  position:relative;z-index:2;
-  padding:env(safe-area-inset-top, 16px) 24px 0;
-  flex-shrink:0;
+.hdr{
+  position:relative;z-index:2;flex-shrink:0;
+  padding:env(safe-area-inset-top,0px) 0 0;
 }
-.kiosk-topbar{
-  display:flex;align-items:flex-start;
-  justify-content:space-between;
-  padding-top:20px;
-}
-.ris-logo{
-  /* RIS logo square */
-  width:44px;height:44px;
-  background:rgba(255,255,255,0.12);
-  border:1px solid rgba(255,255,255,0.2);
-  border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:13px;font-weight:900;color:#fff;
-  letter-spacing:.05em;backdrop-filter:blur(10px);
-}
-.kiosk-time-block{text-align:right;}
-.kiosk-time{
-  font-size:42px;font-weight:300;color:#fff;
-  letter-spacing:-.03em;line-height:1;
-  font-variant-numeric:tabular-nums;
-}
-.kiosk-date{
-  font-size:13px;color:rgba(255,255,255,.6);
-  font-weight:400;letter-spacing:.02em;margin-top:2px;
-}
+.hdr-inner{padding:20px 22px 0;}
+.hdr-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
 
-.kiosk-room-name{
-  font-size:52px;font-weight:800;color:#fff;
-  letter-spacing:-.03em;line-height:1.05;
-  margin-top:12px;
-  text-shadow:0 2px 20px rgba(0,0,0,.3);
-}
-.kiosk-status-label{
-  font-size:18px;font-weight:500;
-  color:rgba(255,255,255,.75);
-  margin-top:4px;letter-spacing:.01em;
-}
+/* RIS logo */
+.ris-logo{width:42px;height:42px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;letter-spacing:.04em;flex-shrink:0;}
 
-/* ── MAIN CONTENT AREA ── */
-.kiosk-body{
-  position:relative;z-index:2;
-  flex:1;display:flex;flex-direction:column;
-  padding:16px 20px 0;
-  overflow:hidden;
-  margin-top:16px;
-}
+/* Clock */
+.clock-block{text-align:right;}
+.clock-time{font-size:40px;font-weight:200;color:#fff;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;}
+.clock-date{font-size:12px;color:var(--text3);margin-top:2px;font-weight:400;}
 
-/* ── CURRENT MEETING CARD ── */
-.meet-card{
-  background:rgba(0,0,0,0.4);
-  border:1px solid var(--border2);
-  border-radius:var(--radius);
-  padding:20px;
-  backdrop-filter:blur(24px);
-  flex-shrink:0;
-  position:relative;
-  overflow:hidden;
-  transition:border-color .5s,background .5s;
-}
-.meet-card::before{
-  content:'';position:absolute;
-  top:0;left:0;right:0;height:3px;
-  background:var(--accent);
-  transition:background .5s;
-}
-.meet-tag{
-  display:inline-block;
-  background:var(--accent);
-  color:#fff;font-size:11px;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;
-  padding:4px 10px;border-radius:20px;
-  margin-bottom:12px;
-}
-.meet-title{
-  font-size:28px;font-weight:700;color:#fff;
-  letter-spacing:-.02em;line-height:1.2;
-  margin-bottom:10px;
-}
-.meet-title.available{
-  font-size:24px;color:rgba(255,255,255,.9);font-weight:600;
-}
-.meet-time{
-  font-size:32px;font-weight:300;color:var(--accent);
-  letter-spacing:-.02em;margin-bottom:10px;
-  font-variant-numeric:tabular-nums;
-  transition:color .5s;
-}
-.meet-organizer{
-  font-size:13px;color:var(--text2);
-  display:flex;align-items:center;gap:6px;
+/* Weather */
+.weather-strip{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:50px;
   margin-bottom:14px;
+  width:fit-content;
 }
+.weather-icon{font-size:18px;line-height:1;}
+.weather-temp{font-size:15px;font-weight:700;color:#fff;}
+.weather-desc{font-size:12px;color:var(--text2);}
+.weather-feels{font-size:11px;color:var(--text3);}
 
-/* Progress bar */
-.prog-bar{
-  height:3px;background:rgba(255,255,255,.1);
-  border-radius:2px;overflow:hidden;margin-bottom:16px;
-}
-.prog-fill{
-  height:100%;background:var(--accent);
-  border-radius:2px;transition:width 15s linear, background .5s;
-}
+/* Room info */
+.room-name-lg{font-size:48px;font-weight:900;color:#fff;letter-spacing:-.03em;line-height:1.05;margin-bottom:6px;}
+.status-line{display:flex;align-items:center;gap:8px;margin-bottom:0;}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sdot.av{background:var(--green);animation:pulse-g 2s infinite;}
+.sdot.busy{background:var(--busy);animation:pulse-r 2s infinite;}
+.sdot.soon{background:var(--soon);}
+.sdot.pend{background:var(--soon);animation:pulse-g 1.4s infinite;}
+@keyframes pulse-g{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.5)}50%{opacity:.7;box-shadow:0 0 0 6px rgba(16,185,129,0)}}
+@keyframes pulse-r{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(229,57,53,.5)}50%{opacity:.7;box-shadow:0 0 0 6px rgba(229,57,53,0)}}
+.status-txt{font-size:15px;font-weight:500;color:var(--text2);}
 
-/* Action buttons */
-.action-row{display:flex;gap:10px;flex-wrap:wrap;}
-.abtn{
-  flex:1;min-width:100px;
-  padding:14px 12px;border:none;
-  border-radius:var(--radius-sm);
-  font-family:var(--font);font-size:14px;font-weight:700;
-  cursor:pointer;display:flex;align-items:center;
-  justify-content:center;gap:7px;
-  transition:all .2s;letter-spacing:-.01em;
-  -webkit-tap-highlight-color:transparent;
+/* ── BODY SCROLL ── */
+.body-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 22px 100px;position:relative;z-index:2;}
+.body-scroll::-webkit-scrollbar{display:none;}
+
+/* ── CURRENT CARD ── */
+.cur-card{
+  border-radius:var(--r);
+  padding:22px;
+  margin-bottom:20px;
+  position:relative;overflow:hidden;
+  transition:background .6s,border-color .6s;
+  border:1px solid var(--border2);
+  background:rgba(0,0,0,.35);
+  backdrop-filter:blur(20px);
 }
+.cur-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);transition:background .6s;border-radius:3px 3px 0 0;}
+
+/* Available big state */
+.av-state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 0;}
+.av-icon{
+  width:72px;height:72px;border-radius:50%;
+  background:rgba(16,185,129,.1);
+  border:2px dashed rgba(16,185,129,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;margin-bottom:16px;
+  animation:spin-slow 12s linear infinite;
+}
+@keyframes spin-slow{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.av-title{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.02em;margin-bottom:6px;}
+.av-sub{font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.5;}
+.book-big{
+  width:100%;padding:16px;
+  background:var(--available);
+  border:none;border-radius:var(--rs);
+  color:#fff;font-family:var(--font);font-size:16px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:opacity .2s,transform .1s;
+  letter-spacing:-.01em;
+}
+.book-big:active{opacity:.85;transform:scale(.98);}
+
+/* Busy / upcoming state */
+.meet-tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:4px 10px;border-radius:20px;margin-bottom:12px;}
+.meet-tag.busy{background:rgba(229,57,53,.9);color:#fff;}
+.meet-tag.soon{background:rgba(245,158,11,.9);color:#fff;}
+.meet-tag.pend{background:rgba(245,158,11,.7);color:#fff;}
+.meet-title-lg{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1.2;margin-bottom:8px;}
+.meet-time-lg{font-size:30px;font-weight:300;letter-spacing:-.02em;margin-bottom:10px;font-variant-numeric:tabular-nums;transition:color .6s;}
+.meet-org{font-size:13px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-bottom:14px;}
+.prog{height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin-bottom:16px;}
+.prog-fill{height:100%;border-radius:2px;transition:width 15s linear,background .6s;}
+.action-row{display:flex;gap:8px;flex-wrap:wrap;}
+.abtn{flex:1;min-width:90px;padding:13px 10px;border:none;border-radius:var(--rs);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;letter-spacing:-.01em;}
 .abtn:active{transform:scale(.96);}
-.abtn-checkin{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);}
-.abtn-checkin.checked{background:rgba(0,214,143,.15);color:#00d68f;border-color:rgba(0,214,143,.3);}
-.abtn-checkin.off{background:rgba(255,255,255,.05);color:var(--text3);cursor:default;border:1px solid transparent;}
-.abtn-book{background:var(--available);color:#fff;}
-.abtn-end{background:rgba(229,57,53,.15);color:#ff6b6b;border:1px solid rgba(229,57,53,.3);}
-.abtn-extend{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25);}
-.abtn-teams{background:rgba(98,100,167,.2);color:#a5b4fc;border:1px solid rgba(98,100,167,.35);}
-.abtn-teams.pulse{animation:tpulse 2.5s ease-in-out infinite;}
-@keyframes tpulse{0%,100%{box-shadow:0 0 0 0 rgba(98,100,167,.4)}60%{box-shadow:0 0 0 8px rgba(98,100,167,0)}}
-.abtn-pending{background:rgba(245,158,11,.08);color:#fbbf24;border:1px solid rgba(245,158,11,.2);cursor:default;flex:2;}
-.release-warn{font-size:12px;color:#fbbf24;margin-top:8px;text-align:center;min-height:16px;}
+.abtn-checkin{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.15);}
+.abtn-checkin.checked{background:rgba(16,185,129,.15);color:#34d399;border-color:rgba(16,185,129,.25);}
+.abtn-checkin.off{background:rgba(255,255,255,.04);color:var(--text3);cursor:default;border:1px solid transparent;}
+.abtn-end{background:rgba(229,57,53,.12);color:#f87171;border:1px solid rgba(229,57,53,.2);}
+.abtn-extend{background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2);}
+.abtn-teams{background:rgba(98,100,167,.18);color:#a5b4fc;border:1px solid rgba(98,100,167,.28);animation:tpulse 2.5s ease-in-out infinite;}
+@keyframes tpulse{0%,100%{box-shadow:0 0 0 0 rgba(98,100,167,.3)}60%{box-shadow:0 0 0 7px rgba(98,100,167,0)}}
+.abtn-pend{background:rgba(245,158,11,.08);color:#fbbf24;border:1px solid rgba(245,158,11,.15);cursor:default;flex:2;}
+.rel-warn{font-size:11px;color:#fbbf24;margin-top:8px;text-align:center;min-height:14px;}
 
-/* DAY TABS */
-.day-tabs{
-  display:flex;gap:6px;
-  padding:14px 0 8px;flex-shrink:0;
-  overflow-x:auto;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
-  position:relative;z-index:5;
+/* ── TODAY / TOMORROW TABS ── */
+.view-tabs{display:flex;gap:6px;margin-bottom:14px;}
+.vtab{
+  padding:8px 16px;border-radius:50px;
+  font-size:13px;font-weight:600;color:var(--text3);
+  background:rgba(255,255,255,.05);border:1px solid transparent;
+  cursor:pointer;transition:all .2s;font-family:var(--font);
+  display:flex;align-items:center;gap:6px;
 }
-.day-tabs::-webkit-scrollbar{display:none;}
-.dtab{
-  padding:7px 12px;
-  background:rgba(255,255,255,.07);
-  border:1px solid transparent;
-  border-radius:12px;
-  font-size:12px;font-weight:600;color:var(--text3);
-  cursor:pointer;white-space:nowrap;flex-shrink:0;
-  transition:all .2s;font-family:var(--font);
-  display:flex;flex-direction:column;align-items:center;gap:1px;
-  min-width:52px;
-  -webkit-tap-highlight-color:transparent;
-  position:relative;z-index:5;
-}
-.dtab.active{
-  background:rgba(255,255,255,.15);
-  border-color:rgba(255,255,255,.25);
-  color:#fff;
-}
-.dtab.weekend{
-  background:rgba(255,255,255,.04);
-  border-color:rgba(255,255,255,.06);
-  color:rgba(255,255,255,.25);
-}
-.dtab.weekend.active{
-  background:rgba(255,255,255,.1);
-  border-color:rgba(255,255,255,.2);
-  color:rgba(255,255,255,.6);
-}
-.dtab:active{transform:scale(.93);}
-.dtab-day{font-size:12px;font-weight:700;line-height:1.2;}
-.dtab-date{font-size:10px;font-weight:400;opacity:.7;line-height:1.2;}
-.dtab-count{
-  display:inline-block;background:rgba(255,255,255,.15);
-  border-radius:10px;padding:1px 5px;
-  font-size:9px;margin-top:3px;color:rgba(255,255,255,.6);
-  font-weight:700;
-}
-.dtab.active .dtab-count{background:rgba(255,255,255,.2);color:#fff;}
-.dtab.weekend .dtab-count{background:rgba(255,255,255,.08);}
+.vtab.active{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.18);color:#fff;}
+.vtab:active{transform:scale(.95);}
+.vtab-badge{background:rgba(255,255,255,.15);border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
+.vtab.active .vtab-badge{background:rgba(255,255,255,.2);}
+.vtab-more{margin-left:auto;padding:8px 14px;border-radius:50px;font-size:12px;font-weight:600;color:var(--text3);background:none;border:1px solid rgba(255,255,255,.08);cursor:pointer;font-family:var(--font);}
+.vtab-more:active{background:rgba(255,255,255,.06);}
 
-/* ── UPCOMING LIST ── */
-.upcoming-list{
-  flex:1;overflow-y:auto;
-  padding-bottom:100px;
-  -webkit-overflow-scrolling:touch;
-}
-.upcoming-list::-webkit-scrollbar{width:2px;}
-.upcoming-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);}
-
-.uitem{
+/* ── MEETING LIST ── */
+.meet-list{display:flex;flex-direction:column;gap:8px;}
+.mitem{
   display:flex;gap:12px;align-items:flex-start;
-  padding:12px 14px;
+  padding:13px 15px;
   background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:var(--radius-sm);
-  margin-bottom:8px;position:relative;
-  transition:opacity .3s;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:var(--rs);
+  position:relative;transition:opacity .2s;
 }
-.uitem.is-next{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.05);}
-.uitem.is-now{border-color:rgba(229,57,53,.3);background:rgba(229,57,53,.05);}
-.uitem.is-teams{border-color:rgba(98,100,167,.25);}
-.uitem.is-past{opacity:.35;}
-.uitem.is-pending{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.04);}
+.mitem.is-now{border-color:rgba(229,57,53,.25);background:rgba(229,57,53,.05);}
+.mitem.is-next{border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.04);}
+.mitem.is-teams{border-color:rgba(98,100,167,.2);}
+.mitem.is-past{opacity:.3;}
+.mitem.is-allday{opacity:.45;}
+.mitem-bar{width:3px;border-radius:2px;align-self:stretch;flex-shrink:0;background:rgba(255,255,255,.15);}
+.mitem.is-now .mitem-bar{background:var(--busy);}
+.mitem.is-next .mitem-bar{background:var(--soon);}
+.mitem.is-teams .mitem-bar{background:#6264a7;}
+.mitem-time{flex-shrink:0;width:44px;text-align:right;}
+.mitem-t{font-size:13px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;}
+.mitem-d{font-size:10px;color:var(--text3);margin-top:2px;}
+.mitem-sep{width:1px;background:rgba(255,255,255,.06);align-self:stretch;flex-shrink:0;}
+.mitem-info{flex:1;min-width:0;}
+.mitem-title{font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
+.mitem-org{font-size:11px;color:var(--text3);margin-top:2px;}
+.mitem-badge{position:absolute;top:8px;right:8px;font-size:9px;border-radius:20px;padding:3px 8px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
+.mitem-badge.now{color:var(--busy);background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.2);}
+.mitem-badge.next{color:#fbbf24;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);}
+.mitem-badge.teams{color:#a5b4fc;background:rgba(98,100,167,.1);border:1px solid rgba(98,100,167,.2);}
 
-.uitem-accent{
-  width:3px;border-radius:2px;align-self:stretch;
-  flex-shrink:0;background:var(--text3);
-}
-.uitem.is-now .uitem-accent{background:var(--busy);}
-.uitem.is-next .uitem-accent{background:var(--upcoming);}
-.uitem.is-teams .uitem-accent{background:#6264a7;}
-.uitem.is-pending .uitem-accent{background:var(--upcoming);}
+/* Empty state */
+.empty-day{text-align:center;padding:32px 20px;color:var(--text3);}
+.empty-day-icon{font-size:28px;opacity:.4;margin-bottom:10px;}
+.empty-day-txt{font-size:13px;}
 
-.utcol{flex-shrink:0;width:52px;text-align:right;}
-.ut{font-size:14px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;}
-.ud{font-size:11px;color:var(--text3);margin-top:2px;}
-.usep{width:1px;background:rgba(255,255,255,.07);align-self:stretch;flex-shrink:0;}
-.uinfo{flex:1;min-width:0;}
-.utitle{font-size:14px;font-weight:600;color:#fff;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.uorg{font-size:11px;color:var(--text3);margin-top:2px;}
-
-.stag{
-  position:absolute;top:8px;right:8px;
-  font-size:9px;border-radius:20px;
-  padding:3px 8px;letter-spacing:.08em;
-  text-transform:uppercase;font-weight:700;
-}
-.stag.now{color:var(--busy);background:rgba(229,57,53,.12);border:1px solid rgba(229,57,53,.25);}
-.stag.next{color:#fbbf24;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);}
-.stag.pend{color:#fbbf24;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);}
-.stag.teams{color:#a5b4fc;background:rgba(98,100,167,.12);border:1px solid rgba(98,100,167,.25);}
-
-.empty-state{
-  text-align:center;padding:40px 20px;color:var(--text3);
-}
-.empty-icon{font-size:32px;margin-bottom:12px;opacity:.4;}
-.empty-txt{font-size:14px;}
-.empty-book{
-  font-size:13px;color:rgba(99,179,255,.8);
-  cursor:pointer;margin-top:8px;
-  display:inline-block;padding:6px 16px;
-  border:1px solid rgba(99,179,255,.2);
-  border-radius:20px;transition:all .2s;
-}
-.empty-book:active{background:rgba(99,179,255,.1);}
+/* More days strip */
+.more-days{margin-top:16px;}
+.more-days-hdr{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.more-days-hdr::after{content:'';flex:1;height:1px;background:var(--border);}
+.day-row{margin-bottom:12px;}
+.day-row-hdr{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.day-row-hdr .wkend{color:var(--text3);font-weight:400;}
+.day-row-count{font-size:10px;color:var(--text3);background:rgba(255,255,255,.06);border-radius:10px;padding:1px 6px;}
 
 /* ── BOTTOM NAV ── */
-.kiosk-nav{
-  position:fixed;bottom:0;left:0;right:0;
-  padding:12px 20px calc(env(safe-area-inset-bottom,0px) + 12px);
-  background:rgba(10,10,15,0.92);
-  border-top:1px solid var(--border);
-  backdrop-filter:blur(20px);
-  display:flex;justify-content:space-between;align-items:center;
-  z-index:4;
+.nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:3;
+  padding:10px 20px calc(env(safe-area-inset-bottom,0px)+10px);
+  background:rgba(10,10,18,.9);border-top:1px solid var(--border);
+  backdrop-filter:blur(24px);
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
 }
-.nav-btn{
-  display:flex;align-items:center;gap:6px;
-  font-size:13px;font-weight:600;color:var(--text3);
-  cursor:pointer;padding:8px 14px;
-  border-radius:20px;transition:all .2s;
-  background:none;border:none;font-family:var(--font);
-}
-.nav-btn:active{background:rgba(255,255,255,.06);}
-.nav-btn.primary{
-  background:var(--glass2);
-  border:1px solid var(--border2);
-  color:#fff;
-}
-.gear-nav{
-  width:36px;height:36px;
-  background:rgba(255,255,255,.07);
-  border:1px solid var(--border);
-  border-radius:50%;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:opacity .2s;
-}
-.gear-nav:active{opacity:.6;}
+.nav-btn{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;padding:9px 14px;border-radius:50px;background:none;border:none;font-family:var(--font);transition:all .2s;}
+.nav-btn:active{background:rgba(255,255,255,.07);}
+.nav-book-btn{flex:1;max-width:200px;padding:12px 20px;background:var(--available);border:none;border-radius:50px;color:#fff;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .2s;}
+.nav-book-btn:active{opacity:.8;}
 
 /* ── ROOM SWITCHER ── */
-.room-switcher{
-  display:flex;gap:6px;
-  overflow-x:auto;scrollbar-width:none;
-  -webkit-overflow-scrolling:touch;
-  padding:0 0 4px;
-}
-.room-switcher::-webkit-scrollbar{display:none;}
-.rchip{
-  padding:5px 14px;
-  background:rgba(255,255,255,.07);
-  border:1px solid transparent;
-  border-radius:20px;font-size:12px;
-  font-family:var(--font);font-weight:600;
-  color:var(--text3);cursor:pointer;
-  white-space:nowrap;flex-shrink:0;transition:all .2s;
-}
-.rchip.active{
-  background:rgba(255,255,255,.14);
-  border-color:rgba(255,255,255,.22);color:#fff;
-}
-.rchip:active{transform:scale(.95);}
+.room-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:12px;}
+.room-chips::-webkit-scrollbar{display:none;}
+.rchip{padding:5px 13px;background:rgba(255,255,255,.07);border:1px solid transparent;border-radius:20px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .2s;font-family:var(--font);}
+.rchip.active{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.2);color:#fff;}
+.rchip:active{transform:scale(.94);}
 
-/* ══════════════════════════════════════
-   BOOKING MODAL
-══════════════════════════════════════ */
-#booking-modal{
-  position:fixed;inset:0;
-  background:rgba(0,0,0,.7);
-  z-index:200;display:flex;
-  align-items:flex-end;justify-content:center;
-  backdrop-filter:blur(8px);
-}
+/* ── BOOKING MODAL ── */
+#booking-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(10px);}
 #booking-modal.hidden{display:none;}
-.msheet{
-  background:#141420;
-  border:1px solid var(--border2);
-  border-radius:28px 28px 0 0;
-  padding:28px 22px calc(env(safe-area-inset-bottom,0px)+36px);
-  width:100%;max-width:500px;
-  animation:sUp .3s cubic-bezier(.32,.72,0,1);
-}
+.msheet{background:#13131e;border:1px solid var(--border2);border-radius:26px 26px 0 0;padding:26px 22px calc(env(safe-area-inset-bottom,0px)+36px);width:100%;max-width:500px;animation:sUp .3s cubic-bezier(.32,.72,0,1);}
 @keyframes sUp{from{transform:translateY(80px);opacity:0}to{transform:translateY(0);opacity:1}}
-.mdrag{width:40px;height:4px;background:rgba(255,255,255,.15);border-radius:2px;margin:0 auto 22px;}
-.mtitle{font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-.02em;}
+.mdrag{width:38px;height:4px;background:rgba(255,255,255,.12);border-radius:2px;margin:0 auto 22px;}
+.mtitle{font-size:22px;font-weight:900;color:#fff;margin-bottom:3px;letter-spacing:-.03em;}
 .msub{font-size:13px;color:var(--text3);margin-bottom:20px;}
-.appr-banner{
-  background:rgba(245,158,11,.08);
-  border:1px solid rgba(245,158,11,.25);
-  border-radius:var(--radius-xs);
-  padding:12px 14px;margin-bottom:16px;
-  font-size:13px;color:#fbbf24;line-height:1.6;
-}
+.appr-banner{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:var(--rxs);padding:12px 14px;margin-bottom:16px;font-size:13px;color:#fbbf24;line-height:1.6;}
 .appr-banner strong{display:block;font-size:14px;margin-bottom:2px;}
 .mfield{margin-bottom:14px;}
-.mfield label{display:block;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px;letter-spacing:.08em;text-transform:uppercase;}
-.mfield input{
-  width:100%;padding:13px 16px;
-  background:rgba(255,255,255,.06);
-  border:1px solid var(--border);
-  border-radius:var(--radius-xs);
-  color:#fff;font-family:var(--font);font-size:15px;outline:none;
-  transition:border-color .2s;
-}
+.mfield label{display:block;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;letter-spacing:.1em;text-transform:uppercase;}
+.mfield input{width:100%;padding:13px 16px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:var(--rxs);color:#fff;font-family:var(--font);font-size:15px;outline:none;transition:border-color .2s;}
 .mfield input:focus{border-color:var(--available);}
-.tprev{
-  font-size:13px;color:var(--text3);
-  margin-bottom:14px;padding:10px 14px;
-  background:rgba(255,255,255,.04);border-radius:var(--radius-xs);
-}
+.tprev{font-size:13px;color:var(--text3);margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.04);border-radius:var(--rxs);}
 .tprev span{color:#fff;font-weight:600;}
 .dur-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}
-.dchip{
-  padding:12px 4px;text-align:center;
-  background:rgba(255,255,255,.06);
-  border:1px solid var(--border);
-  border-radius:var(--radius-xs);
-  font-size:13px;color:var(--text3);
-  cursor:pointer;font-family:var(--font);font-weight:600;
-  transition:all .15s;
-}
+.dchip{padding:12px 4px;text-align:center;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:var(--rxs);font-size:13px;color:var(--text3);cursor:pointer;font-family:var(--font);font-weight:600;transition:all .15s;}
 .dchip.sel{background:rgba(26,110,245,.15);border-color:rgba(26,110,245,.4);color:#60a5fa;}
-.dchip.asel{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:#fbbf24;}
+.dchip.asel{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:#fbbf24;}
 .mactions{display:flex;gap:10px;}
-.mcancel{
-  flex:1;padding:15px;
-  background:rgba(255,255,255,.07);
-  border:1px solid var(--border);
-  border-radius:var(--radius-sm);
-  color:var(--text2);font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;
-}
-.mconfirm{
-  flex:2;padding:15px;border:none;
-  border-radius:var(--radius-sm);
-  font-family:var(--font);font-size:15px;font-weight:700;
-  cursor:pointer;transition:all .2s;
-}
+.mcancel{flex:1;padding:15px;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:var(--rs);color:var(--text2);font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;}
+.mconfirm{flex:2;padding:15px;border:none;border-radius:var(--rs);font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;}
 .mconfirm.inst{background:var(--available);color:#fff;}
 .mconfirm.appr{background:#f59e0b;color:#1a0e00;}
 .mconfirm:active{transform:scale(.97);}
-.mconfirm:disabled{opacity:.6;cursor:default;transform:none;}
+.mconfirm:disabled{opacity:.6;cursor:default;}
 
-/* PERMANENT FLOATING GEAR */
-#float-gear{
-  position:fixed;bottom:22px;right:16px;
-  width:40px;height:40px;
-  background:rgba(255,255,255,.1);
-  border:1px solid rgba(255,255,255,.18);
-  border-radius:50%;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  z-index:9000;color:#fff;
-  transition:background .2s,opacity .2s;
-  opacity:.55;
-  -webkit-tap-highlight-color:transparent;
-}
-#float-gear:hover,#float-gear:active{opacity:1;background:rgba(255,255,255,.18);}
-
-/* ERROR BANNER */
-#error-banner{
-  position:fixed;bottom:72px;left:16px;right:16px;
-  background:rgba(229,57,53,.12);
-  border:1px solid rgba(229,57,53,.35);
-  border-radius:12px;padding:12px 16px;
-  font-size:13px;color:#f87171;
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  z-index:8999;backdrop-filter:blur(12px);
-  font-family:var(--font);
-}
-#error-banner .err-msg{flex:1;line-height:1.4;}
-#error-banner .err-btn{
-  background:rgba(229,57,53,.2);
-  border:1px solid rgba(229,57,53,.3);
-  border-radius:8px;padding:7px 12px;
-  color:#f87171;font-size:12px;font-weight:700;
-  cursor:pointer;white-space:nowrap;font-family:var(--font);
-  flex-shrink:0;
-}
-#error-banner .err-btn:active{background:rgba(229,57,53,.35);}
-#toast{
-  position:fixed;bottom:90px;left:50%;
-  transform:translateX(-50%);
-  background:rgba(20,20,32,.95);
-  border:1px solid var(--border2);
-  border-radius:50px;padding:11px 22px;
-  font-size:13px;color:#fff;z-index:400;
-  white-space:nowrap;pointer-events:none;
-  transition:opacity .3s;
-  backdrop-filter:blur(20px);
-  font-family:var(--font);font-weight:500;
-}
+/* ── TOAST ── */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(18,18,28,.96);border:1px solid var(--border2);border-radius:50px;padding:11px 22px;font-size:13px;color:#fff;z-index:400;white-space:nowrap;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(20px);font-family:var(--font);font-weight:500;}
 #toast.hidden{opacity:0;}
-#toast.success{border-color:rgba(0,214,143,.4);color:#34d399;}
-#toast.error{border-color:rgba(229,57,53,.4);color:#f87171;}
-#toast.warn{border-color:rgba(245,158,11,.4);color:#fbbf24;}
+#toast.success{border-color:rgba(16,185,129,.35);color:#34d399;}
+#toast.error{border-color:rgba(229,57,53,.35);color:#f87171;}
+#toast.warn{border-color:rgba(245,158,11,.35);color:#fbbf24;}
 
-/* ══════════════════════════════════════
-   UTILITIES
-══════════════════════════════════════ */
-.spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.1);border-top-color:rgba(255,255,255,.5);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
-.spinner.lg{width:28px;height:28px;display:block;margin:32px auto;}
+/* ── ERROR BANNER ── */
+#error-banner{position:fixed;bottom:70px;left:16px;right:16px;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.3);border-radius:var(--rs);padding:12px 16px;font-size:13px;color:#f87171;display:flex;align-items:center;justify-content:space-between;gap:10px;z-index:8999;backdrop-filter:blur(12px);font-family:var(--font);}
+#error-banner .err-msg{flex:1;line-height:1.4;}
+#error-banner .err-btn{background:rgba(229,57,53,.18);border:1px solid rgba(229,57,53,.25);border-radius:8px;padding:7px 12px;color:#f87171;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font);flex-shrink:0;}
+
+/* ── FLOAT GEAR ── */
+#float-gear{position:fixed;bottom:22px;right:18px;width:38px;height:38px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:9000;color:#fff;opacity:.5;transition:opacity .2s;}
+#float-gear:active{opacity:1;}
+
+/* ── UTILS ── */
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.1);border-top-color:rgba(255,255,255,.5);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+.spinner.lg{width:26px;height:26px;display:block;margin:32px auto;}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.fade-up{animation:fadeUp .35s ease both;}
+.fade-up{animation:fadeUp .3s ease both;}
 @keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
-.scan-ln{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:scan 1.2s ease-in-out infinite;pointer-events:none;}
+.scan-ln{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:scan 1.1s ease-in-out infinite;pointer-events:none;}
 </style>
 </head>
 <body>
-
-<!-- BURN-IN OVERLAY -->
-<div id="burnin-overlay"></div>
 
 <!-- CONFIG SCREEN -->
 <div id="config-screen">
   <div class="cfg-logo">⬡ Room Display</div>
   <div class="cfg-title">Setup</div>
   <div class="cfg-sub">Meeting Room Kiosk — Configuration</div>
-
   <div class="cfg-card">
     <h3>Azure AD / Microsoft 365</h3>
-    <div class="field">
-      <label>Tenant ID</label>
-      <input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-      <div class="hint">Azure Portal → Microsoft Entra ID → Overview</div>
-    </div>
-    <div class="field">
-      <label>Client (Application) ID</label>
-      <input type="text" id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-      <div class="hint">Azure Portal → App Registrations → your app</div>
-    </div>
+    <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
+    <div class="field"><label>Client (Application) ID</label><input type="text" id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
   </div>
-
   <div class="cfg-card">
     <h3>Primary Room</h3>
-    <div class="field">
-      <label>Room Display Name</label>
-      <input type="text" id="cfg-roomname" placeholder="e.g. RIS Macchiato">
-    </div>
-    <div class="field">
-      <label>Room Email (mailbox)</label>
-      <input type="text" id="cfg-roomemail" placeholder="ris.macchiato@central.co.th">
-      <div class="hint">Shared room mailbox in Exchange / M365</div>
-    </div>
-    <div class="field">
-      <label>Auto-release (minutes without check-in)</label>
-      <select id="cfg-release">
-        <option value="0">Disabled</option>
-        <option value="5">5 minutes</option>
-        <option value="10" selected>10 minutes</option>
-        <option value="15">15 minutes</option>
-        <option value="20">20 minutes</option>
-      </select>
+    <div class="field"><label>Room Display Name</label><input type="text" id="cfg-roomname" placeholder="e.g. RIS Macchiato"></div>
+    <div class="field"><label>Room Email (mailbox)</label><input type="text" id="cfg-roomemail" placeholder="rismacchiato@central.co.th"><div class="hint">Shared room mailbox in Exchange / M365</div></div>
+    <div class="field"><label>Auto-release (min without check-in)</label>
+      <select id="cfg-release"><option value="0">Disabled</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
     </div>
   </div>
-
   <div class="cfg-card">
     <h3>Additional Rooms (quick switcher)</h3>
     <div class="rooms-list" id="extra-rooms-list"></div>
-    <button class="btn-add-room" onclick="addRoomRow()">+ Add another room</button>
-    <div class="hint" style="margin-top:8px">Appears as tappable chips — switch rooms without re-signing in.</div>
+    <button class="btn-add-room" id="btn-add-room">+ Add another room</button>
+    <div class="hint" style="margin-top:8px">Tap chips to switch rooms without re-signing in.</div>
   </div>
-
   <div class="cfg-card">
     <h3>Booking Settings</h3>
     <div class="toggle-row">
       <div><div class="tr-label">Allow instant booking</div><div class="tr-sub">Book directly on this display</div></div>
-      <label class="tog"><input type="checkbox" id="cfg-booking" checked onchange="toggleApprovalSection()"><span class="tog-slider"></span></label>
+      <label class="tog"><input type="checkbox" id="cfg-booking" checked><span class="tog-slider"></span></label>
     </div>
     <div class="approval-fields" id="approval-fields">
       <div class="toggle-row" style="padding-top:0">
-        <div><div class="tr-label">Require owner approval</div><div class="tr-sub">Email sent before room is confirmed</div></div>
-        <label class="tog"><input type="checkbox" id="cfg-approval" onchange="toggleOwnerField()"><span class="tog-slider"></span></label>
+        <div><div class="tr-label">Require owner approval</div><div class="tr-sub">Email sent before confirmed</div></div>
+        <label class="tog"><input type="checkbox" id="cfg-approval"><span class="tog-slider"></span></label>
       </div>
       <div id="owner-field" style="display:none">
-        <div class="field" style="margin-bottom:0;margin-top:10px">
-          <label>Room Owner Email</label>
-          <input type="text" id="cfg-owner" placeholder="owner@central.co.th">
-        </div>
+        <div class="field" style="margin-bottom:0;margin-top:10px"><label>Room Owner Email</label><input type="text" id="cfg-owner" placeholder="owner@central.co.th"></div>
       </div>
     </div>
   </div>
-
   <div class="cfg-card">
     <h3>Microsoft Teams</h3>
     <div class="toggle-row">
-      <div><div class="tr-label">Show "Join Teams" button</div><div class="tr-sub">One-tap join when meeting has Teams link</div></div>
+      <div><div class="tr-label">Show "Join Teams" button</div><div class="tr-sub">One-tap join on active Teams meetings</div></div>
       <label class="tog"><input type="checkbox" id="cfg-teams" checked><span class="tog-slider"></span></label>
     </div>
   </div>
-
-  <button class="btn-primary" onclick="saveConfig()">Save &amp; Launch Display</button>
-
-  <div class="cfg-note" style="margin-bottom:32px">
+  <button class="btn-primary" id="btn-save-cfg">Save &amp; Launch Display</button>
+  <div class="cfg-note">
     <strong>Required Azure App permissions (Delegated):</strong><br>
-    • <code>Calendars.ReadWrite</code> &nbsp;• <code>Mail.Send</code> &nbsp;• <code>User.Read</code><br>
-    Redirect URI → <strong>Single-page application (SPA)</strong> → this page URL.<br>
-    Grant admin consent after adding permissions.
+    • <code>Calendars.ReadWrite</code> &nbsp;• <code>Calendars.ReadWrite.Shared</code><br>
+    • <code>Mail.Send</code> &nbsp;• <code>User.Read</code><br>
+    Redirect URI → <strong>Single-page application (SPA)</strong> → this page URL.
   </div>
 </div>
 
-<!-- AUTH OVERLAY -->
+<!-- AUTH -->
 <div id="auth-overlay" class="hidden">
   <div class="auth-icon">🔐</div>
-  <div class="auth-title">Sign in to Microsoft 365</div>
+  <div class="auth-title">Sign in to Microsoft</div>
   <div class="auth-sub">Sign in with an account that has access to the room calendar.</div>
-  <button class="auth-btn" onclick="doSignIn()">Sign in with Microsoft</button>
+  <button class="auth-btn" id="btn-signin">Sign in with Microsoft</button>
   <div style="font-size:12px;color:var(--text3);text-align:center;margin-top:10px" id="auth-error"></div>
 </div>
 
 <!-- MAIN APP -->
 <div id="app" class="hidden">
-  <div id="bg-layer"></div>
+  <div id="bg"></div>
   <div id="pixel-drift">
 
     <!-- HEADER -->
-    <div class="kiosk-header fade-up">
-      <div class="kiosk-topbar">
-        <div class="ris-logo" id="ris-logo">RIS</div>
-        <div class="kiosk-time-block">
-          <div class="kiosk-time" id="clock-time">--:--</div>
-          <div class="kiosk-date" id="clock-date">---</div>
+    <div class="hdr fade-up">
+      <div class="hdr-inner">
+        <div class="hdr-top">
+          <div class="ris-logo" id="ris-logo">RIS</div>
+          <div class="clock-block">
+            <div class="clock-time" id="clock-time">--:--</div>
+            <div class="clock-date" id="clock-date">---</div>
+          </div>
+        </div>
+        <!-- Weather -->
+        <div class="weather-strip" id="weather-strip" style="display:none">
+          <span class="weather-icon" id="wx-icon">🌤</span>
+          <span class="weather-temp" id="wx-temp">--°</span>
+          <span class="weather-desc" id="wx-desc">--</span>
+          <span class="weather-feels" id="wx-feels"></span>
+        </div>
+        <!-- Room name + status -->
+        <div class="room-name-lg" id="disp-name">Room</div>
+        <div class="status-line">
+          <div class="sdot av" id="sdot"></div>
+          <div class="status-txt" id="status-txt">Loading…</div>
         </div>
       </div>
-      <div class="kiosk-room-name" id="disp-name">Room</div>
-      <div class="kiosk-status-label" id="disp-status">Loading…</div>
     </div>
 
     <!-- BODY -->
-    <div class="kiosk-body fade-up" style="animation-delay:.08s">
+    <div class="body-scroll fade-up" style="animation-delay:.08s">
+      <!-- Room switcher -->
+      <div class="room-chips" id="room-chips" style="display:none;margin-top:14px"></div>
 
-      <!-- Room switcher chips -->
-      <div class="room-switcher" id="room-switcher" style="display:none;margin-bottom:10px"></div>
-
-      <!-- Current meeting card -->
-      <div class="meet-card" id="meet-card">
-        <div class="meet-tag" id="meet-tag">NOW</div>
-        <div class="meet-title" id="meet-title">Loading…</div>
-        <div class="meet-time" id="meet-time"></div>
-        <div class="meet-organizer" id="meet-organizer"></div>
-        <div class="prog-bar" id="prog-bar" style="display:none">
-          <div class="prog-fill" id="prog-fill"></div>
-        </div>
-        <div class="action-row" id="action-row"></div>
-        <div class="release-warn" id="release-warn"></div>
+      <!-- Current card -->
+      <div class="cur-card" id="cur-card" style="margin-top:16px">
+        <div id="cur-content"><div class="spinner lg"></div></div>
       </div>
 
-      <!-- Day tabs -->
-      <div class="day-tabs" id="day-tabs"></div>
-
-      <!-- Upcoming list -->
-      <div class="upcoming-list" id="upcoming-list">
-        <div class="spinner lg"></div>
+      <!-- Today / Tomorrow tabs -->
+      <div class="view-tabs" id="view-tabs">
+        <div class="vtab active" data-view="today">Today <span class="vtab-badge" id="vbadge-today">0</span></div>
+        <div class="vtab" data-view="tomorrow">Tomorrow <span class="vtab-badge" id="vbadge-tomorrow">0</span></div>
+        <button class="vtab-more" id="btn-more-days">More ▾</button>
       </div>
+
+      <!-- Meeting list -->
+      <div class="meet-list" id="meet-list"><div class="spinner lg"></div></div>
+
+      <!-- More days (hidden by default) -->
+      <div class="more-days" id="more-days" style="display:none"></div>
     </div>
 
     <!-- Bottom nav -->
-    <div class="kiosk-nav">
-      <button class="nav-btn" onclick="showAllMeetings()" id="nav-all">
-        ☰ All Meetings
-      </button>
-      <button class="nav-btn primary" onclick="openModal()" id="nav-book" style="display:none">
-        + New Booking
-      </button>
-      <button class="gear-nav" onclick="showConfig()" aria-label="Settings" id="gear-in-nav">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
+    <div class="nav">
+      <button class="nav-btn" id="nav-today-btn">☰ Today</button>
+      <button class="nav-book-btn" id="nav-book-btn" style="display:none">+ Book Room</button>
+      <div style="width:38px"></div><!-- spacer for gear -->
     </div>
 
   </div><!-- /pixel-drift -->
+</div>
+
+<!-- FLOAT GEAR -->
+<button id="float-gear" aria-label="Settings">
+  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+</button>
+
+<!-- ERROR BANNER -->
+<div id="error-banner" style="display:none">
+  <div class="err-msg" id="err-msg"></div>
+  <button class="err-btn" id="err-settings-btn">⚙ Settings</button>
 </div>
 
 <!-- BOOKING MODAL -->
@@ -816,42 +485,23 @@ html,body{
     <div class="mdrag"></div>
     <div class="mtitle" id="modal-title">Book Room</div>
     <div class="msub" id="modal-sub"></div>
-    <div class="appr-banner" id="appr-banner" style="display:none">
-      <strong>✉ Approval required</strong>
-      An email will be sent to the room owner. Room shows as pending until approved.
-    </div>
-    <div class="mfield">
-      <label>Your Name</label>
-      <input type="text" id="book-name" placeholder="Enter your name" autocomplete="off">
-    </div>
-    <div class="mfield">
-      <label>Meeting Title</label>
-      <input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off">
-    </div>
+    <div class="appr-banner" id="appr-banner" style="display:none"><strong>✉ Approval required</strong>An email will be sent to the room owner before confirming.</div>
+    <div class="mfield"><label>Your Name</label><input type="text" id="book-name" placeholder="Enter your name" autocomplete="off"></div>
+    <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
     <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
-    <label style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:10px">Duration</label>
+    <label style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:10px">Duration</label>
     <div class="dur-grid">
-      <div class="dchip" data-min="30" onclick="selDur(this)">30m</div>
-      <div class="dchip sel" data-min="60" onclick="selDur(this)">1h</div>
-      <div class="dchip" data-min="90" onclick="selDur(this)">1h 30m</div>
-      <div class="dchip" data-min="120" onclick="selDur(this)">2h</div>
+      <div class="dchip" data-min="30">30m</div>
+      <div class="dchip sel" data-min="60">1h</div>
+      <div class="dchip" data-min="90">1h 30m</div>
+      <div class="dchip" data-min="120">2h</div>
     </div>
     <div class="mactions">
-      <button class="mcancel" onclick="closeModal()">Cancel</button>
-      <button class="mconfirm inst" id="mconfirm" onclick="confirmBooking()">
-        <span id="mconfirm-lbl">Confirm booking</span>
-      </button>
+      <button class="mcancel" id="modal-cancel">Cancel</button>
+      <button class="mconfirm inst" id="mconfirm"><span id="mconfirm-lbl">Confirm booking</span></button>
     </div>
   </div>
 </div>
-
-<!-- PERMANENT FLOATING GEAR — always on top regardless of app state -->
-<button id="float-gear" onclick="showConfig()" aria-label="Settings" title="Settings">
-  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-</button>
-
-<!-- ERROR BANNER — shown on calendar access errors -->
-<div id="error-banner" style="display:none"></div>
 
 <!-- TOAST -->
 <div id="toast" class="hidden"></div>
@@ -860,198 +510,252 @@ html,body{
 // ══════════════════════════════════════
 // STATE
 // ══════════════════════════════════════
-const CFG_KEY = 'roomdisplay_v4';
-let cfg = {}, msalInst = null, account = null;
-let meetings = [], pendingLocal = [], checkedIn = false, selDurMin = 60;
-let activeRoom = { name:'', email:'' };
-let viewDayOffset = 0;
+const CFG_KEY='roomdisplay_v5';
+let cfg={},msalInst=null,account=null;
+let meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60;
+let activeRoom={name:'',email:''};
+let curView='today'; // 'today' | 'tomorrow'
+let moreDaysOpen=false;
 
 // ══════════════════════════════════════
-// BURN-IN PROTECTION
+// HELPERS
 // ══════════════════════════════════════
-const COLORS = ['#1a3a6e','#6e1a1a','#1a5c3a','#3a1a6e','#000000'];
-let biIdx = 0, driftX = 0, driftY = 0;
+const el=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const pad=n=>String(n).padStart(2,'0');
+const ft=d=>d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
+const fd=(s,e)=>{const m=Math.round((e-s)/60000);return m<60?m+'m':Math.floor(m/60)+'h'+(m%60?' '+(m%60)+'m':'');};
+const mu=d=>Math.max(0,Math.round((d-new Date())/60000));
+const localISO=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+const gDate=o=>{const s=o.dateTime;return new Date(s.endsWith('Z')?s:s+'Z');};
+const isAllDay=m=>(m.end-m.start)>=86400000-60000; // ≥23h59m = all-day
+const show=id=>{const e=el(id);if(e)e.classList.remove('hidden');};
+const hide=id=>{const e=el(id);if(e)e.classList.add('hidden');};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-function startBurnIn() {
-  // Soft radial wave — moves a gentle glow around the screen, not visible color change
-  const canvas = document.createElement('canvas');
-  canvas.id = 'burnin-canvas';
-  canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;transition:opacity 2s;';
+function toast(msg,type){
+  const t=el('toast');t.textContent=msg;t.className=type||'';
+  t.classList.remove('hidden');clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.add('hidden'),3500);
+}
+function setErr(msg){
+  const isAccess=msg.toLowerCase().includes('access')||msg.toLowerCase().includes('forbidden')||msg.toLowerCase().includes('denied');
+  el('err-msg').textContent=isAccess?'🔒 Access denied to room calendar. Grant Calendars.ReadWrite.Shared permission, or switch room.':'⚠ '+msg;
+  el('error-banner').style.display='flex';
+}
+function clearErr(){el('error-banner').style.display='none';}
+
+// ══════════════════════════════════════
+// WEATHER — Open-Meteo (free, no key)
+// Central Silom Tower: 13.7248, 100.5253
+// ══════════════════════════════════════
+const WX_CODES={
+  0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',
+  45:'Foggy',48:'Icy fog',
+  51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',
+  71:'Light snow',73:'Snow',75:'Heavy snow',
+  80:'Light showers',81:'Showers',82:'Heavy showers',
+  95:'Thunderstorm',96:'Thunderstorm+hail',99:'Thunderstorm+hail'
+};
+const WX_ICONS={
+  0:'☀️',1:'🌤',2:'⛅',3:'☁️',
+  45:'🌫',48:'🌫',
+  51:'🌦',53:'🌦',55:'🌧',
+  61:'🌧',63:'🌧',65:'⛈',
+  71:'🌨',73:'❄️',75:'❄️',
+  80:'🌦',81:'🌧',82:'⛈',
+  95:'⛈',96:'⛈',99:'⛈'
+};
+
+async function fetchWeather(){
+  try{
+    const url='https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok';
+    const r=await fetch(url);
+    if(!r.ok)return;
+    const d=await r.json();
+    const c=d.current;
+    const code=c.weather_code;
+    const temp=Math.round(c.temperature_2m);
+    const feels=Math.round(c.apparent_temperature);
+    const icon=WX_ICONS[code]||'🌡';
+    const desc=WX_CODES[code]||'--';
+    el('wx-icon').textContent=icon;
+    el('wx-temp').textContent=temp+'°C';
+    el('wx-desc').textContent=desc;
+    el('wx-feels').textContent=`Feels ${feels}°`;
+    el('weather-strip').style.display='flex';
+  }catch(e){/* silent fail */}
+}
+
+// ══════════════════════════════════════
+// BURN-IN
+// ══════════════════════════════════════
+let driftX=0,driftY=0;
+function startBurnIn(){
+  // Soft moving radial glow
+  const canvas=document.createElement('canvas');
+  canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;transition:opacity 3s;';
   document.body.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
-  let waveX = 0.5, waveY = 0.5, targetX = 0.5, targetY = 0.5;
-
-  function drawWave() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    // Smooth move toward target
-    waveX += (targetX - waveX) * 0.02;
-    waveY += (targetY - waveY) * 0.02;
-    const cx = waveX * canvas.width;
-    const cy = waveY * canvas.height;
-    const r = Math.max(canvas.width, canvas.height) * 0.7;
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    grad.addColorStop(0, 'rgba(255,255,255,0.018)');
-    grad.addColorStop(0.5, 'rgba(255,255,255,0.008)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    requestAnimationFrame(drawWave);
+  const ctx=canvas.getContext('2d');
+  let wx=0.5,wy=0.5,tx=0.5,ty=0.5;
+  function draw(){
+    canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+    wx+=(tx-wx)*0.015;wy+=(ty-wy)*0.015;
+    const cx=wx*canvas.width,cy=wy*canvas.height;
+    const gr=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(canvas.width,canvas.height)*0.65);
+    gr.addColorStop(0,'rgba(255,255,255,0.014)');
+    gr.addColorStop(0.5,'rgba(255,255,255,0.006)');
+    gr.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle=gr;ctx.fillRect(0,0,canvas.width,canvas.height);
+    requestAnimationFrame(draw);
   }
-  drawWave();
-  setTimeout(() => { canvas.style.opacity = '1'; }, 2000);
-
-  // Move wave to new random position every 6 seconds
-  setInterval(() => {
-    targetX = 0.1 + Math.random() * 0.8;
-    targetY = 0.1 + Math.random() * 0.8;
-  }, 6000);
-
-  // Pixel drift — shift entire content ±3px every 10 seconds (subtler)
-  setInterval(() => {
-    driftX = (Math.random() * 6 - 3);
-    driftY = (Math.random() * 6 - 3);
-    el('pixel-drift').style.transform = `translate(${driftX}px,${driftY}px)`;
-  }, 10000);
+  draw();
+  setTimeout(()=>{canvas.style.opacity='1';},3000);
+  setInterval(()=>{tx=0.1+Math.random()*0.8;ty=0.1+Math.random()*0.8;},7000);
+  // Pixel drift ±3px every 12s
+  setInterval(()=>{
+    driftX=(Math.random()*6-3);driftY=(Math.random()*6-3);
+    el('pixel-drift').style.transform=`translate(${driftX}px,${driftY}px)`;
+  },12000);
 }
 
 // ══════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════
-function loadCfg() { try { cfg=JSON.parse(localStorage.getItem(CFG_KEY)||'{}'); } catch(e){cfg={};} }
+function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');}catch(e){cfg={};}}
 
-function saveConfig() {
-  const v=id=>document.getElementById(id).value.trim();
-  const b=id=>document.getElementById(id).checked;
-  if (!v('cfg-tenant')||!v('cfg-client')||!v('cfg-roomname')||!v('cfg-roomemail')){alert('Fill in all required fields.');return;}
-  if (b('cfg-booking')&&b('cfg-approval')&&!v('cfg-owner')){alert('Enter room owner email for approval.');return;}
+function saveConfig(){
+  const v=id=>el(id).value.trim();
+  const b=id=>el(id).checked;
+  if(!v('cfg-tenant')||!v('cfg-client')||!v('cfg-roomname')||!v('cfg-roomemail')){alert('Fill in all required fields.');return;}
+  if(b('cfg-booking')&&b('cfg-approval')&&!v('cfg-owner')){alert('Enter room owner email for approval.');return;}
   const extraRooms=[];
   document.querySelectorAll('.room-row').forEach(row=>{
     const nm=row.querySelector('.rr-name').value.trim();
     const em=row.querySelector('.rr-email').value.trim();
-    if(nm&&em) extraRooms.push({name:nm,email:em});
+    if(nm&&em)extraRooms.push({name:nm,email:em});
   });
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
-    roomemail:v('cfg-roomemail'),release:parseInt(document.getElementById('cfg-release').value),
+    roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:b('cfg-approval'),owner:v('cfg-owner'),
     extraRooms,teamsBtn:b('cfg-teams')};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
   initMsal();
 }
 
-function showConfig() {
+function showConfig(){
   show('config-screen');hide('app');hide('auth-overlay');hide('booking-modal');
-  if(cfg.tenant) setVal('cfg-tenant',cfg.tenant);
-  if(cfg.client) setVal('cfg-client',cfg.client);
-  if(cfg.roomname) setVal('cfg-roomname',cfg.roomname);
-  if(cfg.roomemail) setVal('cfg-roomemail',cfg.roomemail);
-  if(cfg.release!=null) document.getElementById('cfg-release').value=cfg.release;
-  document.getElementById('cfg-booking').checked=cfg.booking!==false;
-  document.getElementById('cfg-approval').checked=!!cfg.approval;
-  document.getElementById('cfg-teams').checked=cfg.teamsBtn!==false;
-  if(cfg.owner) setVal('cfg-owner',cfg.owner);
-  const list=document.getElementById('extra-rooms-list');
-  list.innerHTML='';
+  if(cfg.tenant)el('cfg-tenant').value=cfg.tenant;
+  if(cfg.client)el('cfg-client').value=cfg.client;
+  if(cfg.roomname)el('cfg-roomname').value=cfg.roomname;
+  if(cfg.roomemail)el('cfg-roomemail').value=cfg.roomemail;
+  if(cfg.release!=null)el('cfg-release').value=cfg.release;
+  el('cfg-booking').checked=cfg.booking!==false;
+  el('cfg-approval').checked=!!cfg.approval;
+  el('cfg-teams').checked=cfg.teamsBtn!==false;
+  if(cfg.owner)el('cfg-owner').value=cfg.owner;
+  const list=el('extra-rooms-list');list.innerHTML='';
   (cfg.extraRooms||[]).forEach(r=>addRoomRow(r.name,r.email));
-  toggleApprovalSection();toggleOwnerField();
+  toggleApproval();toggleOwner();
 }
 
-function addRoomRow(name='',email='') {
+function addRoomRow(name='',email=''){
   const row=document.createElement('div');row.className='room-row';
   row.innerHTML=`<input class="rr-name" placeholder="Room name" value="${esc(name)}">
     <input class="rr-email" placeholder="room@central.co.th" value="${esc(email)}">
-    <button class="rm-del" onclick="this.closest('.room-row').remove()">×</button>`;
-  document.getElementById('extra-rooms-list').appendChild(row);
+    <button class="rm-del" data-action="delroom">×</button>`;
+  el('extra-rooms-list').appendChild(row);
 }
-function toggleApprovalSection(){document.getElementById('approval-fields').style.display=document.getElementById('cfg-booking').checked?'block':'none';}
-function toggleOwnerField(){document.getElementById('owner-field').style.display=document.getElementById('cfg-approval').checked?'block':'none';}
+function toggleApproval(){el('approval-fields').style.display=el('cfg-booking').checked?'block':'none';}
+function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checked?'block':'none';}
 
 // ══════════════════════════════════════
-// MSAL AUTH
+// MSAL
 // ══════════════════════════════════════
-async function initMsal() {
+async function initMsal(){
   hide('config-screen');
   msalInst=new msal.PublicClientApplication({
-    auth:{clientId:cfg.client,authority:`https://login.microsoftonline.com/${cfg.tenant}`,
-      redirectUri:location.href.split('?')[0].split('#')[0]},
+    auth:{clientId:cfg.client,authority:`https://login.microsoftonline.com/${cfg.tenant}`,redirectUri:location.href.split('?')[0].split('#')[0]},
     cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
   });
-  try {
+  try{
     await msalInst.initialize();
     const r=await msalInst.handleRedirectPromise();
     if(r?.account){account=r.account;launch();return;}
     const acts=msalInst.getAllAccounts();
     if(acts.length){account=acts[0];launch();}
     else showAuth();
-  } catch(e){document.getElementById('auth-error').textContent=e.message;showAuth();}
+  }catch(e){el('auth-error').textContent=e.message;showAuth();}
 }
 function showAuth(){show('auth-overlay');hide('app');}
-async function doSignIn(){
-  try{await msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Mail.Send','User.Read'],prompt:'select_account'});}
-  catch(e){document.getElementById('auth-error').textContent=e.message;}
-}
+
 async function getToken(){
-  try{const r=await msalInst.acquireTokenSilent({scopes:['Calendars.ReadWrite','Mail.Send','User.Read'],account});return r.accessToken;}
-  catch(e){await msalInst.acquireTokenRedirect({scopes:['Calendars.ReadWrite','Mail.Send','User.Read']});return null;}
+  const scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
+  try{const r=await msalInst.acquireTokenSilent({scopes,account});return r.accessToken;}
+  catch(e){await msalInst.acquireTokenRedirect({scopes});return null;}
 }
 
 // ══════════════════════════════════════
 // LAUNCH
 // ══════════════════════════════════════
-function launch() {
+function launch(){
   hide('auth-overlay');show('app');
   activeRoom={name:cfg.roomname,email:cfg.roomemail};
-  renderRoomSwitcher();
-  el('nav-book').style.display=cfg.booking!==false?'':'none';
-  startClock();fetchCal();
+  el('disp-name').textContent=activeRoom.name;
+  el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
+  renderRoomChips();
+  startClock();fetchCal();fetchWeather();
   setInterval(fetchCal,90000);
+  setInterval(fetchWeather,1800000);
   startBurnIn();
 }
 
 // ══════════════════════════════════════
 // ROOM SWITCHER
 // ══════════════════════════════════════
-function renderRoomSwitcher() {
-  const allRooms=[{name:cfg.roomname,email:cfg.roomemail},...(cfg.extraRooms||[])];
-  const sw=el('room-switcher');
-  if(allRooms.length<2){sw.style.display='none';return;}
-  sw.style.display='flex';
-  sw.innerHTML=allRooms.map(r=>`<div class="rchip${r.email===activeRoom.email?' active':''}" onclick="switchRoom(${JSON.stringify(r.name)},${JSON.stringify(r.email)})">${esc(r.name)}</div>`).join('');
+function renderRoomChips(){
+  const all=[{name:cfg.roomname,email:cfg.roomemail},...(cfg.extraRooms||[])];
+  const c=el('room-chips');
+  if(all.length<2){c.style.display='none';return;}
+  c.style.display='flex';
+  c.innerHTML=all.map(r=>`<div class="rchip${r.email===activeRoom.email?' active':''}" data-name="${esc(r.name)}" data-email="${esc(r.email)}">${esc(r.name)}</div>`).join('');
 }
-function switchRoom(name,email) {
+function switchRoom(name,email){
   if(email===activeRoom.email)return;
-  activeRoom={name,email};meetings=[];pendingLocal=[];checkedIn=false;viewDayOffset=0;
+  activeRoom={name,email};meetings=[];pendingLocal=[];checkedIn=false;
   el('disp-name').textContent=name;
-  el('upcoming-list').innerHTML='<div class="spinner lg"></div>';
-  renderRoomSwitcher();fetchCal();toast(`Switched to ${name}`,'success');
+  clearErr();
+  renderRoomChips();
+  el('meet-list').innerHTML='<div class="spinner lg"></div>';
+  fetchCal();toast(`Switched to ${name}`,'success');
 }
 
 // ══════════════════════════════════════
 // CLOCK
 // ══════════════════════════════════════
-function startClock() {
+function startClock(){
   const tick=()=>{
     const n=new Date();
     el('clock-time').textContent=pad(n.getHours())+':'+pad(n.getMinutes());
     el('clock-date').textContent=n.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long'});
-    updateDisplay();
+    updateCurrentCard();
   };
   tick();setInterval(tick,15000);
 }
 
 // ══════════════════════════════════════
-// CALENDAR FETCH
+// CALENDAR FETCH — 7 days
 // ══════════════════════════════════════
-async function fetchCal() {
+async function fetchCal(){
   const tok=await getToken();if(!tok)return;
-  const today=new Date();
-  const s=new Date(today);s.setHours(0,0,0,0);
-  const e=new Date(today);e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
+  const s=new Date();s.setHours(0,0,0,0);
+  const e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
   const url=`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(activeRoom.email)}/calendarView`
     +`?startDateTime=${s.toISOString()}&endDateTime=${e.toISOString()}`
     +`&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting&$orderby=start/dateTime&$top=60`;
-  try {
+  try{
     const r=await fetch(url,{headers:{Authorization:`Bearer ${tok}`}});
     if(!r.ok){const er=await r.json();setErr(er.error?.message||'Calendar error');return;}
     const d=await r.json();
@@ -1065,278 +769,212 @@ async function fetchCal() {
     }));
     pendingLocal.forEach(pb=>{if(!meetings.some(m=>Math.abs(m.start-pb.start)<60000&&m.title===pb.title))meetings.push(pb);});
     meetings.sort((a,b)=>a.start-b.start);
-    // Clear any previous error banner on success
-    el('error-banner').style.display='none';
-    updateDisplay();renderDayTabs();renderUpcoming();
-  } catch(e){setErr(e.message);}
-}
-function gDate(o){const s=o.dateTime;return new Date(s.endsWith('Z')?s:s+'Z');}
-function setErr(msg) {
-  // Show error in meet card
-  el('meet-title').textContent = '⚠ ' + msg;
-  el('meet-title').style.color = '#fbbf24';
-  // Show persistent error banner with settings shortcut
-  const banner = el('error-banner');
-  const isAccessDenied = msg.toLowerCase().includes('access') || msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('forbidden');
-  banner.style.display = 'flex';
-  banner.innerHTML = `
-    <div class="err-msg">
-      ${isAccessDenied
-        ? '🔒 Access denied to this room calendar. Your account needs Full Access permission, or switch to a different room.'
-        : '⚠ ' + msg}
-    </div>
-    <button class="err-btn" onclick="showConfig()">⚙ Settings</button>`;
+    clearErr();
+    updateCurrentCard();renderBadges();renderMeetList();renderMoreDays();
+  }catch(e){setErr(e.message);}
 }
 
 // ══════════════════════════════════════
-// DISPLAY UPDATE
+// THEME
 // ══════════════════════════════════════
-function getCur(){const n=new Date();return meetings.find(m=>!m.isPending&&m.start<=n&&m.end>=n)||null;}
-function getNext(){const n=new Date();return meetings.find(m=>m.start>n)||null;}
-function ft(d){return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});}
-function fd(s,e){const m=Math.round((e-s)/60000);return m<60?m+'m':Math.floor(m/60)+'h'+(m%60?' '+(m%60)+'m':'');}
-function mu(d){return Math.max(0,Math.round((d-new Date())/60000));}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function pad(n){return String(n).padStart(2,'0');}
-
 function setTheme(status){
-  const colors={available:'26,110,245',busy:'229,57,53',upcoming:'245,158,11',pending:'245,158,11'};
-  const c=colors[status]||colors.available;
+  const map={available:'26,110,245',busy:'229,57,53',soon:'245,158,11',pending:'245,158,11'};
+  const c=map[status]||map.available;
   document.documentElement.style.setProperty('--accent',`rgb(${c})`);
-  document.documentElement.style.setProperty('--accent-dim',`rgba(${c},0.15)`);
-  document.documentElement.style.setProperty('--accent-border',`rgba(${c},0.35)`);
-  // Update background gradient
-  el('bg-layer').style.background=`linear-gradient(180deg,rgba(${c},0.85) 0%,rgba(${c},0.3) 25%,rgba(10,10,15,0) 55%),linear-gradient(180deg,#0a0a0f 0%,#0a0a0f 100%)`;
+  el('bg').style.background=`radial-gradient(ellipse 100% 55% at 50% -5%,rgba(${c},0.75) 0%,transparent 70%),linear-gradient(180deg,#0a0a12 0%,#0a0a12 100%)`;
+  const dot=el('sdot');
+  dot.className='sdot '+({available:'av',busy:'busy',soon:'soon',pending:'pend'}[status]||'av');
 }
 
-function updateDisplay() {
+// ══════════════════════════════════════
+// CURRENT CARD
+// ══════════════════════════════════════
+function getCur(){const n=new Date();return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start<=n&&m.end>=n)||null;}
+function getNext(){const n=new Date();return meetings.find(m=>!isAllDay(m)&&m.start>n)||null;}
+
+function updateCurrentCard(){
   const n=new Date(),cur=getCur(),nxt=getNext();
-  const mtag=el('meet-tag'),mtitle=el('meet-title'),mtime=el('meet-time');
-  const morg=el('meet-organizer'),pbar=el('prog-bar'),pfill=el('prog-fill');
-  const arow=el('action-row'),rwarn=el('release-warn');
-  mtitle.style.color='';
+  const card=el('cur-card'),cont=el('cur-content');
 
   if(cur){
     const ip=cur.isPending;
     setTheme(ip?'pending':'busy');
-    el('disp-status').textContent=ip?'Pending Approval':'In Use';
-    mtag.textContent=ip?'REQUESTED':'MEETING NOW';mtag.style.background=ip?'rgba(245,158,11,0.9)':'rgba(229,57,53,0.9)';
-    mtitle.textContent=cur.title;mtitle.className='meet-title';
-    mtime.textContent=ft(cur.start)+' – '+ft(cur.end);
-    morg.innerHTML=cur.organizer?`${svgUser(14)}${esc(cur.organizer)}`:'';
-
-    if(!ip){
-      const pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
-      pbar.style.display='block';pfill.style.width=pct+'%';
-    } else {pbar.style.display='none';}
-
+    el('status-txt').textContent=ip?'Pending Approval':'In Use';
+    const pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
+    let btns='';
     if(ip){
-      arow.innerHTML=`<button class="abtn abtn-pending" disabled>${svgClock()} Awaiting approval…</button>`;
-      rwarn.textContent='';
+      btns=`<button class="abtn abtn-pend" disabled>${svgClock()} Awaiting approval…</button>`;
     } else {
-      let btns='';
-      if(checkedIn){btns+=`<button class="abtn abtn-checkin checked" disabled>${svgCheck()} Checked In</button>`;}
-      else{btns+=`<button class="abtn abtn-checkin" onclick="doCheckin()" id="checkin-btn">${svgCheck()} Check In</button>`;}
-      btns+=`<button class="abtn abtn-end" onclick="endMeeting()">${svgX()} End</button>`;
-      btns+=`<button class="abtn abtn-extend" onclick="extendMeeting()">${svgPlus()} Extend</button>`;
-      if(cfg.teamsBtn!==false&&cur.joinUrl){btns+=`<button class="abtn abtn-teams pulse" onclick="joinTeams('${esc(cur.joinUrl)}')">${svgTeams()} Join Teams</button>`;}
-      arow.innerHTML=btns;
-      if(!checkedIn&&cfg.release>0){
-        const ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
-        rwarn.textContent=ml>0?`⚠ Releases in ${ml} min without check-in`:'';
-        rwarn.style.color=ml<=2?'#f87171':'#fbbf24';
-      }else{rwarn.textContent='';}
+      btns += checkedIn
+        ? `<button class="abtn abtn-checkin checked" disabled>${svgCheck()} Checked In</button>`
+        : `<button class="abtn abtn-checkin" id="checkin-btn">${svgCheck()} Check In</button>`;
+      btns+=`<button class="abtn abtn-end" id="end-btn">${svgX()} End</button>`;
+      btns+=`<button class="abtn abtn-extend" id="ext-btn">${svgPlus()} +30m</button>`;
+      if(cfg.teamsBtn!==false&&cur.joinUrl)btns+=`<button class="abtn abtn-teams" id="teams-btn">${svgTeams()} Join Teams</button>`;
     }
-    el('nav-book').style.display='none';
+    let warn='';
+    if(!ip&&!checkedIn&&cfg.release>0){
+      const ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
+      if(ml>0)warn=`<div class="rel-warn">⚠ Releases in ${ml} min without check-in</div>`;
+    }
+    cont.innerHTML=`
+      <div class="meet-tag ${ip?'pend':'busy'}">${ip?'⏳ PENDING':'🔴 IN USE'}</div>
+      <div class="meet-title-lg">${esc(cur.title)}</div>
+      <div class="meet-time-lg" style="color:var(--busy)">${ft(cur.start)} – ${ft(cur.end)}</div>
+      ${cur.organizer?`<div class="meet-org">${svgUser(13)}${esc(cur.organizer)}</div>`:''}
+      <div class="prog"><div class="prog-fill" style="width:${pct}%;background:var(--busy)"></div></div>
+      <div class="action-row">${btns}</div>${warn}`;
+    el('nav-book-btn').style.display='none';
+
+  } else if(nxt){
+    const m=mu(nxt.start);
+    const isSoon=m<=30;
+    setTheme(isSoon?'soon':'available');
+    el('status-txt').textContent=isSoon?`Available · next in ${m}m`:`Available · free until ${ft(nxt.start)}`;
+    const bookBtn=cfg.booking!==false?`<button class="abtn abtn-checkin" id="book-btn-card">${svgCal()} Book Room</button>`:'';
+    cont.innerHTML=`
+      <div class="meet-tag soon">🟡 UPCOMING</div>
+      <div class="meet-title-lg">${esc(nxt.title)}</div>
+      <div class="meet-time-lg" style="color:var(--soon)">${ft(nxt.start)} – ${ft(nxt.end)}</div>
+      ${nxt.organizer?`<div class="meet-org">${svgUser(13)}${esc(nxt.organizer)}</div>`:''}
+      <div class="action-row"><button class="abtn abtn-checkin off" disabled>No active meeting</button>${bookBtn}</div>`;
+    el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else {
-    checkedIn=false;pbar.style.display='none';
-    let bookVisible=cfg.booking!==false;
-    if(nxt){
-      const m=mu(nxt.start);
-      if(m<=30){
-        setTheme('upcoming');
-        el('disp-status').textContent=`Available · next in ${m}m`;
-      } else {
-        setTheme('available');
-        el('disp-status').textContent=`Available · free until ${ft(nxt.start)}`;
-      }
-      mtag.textContent='UPCOMING';mtag.style.background='rgba(245,158,11,0.85)';
-      mtitle.textContent=nxt.title;mtitle.className='meet-title';
-      mtime.textContent=ft(nxt.start)+' – '+ft(nxt.end);
-      morg.innerHTML=nxt.organizer?`${svgUser(14)}${esc(nxt.organizer)}`:'';
-    } else {
-      setTheme('available');
-      el('disp-status').textContent='Available';
-      mtag.textContent='CURRENT';mtag.style.background='rgba(26,110,245,0.85)';
-      mtitle.textContent='Room is Available';mtitle.className='meet-title available';
-      mtime.textContent='Free for the rest of the day';
-      morg.innerHTML='';
-    }
-    arow.innerHTML=`<button class="abtn abtn-checkin off" disabled>No active meeting</button>`
-      +(bookVisible?`<button class="abtn abtn-book" onclick="openModal()">${svgCal()} Book Room</button>`:'');
-    rwarn.textContent='';
-    el('nav-book').style.display=bookVisible?'':'none';
+    setTheme('available');
+    el('status-txt').textContent='Available';
+    const bookBtn=cfg.booking!==false?`<button class="book-big" id="book-big-btn">${svgCal()} Book This Room</button>`:'';
+    cont.innerHTML=`
+      <div class="av-state">
+        <div class="av-icon">✓</div>
+        <div class="av-title">Free to Book</div>
+        <div class="av-sub">No meetings scheduled<br>Available for the rest of the day</div>
+        ${bookBtn}
+      </div>`;
+    el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   }
 }
 
 // ══════════════════════════════════════
-// END / EXTEND (local UI only — real impl needs Graph PATCH)
+// BADGE COUNTS
 // ══════════════════════════════════════
-function endMeeting(){
-  const cur=getCur();if(!cur)return;
-  // Mark as ended locally (set end to now)
-  cur.end=new Date();
-  checkedIn=false;
-  updateDisplay();renderDayTabs();renderUpcoming();
-  toast('Meeting ended','success');
-  setTimeout(fetchCal,3000);
-}
-function extendMeeting(){
-  const cur=getCur();if(!cur)return;
-  cur.end=new Date(cur.end.getTime()+30*60000);
-  updateDisplay();renderDayTabs();renderUpcoming();
-  toast('+30 min extended','success');
-}
-
-// ══════════════════════════════════════
-// DAY TABS
-// ══════════════════════════════════════
-function renderDayTabs(){
-  const tabs=el('day-tabs');
-  const days=[];
-  for(let i=0;i<7;i++){
-    const d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
-    const dEnd=new Date(d);dEnd.setHours(23,59,59,999);
-    const count=meetings.filter(m=>m.start>=d&&m.start<=dEnd).length;
-    const dow=d.getDay();
-    const isWeekend=dow===0||dow===6;
-    days.push({offset:i,date:d,count,isWeekend});
-  }
-  const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  tabs.innerHTML=days.map(({offset,date,count,isWeekend})=>{
-    const dow=weekdays[date.getDay()];
-    const dayNum=date.getDate();
-    const mon=date.toLocaleDateString('en-US',{month:'short'});
-    let label;
-    if(offset===0) label=`<span class="dtab-day">Today</span>`;
-    else if(offset===1) label=`<span class="dtab-day">Tomorrow</span>`;
-    else label=`<span class="dtab-day">${dow}</span><span class="dtab-date">${mon} ${dayNum}</span>`;
-    const badge=count>0?`<span class="dtab-count">${count}</span>`:'';
-    const wkClass=isWeekend?' weekend':'';
-    const activeClass=offset===viewDayOffset?' active':'';
-    return `<div class="dtab${activeClass}${wkClass}" data-offset="${offset}">${label}${badge}</div>`;
-  }).join('');
-
-  // Use event delegation — one listener on the container
-  tabs.onclick = function(e){
-    const chip = e.target.closest('.dtab');
-    if(!chip) return;
-    const offset = parseInt(chip.dataset.offset);
-    if(!isNaN(offset)){ viewDayOffset=offset; renderDayTabs(); renderUpcoming(); }
-  };
-}
-function setDayTab(offset){viewDayOffset=offset;renderDayTabs();renderUpcoming();}
 function getMeetingsForDay(offset){
   const d=new Date();d.setDate(d.getDate()+offset);d.setHours(0,0,0,0);
-  const dEnd=new Date(d);dEnd.setHours(23,59,59,999);
-  return meetings.filter(m=>m.start>=d&&m.start<=dEnd);
+  const de=new Date(d);de.setHours(23,59,59,999);
+  return meetings.filter(m=>m.start>=d&&m.start<=de&&!isAllDay(m));
+}
+function renderBadges(){
+  el('vbadge-today').textContent=getMeetingsForDay(0).length;
+  el('vbadge-tomorrow').textContent=getMeetingsForDay(1).length;
 }
 
-function showAllMeetings(){setDayTab(0);el('upcoming-list').scrollIntoView({behavior:'smooth'});}
-
 // ══════════════════════════════════════
-// UPCOMING LIST
+// MEETING LIST (today / tomorrow)
 // ══════════════════════════════════════
-function renderUpcoming(){
-  const n=new Date(),list=el('upcoming-list');
-  const dayMeetings=getMeetingsForDay(viewDayOffset);
-  const show=viewDayOffset===0?dayMeetings.filter(m=>m.end>n):dayMeetings;
-
+function renderMeetList(){
+  const n=new Date();
+  const offset=curView==='today'?0:1;
+  const day=getMeetingsForDay(offset);
+  const show=offset===0?day.filter(m=>m.end>n):day;
+  const list=el('meet-list');
   if(!show.length){
-    const d=new Date();d.setDate(d.getDate()+viewDayOffset);
-    const dayLabel=viewDayOffset===0?'today':viewDayOffset===1?'tomorrow':d.toLocaleDateString('en-US',{weekday:'long'});
-    list.innerHTML=`<div class="empty-state">
-      <div class="empty-icon">📅</div>
-      <div class="empty-txt">No meetings ${dayLabel}</div>
-      ${viewDayOffset===0&&cfg.booking!==false?`<div class="empty-book" data-action="book">+ Book this room</div>`:''}
-    </div>`;
+    const lbl=curView==='today'?'today':'tomorrow';
+    list.innerHTML=`<div class="empty-day"><div class="empty-day-icon">📅</div><div class="empty-day-txt">No meetings ${lbl}</div>${offset===0&&cfg.booking!==false?`<div style="margin-top:12px;font-size:13px;color:rgba(99,179,255,.7);cursor:pointer" data-action="book">+ Book this room</div>`:''}</div>`;
     return;
   }
-
-  list.innerHTML=show.slice(0,15).map((m,i)=>{
+  list.innerHTML=show.slice(0,12).map((m,i)=>{
     const ip=m.isPending;
     const hasTeams=!ip&&!!m.joinUrl;
     const isNow=n>=m.start&&n<=m.end;
-    const isPast=viewDayOffset===0&&m.end<n;
-    let cls='uitem';
-    if(ip)cls+=' is-pending';
+    const isPast=offset===0&&m.end<n;
+    let cls='mitem';
+    if(ip)cls+=' is-pend';
     else if(isNow)cls+=' is-now';
     else if(i===0&&!isPast)cls+=' is-next';
     if(hasTeams&&!isNow)cls+=' is-teams';
     if(isPast)cls+=' is-past';
-
-    const tagHtml=ip?'<div class="stag pend">PENDING</div>'
-      :isNow?'<div class="stag now">NOW</div>'
-      :(i===0&&hasTeams&&!isPast)?'<div class="stag teams">TEAMS</div>'
-      :(i===0&&!isPast)?'<div class="stag next">NEXT</div>':'';
-
-    return `<div class="${cls}">
-      ${tagHtml}
-      <div class="uitem-accent"></div>
-      <div class="utcol"><div class="ut">${ft(m.start)}</div><div class="ud">${fd(m.start,m.end)}</div></div>
-      <div class="usep"></div>
-      <div class="uinfo">
-        <div class="utitle">${esc(m.title)}</div>
-        <div class="uorg">${esc(ip?m.organizer+' · pending':m.organizer)}</div>
-      </div>
+    const badge=ip?'<span class="mitem-badge pend">PENDING</span>'
+      :isNow?'<span class="mitem-badge now">NOW</span>'
+      :hasTeams&&i===0&&!isPast?'<span class="mitem-badge teams">TEAMS</span>'
+      :i===0&&!isPast?'<span class="mitem-badge next">NEXT</span>':'';
+    return `<div class="${cls}">${badge}
+      <div class="mitem-bar"></div>
+      <div class="mitem-time"><div class="mitem-t">${ft(m.start)}</div><div class="mitem-d">${fd(m.start,m.end)}</div></div>
+      <div class="mitem-sep"></div>
+      <div class="mitem-info"><div class="mitem-title">${esc(m.title)}</div><div class="mitem-org">${esc(ip?m.organizer+' · pending':m.organizer)}</div></div>
     </div>`;
   }).join('');
 }
 
 // ══════════════════════════════════════
-// TEAMS JOIN
+// MORE DAYS (Wed–7 days out)
 // ══════════════════════════════════════
-function joinTeams(url){
-  const decoded=url.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"');
-  window.open(decoded,'_blank');
-  toast('Opening Teams meeting…','success');
+function renderMoreDays(){
+  const wrap=el('more-days');
+  if(!moreDaysOpen){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html='<div class="more-days-hdr">Next 5 days</div>';
+  for(let i=2;i<7;i++){
+    const d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
+    const day=getMeetingsForDay(i);
+    const isWkend=d.getDay()===0||d.getDay()===6;
+    const dlbl=`${weekdays[d.getDay()]} ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+    html+=`<div class="day-row"><div class="day-row-hdr">${isWkend?`<span class="wkend">${dlbl}</span>`:dlbl}<span class="day-row-count">${day.length}</span></div>`;
+    if(!day.length){html+=`<div style="font-size:12px;color:var(--text3);padding:6px 0">No meetings</div>`;}
+    else{html+=day.slice(0,5).map(m=>`<div class="mitem" style="padding:9px 12px;margin-bottom:5px">
+      <div class="mitem-bar"></div>
+      <div class="mitem-time"><div class="mitem-t" style="font-size:12px">${ft(m.start)}</div><div class="mitem-d">${fd(m.start,m.end)}</div></div>
+      <div class="mitem-sep"></div>
+      <div class="mitem-info"><div class="mitem-title" style="font-size:12px">${esc(m.title)}</div><div class="mitem-org">${esc(m.organizer)}</div></div>
+    </div>`).join('');}
+    html+='</div>';
+  }
+  wrap.innerHTML=html;
 }
 
 // ══════════════════════════════════════
-// CHECK-IN
+// CHECK-IN / END / EXTEND
 // ══════════════════════════════════════
 async function doCheckin(){
   const btn=el('checkin-btn');if(!btn)return;
   btn.disabled=true;
   const sc=document.createElement('div');sc.className='scan-ln';btn.appendChild(sc);
   await sleep(1200);sc.remove();
-  checkedIn=true;updateDisplay();toast('✓ Checked in','success');
+  checkedIn=true;updateCurrentCard();toast('✓ Checked in','success');
+}
+function endMeeting(){
+  const cur=getCur();if(!cur)return;
+  cur.end=new Date();checkedIn=false;
+  updateCurrentCard();renderBadges();renderMeetList();
+  toast('Meeting ended','success');setTimeout(fetchCal,3000);
+}
+function extendMeeting(){
+  const cur=getCur();if(!cur)return;
+  cur.end=new Date(cur.end.getTime()+30*60000);
+  updateCurrentCard();toast('+30 min extended','success');
+}
+function joinTeams(url){
+  window.open(url.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"'),'_blank');
+  toast('Opening Teams…','success');
 }
 
 // ══════════════════════════════════════
-// BOOKING MODAL
+// BOOKING
 // ══════════════════════════════════════
 function openModal(){
-  selDurMin=60;setVal('book-name','');setVal('book-title','');
+  selDurMin=60;el('book-name').value='';el('book-title').value='';
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
-  const needsAppr=cfg.booking&&cfg.approval;
-  el('appr-banner').style.display=needsAppr?'block':'none';
-  const btn=el('mconfirm');
-  btn.className='mconfirm '+(needsAppr?'appr':'inst');
-  el('mconfirm-lbl').textContent=needsAppr?'Send approval request':'Confirm booking';
-  document.querySelectorAll('.dchip').forEach(c=>{c.classList.remove('sel','asel');if(c.dataset.min=='60'){c.classList.add('sel');if(needsAppr)c.classList.add('asel');}});
+  const na=cfg.booking&&cfg.approval;
+  el('appr-banner').style.display=na?'block':'none';
+  el('mconfirm').className='mconfirm '+(na?'appr':'inst');
+  el('mconfirm-lbl').textContent=na?'Send approval request':'Confirm booking';
+  document.querySelectorAll('.dchip').forEach(c=>{c.classList.remove('sel','asel');if(c.dataset.min=='60'){c.classList.add('sel');if(na)c.classList.add('asel');}});
   updatePrev();show('booking-modal');
   setTimeout(()=>el('book-name').focus(),350);
 }
 function closeModal(){hide('booking-modal');}
-function selDur(chip){
-  const needsAppr=cfg.booking&&cfg.approval;
-  document.querySelectorAll('.dchip').forEach(c=>c.classList.remove('sel','asel'));
-  chip.classList.add('sel');if(needsAppr)chip.classList.add('asel');
-  selDurMin=parseInt(chip.dataset.min);updatePrev();
-}
 function updatePrev(){
   const s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
   el('prev-s').textContent=ft(s);el('prev-e').textContent=ft(e);
@@ -1365,7 +1003,8 @@ async function createDirect(name,title,s,e){
     if(!r.ok){const er=await r.json();toast('Booking failed: '+(er.error?.message||r.status),'error');closeModal();return;}
     closeModal();toast('✓ Room booked!','success');
     meetings.push({id:'loc-'+Date.now(),title,organizer:name,start:s,end:e,attendees:1,isPending:false,joinUrl:null,isOnline:false});
-    meetings.sort((a,b)=>a.start-b.start);updateDisplay();renderDayTabs();renderUpcoming();
+    meetings.sort((a,b)=>a.start-b.start);
+    updateCurrentCard();renderBadges();renderMeetList();
     setTimeout(fetchCal,6000);
   }catch(err){toast('Error: '+err.message,'error');closeModal();}
 }
@@ -1373,28 +1012,7 @@ async function sendApproval(name,title,s,e){
   const tok=await getToken();if(!tok){closeModal();return;}
   const bid='BOOK-'+Date.now();
   const dateStr=s.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const html=`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;">
-<table width="100%"><tr><td align="center" style="padding:32px 16px;">
-<table width="520" style="background:#fff;border-radius:12px;border:1px solid #e0e4eb;">
-<tr><td style="background:#0a0a0f;padding:24px;text-align:center;">
-  <div style="font-size:20px;font-weight:bold;color:#3b9eff;">⬡ ROOM DISPLAY</div>
-  <div style="font-size:12px;color:#6b82a8;margin-top:4px;text-transform:uppercase;letter-spacing:.1em;">Booking Approval Request</div>
-</td></tr>
-<tr><td style="padding:28px;">
-  <table width="100%" style="border:1px solid #e8ecf0;border-radius:8px;font-size:13px;">
-    <tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;width:130px;border-bottom:1px solid #e8ecf0;">Room</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(activeRoom.name)}</td></tr>
-    <tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Requested by</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(name)}</td></tr>
-    <tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Meeting</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(title)}</td></tr>
-    <tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Date</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${dateStr}</td></tr>
-    <tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Time</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${ft(s)} – ${ft(e)}</td></tr>
-    <tr><td style="padding:10px 14px;color:#666;">Booking ID</td><td style="padding:10px 14px;font-family:monospace;color:#888;font-size:11px;">${bid}</td></tr>
-  </table>
-  <table width="100%" style="margin-top:20px;"><tr>
-    <td style="padding-right:8px;"><a href="mailto:${activeRoom.email}?subject=APPROVE:${bid}" style="display:block;text-align:center;padding:14px;background:#00d68f;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✓ Approve</a></td>
-    <td style="padding-left:8px;"><a href="mailto:${activeRoom.email}?subject=DECLINE:${bid}" style="display:block;text-align:center;padding:14px;background:#ff4d6a;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✗ Decline</a></td>
-  </tr></table>
-</td></tr>
-</table></td></tr></table></body></html>`;
+  const html=`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;"><table width="100%"><tr><td align="center" style="padding:32px 16px;"><table width="520" style="background:#fff;border-radius:12px;border:1px solid #e0e4eb;"><tr><td style="background:#0a0a12;padding:24px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#3b9eff;">⬡ ROOM DISPLAY</div><div style="font-size:12px;color:#6b82a8;margin-top:4px;">Booking Approval Request</div></td></tr><tr><td style="padding:28px;"><table width="100%" style="border:1px solid #e8ecf0;border-radius:8px;font-size:13px;"><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;width:130px;border-bottom:1px solid #e8ecf0;">Room</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(activeRoom.name)}</td></tr><tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Requested by</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(name)}</td></tr><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Meeting</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(title)}</td></tr><tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Date</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${dateStr}</td></tr><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Time</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${ft(s)} – ${ft(e)}</td></tr><tr><td style="padding:10px 14px;color:#666;">Booking ID</td><td style="padding:10px 14px;font-family:monospace;color:#888;font-size:11px;">${bid}</td></tr></table><table width="100%" style="margin-top:20px;"><tr><td style="padding-right:8px;"><a href="mailto:${activeRoom.email}?subject=APPROVE:${bid}" style="display:block;text-align:center;padding:14px;background:#00d68f;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✓ Approve</a></td><td style="padding-left:8px;"><a href="mailto:${activeRoom.email}?subject=DECLINE:${bid}" style="display:block;text-align:center;padding:14px;background:#ff4d6a;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✗ Decline</a></td></tr></table></td></tr></table></td></tr></table></body></html>`;
   const mail={message:{subject:`[Approval] ${activeRoom.name}: "${title}" by ${name}`,body:{contentType:'html',content:html},toRecipients:[{emailAddress:{address:cfg.owner}}]},saveToSentItems:true};
   try{
     const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',
@@ -1403,23 +1021,8 @@ async function sendApproval(name,title,s,e){
     const pb={id:bid,title,organizer:name,start:s,end:e,attendees:1,isPending:true,joinUrl:null,isOnline:false};
     pendingLocal.push(pb);meetings.push(pb);meetings.sort((a,b)=>a.start-b.start);
     closeModal();toast('✉ Approval request sent','warn');
-    updateDisplay();renderDayTabs();renderUpcoming();
+    updateCurrentCard();renderBadges();renderMeetList();
   }catch(err){toast('Error: '+err.message,'error');closeModal();}
-}
-
-// ══════════════════════════════════════
-// HELPERS
-// ══════════════════════════════════════
-function localISO(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;}
-function el(id){return document.getElementById(id);}
-function setVal(id,v){el(id).value=v;}
-function show(id){const e=el(id);if(e)e.classList.remove('hidden');}
-function hide(id){const e=el(id);if(e)e.classList.add('hidden');}
-function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
-function toast(msg,type){
-  const t=el('toast');t.textContent=msg;t.className=type||'';
-  t.classList.remove('hidden');clearTimeout(t._t);
-  t._t=setTimeout(()=>t.classList.add('hidden'),3500);
 }
 
 // ══════════════════════════════════════
@@ -1433,16 +1036,82 @@ function svgX(s){return `<svg width="${s||13}" height="${s||13}" fill="none" str
 function svgPlus(s){return `<svg width="${s||13}" height="${s||13}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;}
 function svgTeams(s){return `<svg width="${s||14}" height="${s||14}" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8-2h4v2h-4V4zm8 14H8V8h12v10z"/><path d="M10 12h4v1.5h-4zm0 2.5h4V16h-4z"/></svg>`;}
 
-el('booking-modal').addEventListener('click',e=>{if(e.target===el('booking-modal'))closeModal();});
+// ══════════════════════════════════════
+// EVENT DELEGATION — all clicks here
+// ══════════════════════════════════════
+document.addEventListener('click', function(e){
+  const t=e.target;
 
-// Event delegation for upcoming list (empty-book button)
-el('upcoming-list').addEventListener('click',e=>{
-  if(e.target.closest('[data-action="book"]')) openModal();
+  // Config toggles
+  if(t.id==='cfg-booking'||t.closest('#cfg-booking'))toggleApproval();
+  if(t.id==='cfg-approval'||t.closest('#cfg-approval'))toggleOwner();
+  if(t.id==='btn-add-room'||t.closest('#btn-add-room'))addRoomRow();
+  if(t.closest('[data-action="delroom"]'))t.closest('.room-row').remove();
+  if(t.id==='btn-save-cfg'||t.closest('#btn-save-cfg'))saveConfig();
+
+  // Auth
+  if(t.id==='btn-signin'||t.closest('#btn-signin')){
+    msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],prompt:'select_account'}).catch(e=>{el('auth-error').textContent=e.message;});
+  }
+
+  // Gear / settings
+  if(t.id==='float-gear'||t.closest('#float-gear'))showConfig();
+  if(t.id==='err-settings-btn'||t.closest('#err-settings-btn'))showConfig();
+
+  // Room chips
+  const chip=t.closest('.rchip');
+  if(chip){switchRoom(chip.dataset.name,chip.dataset.email);return;}
+
+  // View tabs (today/tomorrow)
+  const vtab=t.closest('.vtab');
+  if(vtab&&vtab.dataset.view){
+    curView=vtab.dataset.view;
+    document.querySelectorAll('.vtab').forEach(v=>v.classList.toggle('active',v.dataset.view===curView));
+    renderMeetList();return;
+  }
+
+  // More days toggle
+  if(t.id==='btn-more-days'||t.closest('#btn-more-days')){
+    moreDaysOpen=!moreDaysOpen;
+    el('btn-more-days').textContent=moreDaysOpen?'Less ▴':'More ▾';
+    renderMoreDays();return;
+  }
+
+  // Today nav
+  if(t.id==='nav-today-btn'||t.closest('#nav-today-btn')){
+    curView='today';
+    document.querySelectorAll('.vtab').forEach(v=>v.classList.toggle('active',v.dataset.view==='today'));
+    renderMeetList();
+    el('body-scroll')||document.querySelector('.body-scroll')?.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+
+  // Booking
+  if(t.id==='nav-book-btn'||t.closest('#nav-book-btn'))openModal();
+  if(t.id==='book-big-btn'||t.closest('#book-big-btn'))openModal();
+  if(t.id==='book-btn-card'||t.closest('#book-btn-card'))openModal();
+  if(t.closest('[data-action="book"]'))openModal();
+  if(t.id==='modal-cancel'||t.closest('#modal-cancel'))closeModal();
+  if(t.id==='mconfirm'||t.closest('#mconfirm'))confirmBooking();
+  if(t===el('booking-modal'))closeModal();
+
+  // Duration chips
+  const dc=t.closest('.dchip');
+  if(dc){
+    const na=cfg.booking&&cfg.approval;
+    document.querySelectorAll('.dchip').forEach(c=>c.classList.remove('sel','asel'));
+    dc.classList.add('sel');if(na)dc.classList.add('asel');
+    selDurMin=parseInt(dc.dataset.min);updatePrev();return;
+  }
+
+  // Current card actions
+  if(t.id==='checkin-btn'||t.closest('#checkin-btn'))doCheckin();
+  if(t.id==='end-btn'||t.closest('#end-btn'))endMeeting();
+  if(t.id==='ext-btn'||t.closest('#ext-btn'))extendMeeting();
+  if(t.id==='teams-btn'||t.closest('#teams-btn')){
+    const cur=getCur();if(cur?.joinUrl)joinTeams(cur.joinUrl);
+  }
 });
-
-// Ensure nav buttons always work via delegation
-el('nav-all').onclick = function(){ setDayTab(0); };
-el('nav-book').onclick = function(){ openModal(); };
 
 // ══════════════════════════════════════
 // BOOT
