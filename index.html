@@ -1153,7 +1153,7 @@ function updateDisplay() {
     let bookVisible=cfg.booking!==false;
     if(nxt){
       const m=mu(nxt.start);
-      if(m<=60){
+      if(m<=30){
         setTheme('upcoming');
         el('disp-status').textContent=`Available · next in ${m}m`;
       } else {
@@ -1204,20 +1204,19 @@ function extendMeeting(){
 function renderDayTabs(){
   const tabs=el('day-tabs');
   const days=[];
-  const today = new Date();
   for(let i=0;i<7;i++){
     const d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
     const dEnd=new Date(d);dEnd.setHours(23,59,59,999);
     const count=meetings.filter(m=>m.start>=d&&m.start<=dEnd).length;
-    const dow = d.getDay(); // 0=Sun, 6=Sat
-    const isWeekend = dow===0||dow===6;
+    const dow=d.getDay();
+    const isWeekend=dow===0||dow===6;
     days.push({offset:i,date:d,count,isWeekend});
   }
   const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   tabs.innerHTML=days.map(({offset,date,count,isWeekend})=>{
-    const dow = weekdays[date.getDay()];
-    const dayNum = date.getDate();
-    const mon = date.toLocaleDateString('en-US',{month:'short'});
+    const dow=weekdays[date.getDay()];
+    const dayNum=date.getDate();
+    const mon=date.toLocaleDateString('en-US',{month:'short'});
     let label;
     if(offset===0) label=`<span class="dtab-day">Today</span>`;
     else if(offset===1) label=`<span class="dtab-day">Tomorrow</span>`;
@@ -1225,8 +1224,16 @@ function renderDayTabs(){
     const badge=count>0?`<span class="dtab-count">${count}</span>`:'';
     const wkClass=isWeekend?' weekend':'';
     const activeClass=offset===viewDayOffset?' active':'';
-    return `<div class="dtab${activeClass}${wkClass}" onclick="setDayTab(${offset})">${label}${badge}</div>`;
+    return `<div class="dtab${activeClass}${wkClass}" data-offset="${offset}">${label}${badge}</div>`;
   }).join('');
+
+  // Use event delegation — one listener on the container
+  tabs.onclick = function(e){
+    const chip = e.target.closest('.dtab');
+    if(!chip) return;
+    const offset = parseInt(chip.dataset.offset);
+    if(!isNaN(offset)){ viewDayOffset=offset; renderDayTabs(); renderUpcoming(); }
+  };
 }
 function setDayTab(offset){viewDayOffset=offset;renderDayTabs();renderUpcoming();}
 function getMeetingsForDay(offset){
@@ -1251,7 +1258,7 @@ function renderUpcoming(){
     list.innerHTML=`<div class="empty-state">
       <div class="empty-icon">📅</div>
       <div class="empty-txt">No meetings ${dayLabel}</div>
-      ${viewDayOffset===0&&cfg.booking!==false?`<div class="empty-book" onclick="openModal()">+ Book this room</div>`:''}
+      ${viewDayOffset===0&&cfg.booking!==false?`<div class="empty-book" data-action="book">+ Book this room</div>`:''}
     </div>`;
     return;
   }
@@ -1426,6 +1433,15 @@ function svgPlus(s){return `<svg width="${s||13}" height="${s||13}" fill="none" 
 function svgTeams(s){return `<svg width="${s||14}" height="${s||14}" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8-2h4v2h-4V4zm8 14H8V8h12v10z"/><path d="M10 12h4v1.5h-4zm0 2.5h4V16h-4z"/></svg>`;}
 
 el('booking-modal').addEventListener('click',e=>{if(e.target===el('booking-modal'))closeModal();});
+
+// Event delegation for upcoming list (empty-book button)
+el('upcoming-list').addEventListener('click',e=>{
+  if(e.target.closest('[data-action="book"]')) openModal();
+});
+
+// Ensure nav buttons always work via delegation
+el('nav-all').onclick = function(){ setDayTab(0); };
+el('nav-book').onclick = function(){ openModal(); };
 
 // ══════════════════════════════════════
 // BOOT
