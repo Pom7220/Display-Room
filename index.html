@@ -56,10 +56,11 @@ html,body{
 #burnin-overlay{
   position:fixed;inset:0;pointer-events:none;z-index:9999;
   opacity:0;transition:opacity .4s;
+  background:transparent;
 }
 #burnin-overlay.flash{opacity:1;}
 #pixel-drift{
-  position:fixed;inset:0;pointer-events:none;z-index:1;
+  position:fixed;inset:0;z-index:1;
   transition:transform 8s ease-in-out;
 }
 
