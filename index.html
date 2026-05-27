@@ -562,12 +562,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
     <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
     <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
     <label style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:10px">Duration</label>
-    <div class="dur-grid">
-      <div class="dchip" data-min="30">30m</div>
-      <div class="dchip sel" data-min="60">1h</div>
-      <div class="dchip" data-min="90">1h 30m</div>
-      <div class="dchip" data-min="120">2h</div>
-    </div>
+    <div class="dur-grid" id="dur-grid"></div>
     <div class="mactions">
       <button class="mcancel" id="modal-cancel">Cancel</button>
       <button class="mconfirm inst" id="mconfirm"><span id="mconfirm-lbl">Confirm booking</span></button>
@@ -840,15 +835,15 @@ async function fetchCal(){
       joinUrl:ev.onlineMeeting?.joinUrl||ev.onlineMeeting?.joinWebUrl||null,
       isOnline:!!ev.isOnlineMeeting,
       showAs:ev.showAs||'busy',          // free|tentative|busy|oof|workingElsewhere|unknown
-      isCancelled:!!ev.isCancelled
+      isCancelled:!!ev.isCancelled,
+      // Tentative = pending Exchange approval — show as amber pending
+      isPending: ev.showAs==='tentative',
+      isExchangePending: ev.showAs==='tentative' // waiting for room owner in Outlook
     }));
-    // Keep only confirmed meetings:
-    // - showAs=busy/oof (confirmed bookings)
-    // - exclude free (room blocked but not booked), tentative (pending in Outlook), cancelled
-    // - BUT keep our own local pending bookings (isPending=true from pendingLocal)
+    // Keep confirmed + tentative (pending approval), exclude free/cancelled/unknown
     meetings=meetings.filter(m=>
       !m.isCancelled &&
-      (m.showAs==='busy' || m.showAs==='oof' || m.showAs==='workingElsewhere')
+      (m.showAs==='busy' || m.showAs==='oof' || m.showAs==='workingElsewhere' || m.showAs==='tentative')
     );
     // Add back our local pending bookings (not yet in Exchange)
     pendingLocal.forEach(pb=>{if(!meetings.some(m=>Math.abs(m.start-pb.start)<60000&&m.title===pb.title))meetings.push(pb);});
@@ -865,17 +860,17 @@ async function fetchCal(){
 // ══════════════════════════════════════
 function setTheme(status){
   const map={
-    available:{rgb:'41,121,255',   bg:'rgba(41,121,255,0.9)',   mid:'rgba(41,121,255,0.25)',  card:'rgba(41,121,255,0.12)',  border:'rgba(41,121,255,0.4)'},
-    busy:     {rgb:'243,43,43',    bg:'rgba(243,43,43,0.92)',   mid:'rgba(243,43,43,0.28)',   card:'rgba(243,43,43,0.14)',   border:'rgba(243,43,43,0.45)'},
-    soon:     {rgb:'255,149,0',    bg:'rgba(255,149,0,0.88)',   mid:'rgba(255,149,0,0.25)',   card:'rgba(255,149,0,0.12)',   border:'rgba(255,149,0,0.4)'},
-    pending:  {rgb:'255,149,0',    bg:'rgba(255,149,0,0.88)',   mid:'rgba(255,149,0,0.25)',   card:'rgba(255,149,0,0.12)',   border:'rgba(255,149,0,0.4)'}
+    available:{rgb:'41,121,255',   bg:'rgba(41,121,255,1.0)',    mid:'rgba(41,121,255,0.55)',  card:'rgba(41,121,255,0.18)',  border:'rgba(41,121,255,0.55)'},
+    busy:     {rgb:'243,43,43',    bg:'rgba(243,43,43,1.0)',     mid:'rgba(243,43,43,0.60)',   card:'rgba(243,43,43,0.20)',   border:'rgba(243,43,43,0.60)'},
+    soon:     {rgb:'255,149,0',    bg:'rgba(255,149,0,1.0)',     mid:'rgba(255,149,0,0.55)',   card:'rgba(255,149,0,0.18)',   border:'rgba(255,149,0,0.55)'},
+    pending:  {rgb:'255,149,0',    bg:'rgba(255,149,0,1.0)',     mid:'rgba(255,149,0,0.55)',   card:'rgba(255,149,0,0.18)',   border:'rgba(255,149,0,0.55)'}
   };
   const t=map[status]||map.available;
   document.documentElement.style.setProperty('--accent',`rgb(${t.rgb})`);
 
-  // Rich 3-stop background: vivid top → mid wash → dark base
+  // Dramatic 4-stop gradient: vivid top bloom → strong mid wash → fade → dark base
   el('bg').style.background=
-    `radial-gradient(ellipse 120% 60% at 50% -10%, ${t.bg} 0%, ${t.mid} 40%, transparent 70%),`+
+    `radial-gradient(ellipse 140% 65% at 50% -5%, ${t.bg} 0%, ${t.mid} 35%, rgba(${t.rgb},0.08) 60%, transparent 75%),`+
     `linear-gradient(180deg,#0a0a12 0%,#0a0a12 100%)`;
 
   // Tint the current card
@@ -907,7 +902,10 @@ function updateCurrentCard(){
     const pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
     let btns='';
     if(ip){
-      btns=`<button class="abtn abtn-pend" disabled>${svgClock()} Awaiting approval…</button>`;
+      const pendMsg = cur.isExchangePending
+        ? `${svgClock()} Awaiting room owner approval in Outlook`
+        : `${svgClock()} Awaiting approval…`;
+      btns=`<button class="abtn abtn-pend" disabled>${pendMsg}</button>`;
     } else {
       btns += checkedIn
         ? `<button class="abtn abtn-checkin checked" disabled>${svgCheck()} Checked In</button>`
@@ -942,7 +940,7 @@ function updateCurrentCard(){
       <div class="meet-time-lg" style="color:var(--soon)">${ft(nxt.start)} – ${ft(nxt.end)}</div>
       ${nxt.organizer?`<div class="meet-org">${svgUser(13)}${esc(nxt.organizer)}</div>`:''}
       <div class="action-row"><button class="abtn abtn-checkin off" disabled>No active meeting</button>${bookBtn}</div>`;
-    el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
+    el('nav-book-btn').style.display='none'; // card has book btn, hide nav duplicate
 
   } else {
     setTheme('available');
@@ -1082,29 +1080,62 @@ function joinTeams(url){
 // BOOKING
 // ══════════════════════════════════════
 function openModal(){
-  selDurMin=60;el('book-name').value='';el('book-title').value='';
+  el('book-name').value='';el('book-title').value='';
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
   const na=cfg.booking&&cfg.approval;
   el('appr-banner').style.display=na?'block':'none';
   el('mconfirm').className='mconfirm '+(na?'appr':'inst');
   el('mconfirm-lbl').textContent=na?'Send approval request':'Confirm booking';
-  document.querySelectorAll('.dchip').forEach(c=>{c.classList.remove('sel','asel');if(c.dataset.min=='60'){c.classList.add('sel');if(na)c.classList.add('asel');}});
-  updatePrev();show('booking-modal');
+  // Round start to next 15-min slot
+  bookStart=nextQuarter(new Date());
+  buildDurChips(bookStart, 60);
+  updatePrev();
+  show('booking-modal');
   setTimeout(()=>el('book-name').focus(),350);
 }
 function closeModal(){hide('booking-modal');}
-function updatePrev(){
-  const s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
-  el('prev-s').textContent=ft(s);el('prev-e').textContent=ft(e);
+// Round up to next 15-min boundary
+function nextQuarter(d){
+  const m=d.getMinutes(),s=d.getSeconds();
+  const rem=(s>0?1:0)+(m%15===0&&s===0?0:15-(m%15));
+  const r=new Date(d);
+  r.setSeconds(0,0);
+  r.setMinutes(m + (m%15===0&&s===0?0:15-(m%15)));
+  return r;
 }
+
+function buildDurChips(startTime, defaultMin=60){
+  const needsAppr=cfg.booking&&cfg.approval;
+  // Offer 4 durations: 30, 60, 90, 120 min — show end time for each
+  const durations=[30,60,90,120];
+  const grid=el('dur-grid');
+  grid.innerHTML=durations.map(min=>{
+    const end=new Date(startTime.getTime()+min*60000);
+    const endStr=ft(end);
+    const label=min<60?`${min}m`:(min===60?'1h':(min===90?'1h 30m':'2h'));
+    const sel=min===defaultMin;
+    const cls='dchip'+(sel?' sel':'')+(needsAppr&&sel?' asel':'');
+    return `<div class="${cls}" data-min="${min}"><div style="font-size:13px;font-weight:700">${label}</div><div style="font-size:10px;opacity:.6;margin-top:2px">→ ${endStr}</div></div>`;
+  }).join('');
+  selDurMin=defaultMin;
+}
+
+function updatePrev(){
+  const s=bookStart||new Date();
+  const e=new Date(s.getTime()+selDurMin*60000);
+  el('prev-s').textContent=ft(s);
+  el('prev-e').textContent=ft(e);
+}
+
+let bookStart=null; // the rounded start time for the current booking
 async function confirmBooking(){
   const name=el('book-name').value.trim(),title=el('book-title').value.trim();
   if(!name){toast('Please enter your name','warn');return;}
   if(!title){toast('Please enter a meeting title','warn');return;}
   const btn=el('mconfirm');btn.disabled=true;
   el('mconfirm-lbl').innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>';
-  const s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  const s=bookStart||new Date(), e=new Date(s.getTime()+selDurMin*60000);
   if(cfg.approval)await sendApproval(name,title,s,e);
   else await createDirect(name,title,s,e);
   btn.disabled=false;
@@ -1309,7 +1340,9 @@ document.addEventListener('click', function(e){
     const na=cfg.booking&&cfg.approval;
     document.querySelectorAll('.dchip').forEach(c=>c.classList.remove('sel','asel'));
     dc.classList.add('sel');if(na)dc.classList.add('asel');
-    selDurMin=parseInt(dc.dataset.min);updatePrev();return;
+    selDurMin=parseInt(dc.dataset.min);
+    updatePrev();
+    return;
   }
 
   // Current card actions
