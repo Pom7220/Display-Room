@@ -391,6 +391,9 @@ if('serviceWorker' in navigator){
   <div class="cfg-logo">⬡ Room Display</div>
   <div class="cfg-title">Setup</div>
   <div class="cfg-sub">Meeting Room Kiosk — Configuration</div>
+
+  <!-- SAVE BUTTON AT TOP — always visible -->
+  <button class="btn-primary" id="btn-save-cfg" style="margin-bottom:20px;margin-top:0">💾 Save &amp; Launch Display</button>
   <div class="cfg-card">
     <h3>Azure AD / Microsoft 365</h3>
     <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
@@ -731,8 +734,8 @@ function saveConfig(){
   });
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
-    booking:b('cfg-booking'),approval:b('cfg-approval'),owner:v('cfg-owner'),
-    extraRooms,teamsBtn:b('cfg-teams')};
+    booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
+    extraRooms,teamsBtn:b('cfg-teams')!==false};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
   initMsal();
 }
@@ -745,9 +748,9 @@ function showConfig(){
   if(cfg.roomname)el('cfg-roomname').value=cfg.roomname;
   if(cfg.roomemail)el('cfg-roomemail').value=cfg.roomemail;
   if(cfg.release!=null)el('cfg-release').value=cfg.release;
-  el('cfg-booking').checked=cfg.booking!==false;
-  el('cfg-approval').checked=!!cfg.approval;
-  el('cfg-teams').checked=cfg.teamsBtn!==false;
+  el('cfg-booking').checked=cfg.booking!==false; // default ON
+  el('cfg-approval').checked=!!cfg.approval;      // default OFF
+  el('cfg-teams').checked=cfg.teamsBtn!==false;   // default ON
   if(cfg.owner)el('cfg-owner').value=cfg.owner;
   const list=el('extra-rooms-list');list.innerHTML='';
   (cfg.extraRooms||[]).forEach(r=>addRoomRow(r.name,r.email));
