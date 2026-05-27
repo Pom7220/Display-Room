@@ -15,11 +15,11 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 
 :root{
-  --available:#1a6ef5;
-  --busy:#e53935;
-  --soon:#f59e0b;
-  --pending:#f59e0b;
-  --green:#10b981;
+  --available:#2979ff;
+  --busy:#f32b2b;
+  --soon:#ff9500;
+  --pending:#ff9500;
+  --green:#00e676;
   --bg:#0a0a12;
   --surface:rgba(255,255,255,0.06);
   --surface2:rgba(255,255,255,0.09);
@@ -128,14 +128,15 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 /* Room info */
 .room-name-lg{font-size:48px;font-weight:900;color:#fff;letter-spacing:-.03em;line-height:1.05;margin-bottom:6px;}
 .status-line{display:flex;align-items:center;gap:8px;margin-bottom:0;}
-.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.sdot.av{background:var(--green);animation:pulse-g 2s infinite;}
-.sdot.busy{background:var(--busy);animation:pulse-r 2s infinite;}
-.sdot.soon{background:var(--soon);}
-.sdot.pend{background:var(--soon);animation:pulse-g 1.4s infinite;}
-@keyframes pulse-g{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.5)}50%{opacity:.7;box-shadow:0 0 0 6px rgba(16,185,129,0)}}
-@keyframes pulse-r{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(229,57,53,.5)}50%{opacity:.7;box-shadow:0 0 0 6px rgba(229,57,53,0)}}
-.status-txt{font-size:15px;font-weight:500;color:var(--text2);}
+.sdot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.sdot.av{background:#00e676;animation:pulse-g 2s infinite;}
+.sdot.busy{background:#f32b2b;animation:pulse-r 2s infinite;}
+.sdot.soon{background:#ff9500;animation:pulse-y 2s infinite;}
+.sdot.pend{background:#ff9500;animation:pulse-y 1.4s infinite;}
+@keyframes pulse-g{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,230,118,.6)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(0,230,118,0)}}
+@keyframes pulse-r{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(243,43,43,.7)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(243,43,43,0)}}
+@keyframes pulse-y{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,149,0,.6)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(255,149,0,0)}}
+.status-txt{font-size:15px;font-weight:600;color:var(--accent);transition:color .6s;}
 
 /* ── BODY SCROLL ── */
 .body-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 22px 100px;position:relative;z-index:2;}
@@ -244,9 +245,10 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .mitem-title{font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
 .mitem-org{font-size:11px;color:var(--text3);margin-top:2px;}
 .mitem-badge{position:absolute;top:8px;right:8px;font-size:9px;border-radius:20px;padding:3px 8px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
-.mitem-badge.now{color:var(--busy);background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.2);}
-.mitem-badge.next{color:#fbbf24;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);}
-.mitem-badge.teams{color:#a5b4fc;background:rgba(98,100,167,.1);border:1px solid rgba(98,100,167,.2);}
+.mitem-badge.now{color:#ff6b6b;background:rgba(243,43,43,.18);border:1px solid rgba(243,43,43,.35);}
+.mitem-badge.next{color:#ffb340;background:rgba(255,149,0,.15);border:1px solid rgba(255,149,0,.32);}
+.mitem-badge.teams{color:#a5b4fc;background:rgba(98,100,167,.15);border:1px solid rgba(98,100,167,.28);}
+.mitem-badge.pend{color:#ffb340;background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.28);}
 
 /* Empty state */
 .empty-day{text-align:center;padding:32px 20px;color:var(--text3);}
@@ -825,7 +827,7 @@ async function fetchCal(){
   const e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
   const url=`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(activeRoom.email)}/calendarView`
     +`?startDateTime=${s.toISOString()}&endDateTime=${e.toISOString()}`
-    +`&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting&$orderby=start/dateTime&$top=60`;
+    +`&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled&$orderby=start/dateTime&$top=60`;
   try{
     const r=await fetch(url,{headers:{Authorization:`Bearer ${tok}`}});
     if(!r.ok){const er=await r.json();setErr(er.error?.message||'Calendar error');return;}
@@ -836,8 +838,19 @@ async function fetchCal(){
       start:gDate(ev.start),end:gDate(ev.end),
       attendees:(ev.attendees||[]).length,isPending:false,
       joinUrl:ev.onlineMeeting?.joinUrl||ev.onlineMeeting?.joinWebUrl||null,
-      isOnline:!!ev.isOnlineMeeting
+      isOnline:!!ev.isOnlineMeeting,
+      showAs:ev.showAs||'busy',          // free|tentative|busy|oof|workingElsewhere|unknown
+      isCancelled:!!ev.isCancelled
     }));
+    // Keep only confirmed meetings:
+    // - showAs=busy/oof (confirmed bookings)
+    // - exclude free (room blocked but not booked), tentative (pending in Outlook), cancelled
+    // - BUT keep our own local pending bookings (isPending=true from pendingLocal)
+    meetings=meetings.filter(m=>
+      !m.isCancelled &&
+      (m.showAs==='busy' || m.showAs==='oof' || m.showAs==='workingElsewhere')
+    );
+    // Add back our local pending bookings (not yet in Exchange)
     pendingLocal.forEach(pb=>{if(!meetings.some(m=>Math.abs(m.start-pb.start)<60000&&m.title===pb.title))meetings.push(pb);});
     // Filter out meetings the user ended locally
     if(locallyEnded.size>0) meetings=meetings.filter(m=>!locallyEnded.has(m.id));
@@ -851,10 +864,28 @@ async function fetchCal(){
 // THEME
 // ══════════════════════════════════════
 function setTheme(status){
-  const map={available:'26,110,245',busy:'229,57,53',soon:'245,158,11',pending:'245,158,11'};
-  const c=map[status]||map.available;
-  document.documentElement.style.setProperty('--accent',`rgb(${c})`);
-  el('bg').style.background=`radial-gradient(ellipse 100% 55% at 50% -5%,rgba(${c},0.75) 0%,transparent 70%),linear-gradient(180deg,#0a0a12 0%,#0a0a12 100%)`;
+  const map={
+    available:{rgb:'41,121,255',   bg:'rgba(41,121,255,0.9)',   mid:'rgba(41,121,255,0.25)',  card:'rgba(41,121,255,0.12)',  border:'rgba(41,121,255,0.4)'},
+    busy:     {rgb:'243,43,43',    bg:'rgba(243,43,43,0.92)',   mid:'rgba(243,43,43,0.28)',   card:'rgba(243,43,43,0.14)',   border:'rgba(243,43,43,0.45)'},
+    soon:     {rgb:'255,149,0',    bg:'rgba(255,149,0,0.88)',   mid:'rgba(255,149,0,0.25)',   card:'rgba(255,149,0,0.12)',   border:'rgba(255,149,0,0.4)'},
+    pending:  {rgb:'255,149,0',    bg:'rgba(255,149,0,0.88)',   mid:'rgba(255,149,0,0.25)',   card:'rgba(255,149,0,0.12)',   border:'rgba(255,149,0,0.4)'}
+  };
+  const t=map[status]||map.available;
+  document.documentElement.style.setProperty('--accent',`rgb(${t.rgb})`);
+
+  // Rich 3-stop background: vivid top → mid wash → dark base
+  el('bg').style.background=
+    `radial-gradient(ellipse 120% 60% at 50% -10%, ${t.bg} 0%, ${t.mid} 40%, transparent 70%),`+
+    `linear-gradient(180deg,#0a0a12 0%,#0a0a12 100%)`;
+
+  // Tint the current card
+  const card=el('cur-card');
+  if(card){
+    card.style.background=t.card;
+    card.style.borderColor=t.border;
+    card.style.boxShadow=`0 0 40px ${t.mid}, inset 0 1px 0 ${t.border}`;
+  }
+
   const dot=el('sdot');
   dot.className='sdot '+({available:'av',busy:'busy',soon:'soon',pending:'pend'}[status]||'av');
 }
@@ -863,7 +894,7 @@ function setTheme(status){
 // CURRENT CARD
 // ══════════════════════════════════════
 function getCur(){const n=new Date();return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start<=n&&m.end>=n)||null;}
-function getNext(){const n=new Date();return meetings.find(m=>!isAllDay(m)&&m.start>n)||null;}
+function getNext(){const n=new Date();return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start>n)||null;}
 
 function updateCurrentCard(){
   const n=new Date(),cur=getCur(),nxt=getNext();
