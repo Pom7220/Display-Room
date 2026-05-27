@@ -330,35 +330,54 @@ html,body{
 .abtn-pending{background:rgba(245,158,11,.08);color:#fbbf24;border:1px solid rgba(245,158,11,.2);cursor:default;flex:2;}
 .release-warn{font-size:12px;color:#fbbf24;margin-top:8px;text-align:center;min-height:16px;}
 
-/* ── DAY TABS ── */
+/* DAY TABS */
 .day-tabs{
   display:flex;gap:6px;
   padding:14px 0 8px;flex-shrink:0;
   overflow-x:auto;-webkit-overflow-scrolling:touch;
   scrollbar-width:none;
+  position:relative;z-index:5;
 }
 .day-tabs::-webkit-scrollbar{display:none;}
 .dtab{
-  padding:7px 14px;
+  padding:7px 12px;
   background:rgba(255,255,255,.07);
   border:1px solid transparent;
-  border-radius:20px;font-size:13px;
-  font-weight:600;color:var(--text3);
+  border-radius:12px;
+  font-size:12px;font-weight:600;color:var(--text3);
   cursor:pointer;white-space:nowrap;flex-shrink:0;
   transition:all .2s;font-family:var(--font);
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  min-width:52px;
+  -webkit-tap-highlight-color:transparent;
+  position:relative;z-index:5;
 }
 .dtab.active{
   background:rgba(255,255,255,.15);
   border-color:rgba(255,255,255,.25);
   color:#fff;
 }
-.dtab:active{transform:scale(.95);}
-.dtab-count{
-  display:inline-block;background:rgba(255,255,255,.1);
-  border-radius:10px;padding:1px 6px;
-  font-size:10px;margin-left:4px;color:var(--text3);
+.dtab.weekend{
+  background:rgba(255,255,255,.04);
+  border-color:rgba(255,255,255,.06);
+  color:rgba(255,255,255,.25);
 }
-.dtab.active .dtab-count{background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);}
+.dtab.weekend.active{
+  background:rgba(255,255,255,.1);
+  border-color:rgba(255,255,255,.2);
+  color:rgba(255,255,255,.6);
+}
+.dtab:active{transform:scale(.93);}
+.dtab-day{font-size:12px;font-weight:700;line-height:1.2;}
+.dtab-date{font-size:10px;font-weight:400;opacity:.7;line-height:1.2;}
+.dtab-count{
+  display:inline-block;background:rgba(255,255,255,.15);
+  border-radius:10px;padding:1px 5px;
+  font-size:9px;margin-top:3px;color:rgba(255,255,255,.6);
+  font-weight:700;
+}
+.dtab.active .dtab-count{background:rgba(255,255,255,.2);color:#fff;}
+.dtab.weekend .dtab-count{background:rgba(255,255,255,.08);}
 
 /* ── UPCOMING LIST ── */
 .upcoming-list{
@@ -430,11 +449,11 @@ html,body{
 .kiosk-nav{
   position:fixed;bottom:0;left:0;right:0;
   padding:12px 20px calc(env(safe-area-inset-bottom,0px) + 12px);
-  background:rgba(10,10,15,0.85);
+  background:rgba(10,10,15,0.92);
   border-top:1px solid var(--border);
   backdrop-filter:blur(20px);
   display:flex;justify-content:space-between;align-items:center;
-  z-index:10;
+  z-index:4;
 }
 .nav-btn{
   display:flex;align-items:center;gap:6px;
@@ -853,21 +872,47 @@ const COLORS = ['#1a3a6e','#6e1a1a','#1a5c3a','#3a1a6e','#000000'];
 let biIdx = 0, driftX = 0, driftY = 0;
 
 function startBurnIn() {
-  // Color flash every 5 seconds — subtle overlay flash
-  setInterval(() => {
-    const ov = el('burnin-overlay');
-    biIdx = (biIdx+1) % COLORS.length;
-    ov.style.background = COLORS[biIdx];
-    ov.classList.add('flash');
-    setTimeout(() => ov.classList.remove('flash'), 400);
-  }, 5000);
+  // Soft radial wave — moves a gentle glow around the screen, not visible color change
+  const canvas = document.createElement('canvas');
+  canvas.id = 'burnin-canvas';
+  canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;transition:opacity 2s;';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  let waveX = 0.5, waveY = 0.5, targetX = 0.5, targetY = 0.5;
 
-  // Pixel drift — shift entire content ±4px every 8 seconds
+  function drawWave() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    // Smooth move toward target
+    waveX += (targetX - waveX) * 0.02;
+    waveY += (targetY - waveY) * 0.02;
+    const cx = waveX * canvas.width;
+    const cy = waveY * canvas.height;
+    const r = Math.max(canvas.width, canvas.height) * 0.7;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grad.addColorStop(0, 'rgba(255,255,255,0.018)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.008)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    requestAnimationFrame(drawWave);
+  }
+  drawWave();
+  setTimeout(() => { canvas.style.opacity = '1'; }, 2000);
+
+  // Move wave to new random position every 6 seconds
   setInterval(() => {
-    driftX = (Math.random() * 8 - 4);
-    driftY = (Math.random() * 8 - 4);
+    targetX = 0.1 + Math.random() * 0.8;
+    targetY = 0.1 + Math.random() * 0.8;
+  }, 6000);
+
+  // Pixel drift — shift entire content ±3px every 10 seconds (subtler)
+  setInterval(() => {
+    driftX = (Math.random() * 6 - 3);
+    driftY = (Math.random() * 6 - 3);
     el('pixel-drift').style.transform = `translate(${driftX}px,${driftY}px)`;
-  }, 8000);
+  }, 10000);
 }
 
 // ══════════════════════════════════════
@@ -1108,7 +1153,7 @@ function updateDisplay() {
     let bookVisible=cfg.booking!==false;
     if(nxt){
       const m=mu(nxt.start);
-      if(m<=30){
+      if(m<=60){
         setTheme('upcoming');
         el('disp-status').textContent=`Available · next in ${m}m`;
       } else {
@@ -1159,16 +1204,28 @@ function extendMeeting(){
 function renderDayTabs(){
   const tabs=el('day-tabs');
   const days=[];
+  const today = new Date();
   for(let i=0;i<7;i++){
     const d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
     const dEnd=new Date(d);dEnd.setHours(23,59,59,999);
     const count=meetings.filter(m=>m.start>=d&&m.start<=dEnd).length;
-    days.push({offset:i,date:d,count});
+    const dow = d.getDay(); // 0=Sun, 6=Sat
+    const isWeekend = dow===0||dow===6;
+    days.push({offset:i,date:d,count,isWeekend});
   }
-  tabs.innerHTML=days.map(({offset,date,count})=>{
-    const label=offset===0?'Today':offset===1?'Tomorrow':date.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  tabs.innerHTML=days.map(({offset,date,count,isWeekend})=>{
+    const dow = weekdays[date.getDay()];
+    const dayNum = date.getDate();
+    const mon = date.toLocaleDateString('en-US',{month:'short'});
+    let label;
+    if(offset===0) label=`<span class="dtab-day">Today</span>`;
+    else if(offset===1) label=`<span class="dtab-day">Tomorrow</span>`;
+    else label=`<span class="dtab-day">${dow}</span><span class="dtab-date">${mon} ${dayNum}</span>`;
     const badge=count>0?`<span class="dtab-count">${count}</span>`:'';
-    return `<div class="dtab${offset===viewDayOffset?' active':''}" onclick="setDayTab(${offset})">${label}${badge}</div>`;
+    const wkClass=isWeekend?' weekend':'';
+    const activeClass=offset===viewDayOffset?' active':'';
+    return `<div class="dtab${activeClass}${wkClass}" onclick="setDayTab(${offset})">${label}${badge}</div>`;
   }).join('');
 }
 function setDayTab(offset){viewDayOffset=offset;renderDayTabs();renderUpcoming();}
