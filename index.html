@@ -59,7 +59,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 #pixel-drift{position:fixed;inset:0;z-index:1;transition:transform 10s ease-in-out;}
 
 /* ── CONFIG ── */
-#config-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:28px 20px 40px;z-index:1000;overflow-y:auto;}
+#config-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:28px 20px 100px;z-index:1000;overflow-y:scroll;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 #config-screen.hidden{display:none;}
 .cfg-logo{font-size:11px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;margin-top:12px;}
 .cfg-title{font-size:30px;font-weight:900;color:var(--text);margin-bottom:4px;letter-spacing:-.03em;}
@@ -442,6 +442,11 @@ if('serviceWorker' in navigator){
   </div>
 </div>
 
+<!-- Sticky save bar for mobile -->
+<div id="cfg-sticky-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;padding:12px 20px calc(env(safe-area-inset-bottom,0px)+12px);background:rgba(10,10,18,.97);border-top:1px solid rgba(255,255,255,.1);z-index:1001;backdrop-filter:blur(20px);">
+  <button class="btn-primary" style="margin-top:0" onclick="saveConfig()">Save &amp; Launch Display</button>
+</div>
+
 <!-- AUTH -->
 <div id="auth-overlay" class="hidden">
   <div class="auth-icon">🔐</div>
@@ -734,6 +739,7 @@ function saveConfig(){
 
 function showConfig(){
   show('config-screen');hide('app');hide('auth-overlay');hide('booking-modal');
+  el('cfg-sticky-bar').style.display='block';
   if(cfg.tenant)el('cfg-tenant').value=cfg.tenant;
   if(cfg.client)el('cfg-client').value=cfg.client;
   if(cfg.roomname)el('cfg-roomname').value=cfg.roomname;
@@ -789,6 +795,7 @@ async function getToken(){
 // ══════════════════════════════════════
 function launch(){
   hide('auth-overlay');show('app');
+  el('cfg-sticky-bar').style.display='none';
   activeRoom={name:cfg.roomname,email:cfg.roomemail};
   el('disp-name').textContent=activeRoom.name;
   el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
@@ -1378,7 +1385,7 @@ document.addEventListener('click', function(e){
 // ══════════════════════════════════════
 loadCfg();
 if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail)initMsal();
-else showConfig();
+else{showConfig();el('cfg-sticky-bar').style.display='block';}
 </script>
 </body>
 </html>
