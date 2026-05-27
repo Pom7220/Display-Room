@@ -561,9 +561,42 @@ html,body{
 .mconfirm:active{transform:scale(.97);}
 .mconfirm:disabled{opacity:.6;cursor:default;transform:none;}
 
-/* ══════════════════════════════════════
-   TOAST
-══════════════════════════════════════ */
+/* PERMANENT FLOATING GEAR */
+#float-gear{
+  position:fixed;bottom:22px;right:16px;
+  width:40px;height:40px;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:50%;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  z-index:9000;color:#fff;
+  transition:background .2s,opacity .2s;
+  opacity:.55;
+  -webkit-tap-highlight-color:transparent;
+}
+#float-gear:hover,#float-gear:active{opacity:1;background:rgba(255,255,255,.18);}
+
+/* ERROR BANNER */
+#error-banner{
+  position:fixed;bottom:72px;left:16px;right:16px;
+  background:rgba(229,57,53,.12);
+  border:1px solid rgba(229,57,53,.35);
+  border-radius:12px;padding:12px 16px;
+  font-size:13px;color:#f87171;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  z-index:8999;backdrop-filter:blur(12px);
+  font-family:var(--font);
+}
+#error-banner .err-msg{flex:1;line-height:1.4;}
+#error-banner .err-btn{
+  background:rgba(229,57,53,.2);
+  border:1px solid rgba(229,57,53,.3);
+  border-radius:8px;padding:7px 12px;
+  color:#f87171;font-size:12px;font-weight:700;
+  cursor:pointer;white-space:nowrap;font-family:var(--font);
+  flex-shrink:0;
+}
+#error-banner .err-btn:active{background:rgba(229,57,53,.35);}
 #toast{
   position:fixed;bottom:90px;left:50%;
   transform:translateX(-50%);
@@ -749,7 +782,7 @@ html,body{
       <button class="nav-btn primary" onclick="openModal()" id="nav-book" style="display:none">
         + New Booking
       </button>
-      <button class="gear-nav" onclick="showConfig()" aria-label="Settings">
+      <button class="gear-nav" onclick="showConfig()" aria-label="Settings" id="gear-in-nav">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </div>
@@ -791,6 +824,14 @@ html,body{
     </div>
   </div>
 </div>
+
+<!-- PERMANENT FLOATING GEAR — always on top regardless of app state -->
+<button id="float-gear" onclick="showConfig()" aria-label="Settings" title="Settings">
+  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+</button>
+
+<!-- ERROR BANNER — shown on calendar access errors -->
+<div id="error-banner" style="display:none"></div>
 
 <!-- TOAST -->
 <div id="toast" class="hidden"></div>
@@ -978,11 +1019,28 @@ async function fetchCal() {
     }));
     pendingLocal.forEach(pb=>{if(!meetings.some(m=>Math.abs(m.start-pb.start)<60000&&m.title===pb.title))meetings.push(pb);});
     meetings.sort((a,b)=>a.start-b.start);
+    // Clear any previous error banner on success
+    el('error-banner').style.display='none';
     updateDisplay();renderDayTabs();renderUpcoming();
   } catch(e){setErr(e.message);}
 }
 function gDate(o){const s=o.dateTime;return new Date(s.endsWith('Z')?s:s+'Z');}
-function setErr(msg){el('meet-title').textContent='⚠ '+msg;el('meet-title').style.color='#fbbf24';}
+function setErr(msg) {
+  // Show error in meet card
+  el('meet-title').textContent = '⚠ ' + msg;
+  el('meet-title').style.color = '#fbbf24';
+  // Show persistent error banner with settings shortcut
+  const banner = el('error-banner');
+  const isAccessDenied = msg.toLowerCase().includes('access') || msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('forbidden');
+  banner.style.display = 'flex';
+  banner.innerHTML = `
+    <div class="err-msg">
+      ${isAccessDenied
+        ? '🔒 Access denied to this room calendar. Your account needs Full Access permission, or switch to a different room.'
+        : '⚠ ' + msg}
+    </div>
+    <button class="err-btn" onclick="showConfig()">⚙ Settings</button>`;
+}
 
 // ══════════════════════════════════════
 // DISPLAY UPDATE
