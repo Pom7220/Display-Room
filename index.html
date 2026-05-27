@@ -918,7 +918,12 @@ function setTheme(status){
 // CURRENT CARD
 // ══════════════════════════════════════
 function getCur(){const n=new Date();return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start<=n&&m.end>=n)||null;}
-function getNext(){const n=new Date();return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start>n)||null;}
+function getNext(){
+  const n=new Date();
+  // Only show upcoming meetings from TODAY — not tomorrow or future days
+  const endOfToday=new Date();endOfToday.setHours(23,59,59,999);
+  return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday)||null;
+}
 
 function updateCurrentCard(){
   const n=new Date(),cur=getCur(),nxt=getNext();
