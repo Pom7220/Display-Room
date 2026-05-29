@@ -740,10 +740,13 @@ function startBurnIn(){
 function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');}catch(e){cfg={};}}
 
 function saveConfig(){
+  dbg('saveConfig called');
   function v(id){return el(id).value.trim();}
   function b(id){return el(id).checked;}
+  dbg('tenant='+v('cfg-tenant').substring(0,8)+'... client='+v('cfg-client').substring(0,8)+'...');
   if(!v('cfg-tenant')||!v('cfg-client')||!v('cfg-roomname')||!v('cfg-roomemail')){alert('Fill in all required fields.');return;}
   if(b('cfg-booking')&&b('cfg-approval')&&!v('cfg-owner')){alert('Enter room owner email for approval.');return;}
+  dbg('Validation passed, saving config...');
   var extraRooms=[];
   document.querySelectorAll('.room-row').forEach(function(row){
     var nm=row.querySelector('.rr-name').value.trim();
@@ -790,17 +793,26 @@ function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checke
 // ══════════════════════════════════════
 // MSAL
 // ══════════════════════════════════════
+var dbgLines=[];
 function dbg(msg){
+  dbgLines.push(msg);
+  if(dbgLines.length>20)dbgLines.shift();
   var d=el('cfg-debug');
-  if(d){d.style.display='block';d.textContent=msg;}
-  console.log('DBG:',msg);
+  if(d){d.style.display='block';d.innerHTML='<b>Debug:</b><br>'+dbgLines.join('<br>');}
+  try{console.log('DBG:',msg);}catch(ex){}
 }
+window.onerror=function(msg,src,line){
+  dbg('JS ERROR: '+msg+' L:'+line);
+  show('config-screen');
+  el('cfg-sticky-bar').style.display='block';
+  return false;
+};
 
 function initMsal(){
-  dbg('Initializing MSAL...');
-  hide('config-screen');
-  el('cfg-sticky-bar').style.display='none';
+  dbg('1. saveConfig OK');
   try{
+    if(typeof msal==='undefined'){dbg('ERROR: msal not loaded!');return;}
+    dbg('2. msal OK, creating instance');
     msalInst=new msal.PublicClientApplication({
       auth:{
         clientId:cfg.client,
@@ -809,33 +821,33 @@ function initMsal(){
       },
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
-    dbg('MSAL created, initializing...');
+    dbg('3. instance created, calling initialize()');
     msalInst.initialize().then(function(){
-      dbg('MSAL initialized, handling redirect...');
+      dbg('4. initialized OK');
       return msalInst.handleRedirectPromise();
     }).then(function(r){
       if(r&&r.account){
-        dbg('Got account from redirect');
-        account=r.account;launch();return;
+        dbg('5. redirect account found - launching');
+        account=r.account;hide('config-screen');el('cfg-sticky-bar').style.display='none';launch();return;
       }
       var acts=msalInst.getAllAccounts();
       if(acts.length){
-        dbg('Got cached account');
-        account=acts[0];launch();
+        dbg('5. cached account found - launching');
+        account=acts[0];hide('config-screen');el('cfg-sticky-bar').style.display='none';launch();
       } else {
-        dbg('No account, showing auth...');
-        showAuth();
+        dbg('5. no account - showing sign in');
+        hide('config-screen');el('cfg-sticky-bar').style.display='none';showAuth();
       }
     }).catch(function(e){
-      dbg('MSAL error: '+e.message);
-      el('auth-error').textContent=e.message;
+      var msg=e&&e.message?e.message:String(e);
+      dbg('MSAL promise error: '+msg);
+      el('auth-error').textContent=msg;
       showAuth();
     });
   }catch(e){
-    dbg('MSAL init error: '+e.message);
-    el('auth-error').textContent=e.message;
-    show('config-screen');
-    el('cfg-sticky-bar').style.display='block';
+    var msg=e&&e.message?e.message:String(e);
+    dbg('MSAL catch error: '+msg);
+    show('config-screen');el('cfg-sticky-bar').style.display='block';
   }
 }
 
