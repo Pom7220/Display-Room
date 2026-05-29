@@ -5,199 +5,427 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Browser Test</title>
 <style>
-body{font-family:Arial,sans-serif;padding:16px;background:#111;color:#fff;font-size:14px;}
-h2{color:#5599ff;margin-bottom:12px;}
-.pass{color:#00e676;padding:4px 0;}
-.fail{color:#f32b2b;padding:4px 0;font-weight:bold;}
-.info{color:#fbbf24;padding:4px 0;}
-#result{margin-top:16px;padding:12px;background:#1a1a2e;border-radius:8px;}
-button{padding:12px 24px;background:#2979ff;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;width:100%;margin-bottom:8px;}
+body{font-family:Arial,sans-serif;padding:16px;background:#111;color:#fff;font-size:14px;margin:0;}
+h2{color:#5599ff;margin-bottom:8px;font-size:18px;}
+h3{color:#aaa;margin:12px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.1em;}
+.pass{color:#00e676;padding:3px 0;display:block;}
+.fail{color:#f32b2b;padding:3px 0;font-weight:bold;display:block;}
+.info{color:#fbbf24;padding:3px 0;display:block;}
+.warn{color:#ff9500;padding:3px 0;display:block;}
+#result{margin-bottom:12px;padding:12px;background:#1a1a2e;border-radius:8px;min-height:40px;font-size:13px;line-height:1.7;}
+.btn{display:block;padding:12px;background:#2979ff;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;width:100%;margin-bottom:8px;text-align:center;font-weight:bold;}
+.btn.green{background:#00897b;}
+.btn.red{background:#c62828;}
+.btn.amber{background:#e65100;}
+.btn.purple{background:#6a1b9a;}
+.btn.gray{background:#444;}
 input{width:100%;padding:10px;background:#222;border:1px solid #444;color:#fff;border-radius:6px;font-size:14px;margin-bottom:8px;box-sizing:border-box;}
+.section{background:#1a1a2e;border-radius:8px;padding:12px;margin-bottom:10px;}
 </style>
 </head>
 <body>
-<h2>Browser Compatibility Test</h2>
-<div id="result">Tap "Run Tests" to start...</div>
+<h2>&#9881; RIS Room Display — Test Suite</h2>
 
-<br>
-<input type="text" id="test-input" value="test value" placeholder="Type here to test input">
-<button onclick="runTests()">Run Tests</button>
-<button onclick="testSave()">Test Save Button Click</button>
-<button onclick="testMsal()">Test MSAL Load</button>
-<button onclick="testFetch()">Test Fetch API</button>
-<button onclick="testStorage()">Test localStorage</button>
+<div id="result">Tap any test button to start...</div>
 
-<script src="msal-browser.min.js"></script>
+<div class="section">
+<h3>1. Core Browser Tests</h3>
+<button class="btn" onclick="runAllTests()">Run All Core Tests</button>
+</div>
+
+<div class="section">
+<h3>2. MSAL Auth Tests</h3>
+<button class="btn green" onclick="testMsalLoad()">Test MSAL v1 Load</button>
+<button class="btn green" onclick="testMsalCreate()">Test MSAL Create Instance</button>
+<button class="btn green" onclick="testMsalAccount()">Check Saved Account</button>
+</div>
+
+<div class="section">
+<h3>3. Save Config Simulation</h3>
+<input type="text" id="sim-tenant" value="817e531d-191b-4cf5-8812-f0061d89b53d" placeholder="Tenant ID">
+<input type="text" id="sim-client" value="80648895-4acf-4ac5-b4a3-c5bf6bc98983" placeholder="Client ID">
+<input type="text" id="sim-room" value="Macchiato" placeholder="Room Name">
+<input type="text" id="sim-email" value="rismacchiato@central.co.th" placeholder="Room Email">
+<button class="btn amber" onclick="testSaveConfig()">Simulate Save Config</button>
+<button class="btn amber" onclick="testInitMsal()">Test Full Init MSAL Flow</button>
+</div>
+
+<div class="section">
+<h3>4. Network Tests</h3>
+<button class="btn purple" onclick="testFetchWeather()">Test Weather API</button>
+<button class="btn purple" onclick="testFetchGraph()">Test Graph API (needs token)</button>
+</div>
+
+<div class="section">
+<h3>5. Storage Tests</h3>
+<button class="btn gray" onclick="testStorage()">Show localStorage Contents</button>
+<button class="btn gray" onclick="clearStorage()">Clear All Storage</button>
+</div>
+
+<div class="section">
+<h3>6. Direct Login Test</h3>
+<button class="btn red" onclick="testDirectLogin()">Trigger Microsoft Login</button>
+<p style="font-size:11px;color:#888;margin:4px 0">This will redirect to Microsoft login page</p>
+</div>
+
+<script src="msal-v1.min.js"></script>
 <script>
-var log = [];
-
-function addLog(msg, type) {
-    log.push('<div class="' + (type||'info') + '">' + msg + '</div>');
-    document.getElementById('result').innerHTML = log.join('');
+var log=[];
+function addLog(msg,type){
+  log.push('<span class="'+(type||'info')+'">'+msg+'</span>');
+  document.getElementById('result').innerHTML=log.join('');
+  // Auto scroll to bottom
+  window.scrollTo(0,document.body.scrollHeight);
 }
+function clear(){log=[];document.getElementById('result').innerHTML='';}
 
-function runTests() {
-    log = [];
-    addLog('=== Browser Tests ===', 'info');
-    addLog('User Agent: ' + navigator.userAgent, 'info');
-    addLog('---', 'info');
+// ── CORE TESTS ──
+function runAllTests(){
+  clear();
+  addLog('=== Core Browser Tests ===','info');
+  addLog('UA: '+navigator.userAgent.substring(0,80),'info');
 
-    // Test 1: Basic JS
-    try {
-        var x = 1 + 1;
-        addLog('✓ Basic JS works', 'pass');
-    } catch(e) { addLog('✗ Basic JS: ' + e.message, 'fail'); }
+  // Chrome version
+  var cv=(/Chrome\/([\d]+)/.exec(navigator.userAgent)||['','?'])[1];
+  addLog('Chrome version: '+cv, parseInt(cv)>=42?'pass':'warn');
 
-    // Test 2: JSON
-    try {
-        var j = JSON.stringify({a:1});
-        JSON.parse(j);
-        addLog('✓ JSON works', 'pass');
-    } catch(e) { addLog('✗ JSON: ' + e.message, 'fail'); }
+  // Basic JS
+  try{var x=1+1;addLog('✓ Basic JS: OK','pass');}
+  catch(e){addLog('✗ Basic JS: '+e.message,'fail');}
 
-    // Test 3: localStorage
-    try {
-        localStorage.setItem('test', '123');
-        var v = localStorage.getItem('test');
-        localStorage.removeItem('test');
-        addLog('✓ localStorage works: ' + v, 'pass');
-    } catch(e) { addLog('✗ localStorage: ' + e.message, 'fail'); }
+  // JSON
+  try{JSON.parse(JSON.stringify({a:1}));addLog('✓ JSON: OK','pass');}
+  catch(e){addLog('✗ JSON: '+e.message,'fail');}
 
-    // Test 4: Promise
-    try {
-        var p = new Promise(function(resolve) { resolve(1); });
-        addLog('✓ Promise works', 'pass');
-    } catch(e) { addLog('✗ Promise: ' + e.message, 'fail'); }
+  // localStorage
+  try{
+    localStorage.setItem('_t','1');
+    var v=localStorage.getItem('_t');
+    localStorage.removeItem('_t');
+    addLog('✓ localStorage: OK (got: '+v+')','pass');
+  }catch(e){addLog('✗ localStorage: '+e.message,'fail');}
 
-    // Test 5: fetch
-    try {
-        if(typeof fetch !== 'undefined') {
-            addLog('✓ fetch API available', 'pass');
-        } else {
-            addLog('✗ fetch NOT available', 'fail');
-        }
-    } catch(e) { addLog('✗ fetch: ' + e.message, 'fail'); }
-
-    // Test 6: classList
-    try {
-        var d = document.createElement('div');
-        d.classList.add('test');
-        d.classList.remove('test');
-        addLog('✓ classList works', 'pass');
-    } catch(e) { addLog('✗ classList: ' + e.message, 'fail'); }
-
-    // Test 7: MSAL library
-    try {
-        if(typeof msal !== 'undefined') {
-            addLog('✓ MSAL library loaded', 'pass');
-        } else {
-            addLog('✗ MSAL NOT loaded', 'fail');
-        }
-    } catch(e) { addLog('✗ MSAL check: ' + e.message, 'fail'); }
-
-    // Test 8: Input value
-    try {
-        var val = document.getElementById('test-input').value;
-        addLog('✓ Input read works: "' + val + '"', 'pass');
-    } catch(e) { addLog('✗ Input read: ' + e.message, 'fail'); }
-
-    // Test 9: onclick works
-    addLog('✓ onclick works (you clicked the button!)', 'pass');
-
-    // Test 10: Array methods
-    try {
-        var arr = [1,2,3];
-        var found = arr.find(function(x){ return x===2; });
-        var filtered = arr.filter(function(x){ return x>1; });
-        addLog('✓ Array.find/filter works', 'pass');
-    } catch(e) { addLog('✗ Array methods: ' + e.message, 'fail'); }
-
-    // Test 11: HTTPS
-    addLog('Protocol: ' + location.protocol, location.protocol==='https:'?'pass':'fail');
-
-    addLog('--- Done ---', 'info');
-}
-
-function testSave() {
-    addLog('Save button clicked! onclick works.', 'pass');
-    var tenant = document.getElementById('test-input').value;
-    addLog('Input value: "' + tenant + '"', 'info');
-
-    // Simulate what saveConfig does
-    try {
-        localStorage.setItem('roomdisplay_test', JSON.stringify({test:true}));
-        var saved = JSON.parse(localStorage.getItem('roomdisplay_test'));
-        addLog('✓ Config save simulation works: ' + JSON.stringify(saved), 'pass');
-        localStorage.removeItem('roomdisplay_test');
-    } catch(e) {
-        addLog('✗ Config save failed: ' + e.message, 'fail');
-    }
-}
-
-function testMsal() {
-    try {
-        if(typeof msal === 'undefined') {
-            addLog('✗ MSAL not loaded - check msal-browser.min.js file', 'fail');
-            return;
-        }
-        addLog('✓ MSAL object exists', 'pass');
-        addLog('MSAL type: ' + typeof msal, 'info');
-        addLog('MSAL keys: ' + Object.keys(msal).join(', '), 'info');
-
-        // Try creating instance
-        var inst = new msal.PublicClientApplication({
-            auth:{
-                clientId:'00000000-0000-0000-0000-000000000000',
-                authority:'https://login.microsoftonline.com/common',
-                redirectUri: location.href
-            },
-            cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
-        });
-        addLog('✓ MSAL PublicClientApplication created', 'pass');
-
-        // Try initialize
-        inst.initialize().then(function(){
-            addLog('✓ MSAL initialize() Promise resolved!', 'pass');
-        }).catch(function(e){
-            addLog('MSAL initialize error: ' + (e&&e.message?e.message:String(e)), 'info');
-        });
-    } catch(e) {
-        addLog('✗ MSAL error: ' + e.message, 'fail');
-    }
-}
-
-function testFetch() {
-    addLog('Testing fetch...', 'info');
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=13.72&longitude=100.52&current=temperature_2m&timezone=Asia/Bangkok')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-        addLog('✓ fetch works! Temp: ' + d.current.temperature_2m + '°C', 'pass');
-    })
-    .catch(function(e){
-        addLog('✗ fetch failed: ' + e.message, 'fail');
+  // Promise
+  try{
+    new Promise(function(r){r(1);}).then(function(v){
+      addLog('✓ Promise.then: OK (got: '+v+')','pass');
     });
+  }catch(e){addLog('✗ Promise: '+e.message,'fail');}
+
+  // fetch
+  try{
+    if(typeof fetch!=='undefined')addLog('✓ fetch API: available','pass');
+    else addLog('✗ fetch API: NOT available','fail');
+  }catch(e){addLog('✗ fetch: '+e.message,'fail');}
+
+  // classList
+  try{
+    var d=document.createElement('div');
+    d.classList.add('x');d.classList.remove('x');
+    addLog('✓ classList: OK','pass');
+  }catch(e){addLog('✗ classList: '+e.message,'fail');}
+
+  // Array.find
+  try{
+    var found=[1,2,3].find(function(x){return x===2;});
+    addLog('✓ Array.find: OK (found: '+found+')','pass');
+  }catch(e){addLog('✗ Array.find: '+e.message,'fail');}
+
+  // Array.filter
+  try{
+    var f=[1,2,3].filter(function(x){return x>1;});
+    addLog('✓ Array.filter: OK (length: '+f.length+')','pass');
+  }catch(e){addLog('✗ Array.filter: '+e.message,'fail');}
+
+  // Object.keys
+  try{
+    var k=Object.keys({a:1,b:2});
+    addLog('✓ Object.keys: OK ('+k.join(',')+')','pass');
+  }catch(e){addLog('✗ Object.keys: '+e.message,'fail');}
+
+  // atob (needed for token parsing)
+  try{
+    var b=atob('aGVsbG8=');
+    addLog('✓ atob base64: OK (got: '+b+')','pass');
+  }catch(e){addLog('✗ atob: '+e.message,'fail');}
+
+  // location.replace (needed for auth redirect)
+  try{
+    if(typeof window.location.href==='string')addLog('✓ location.href: OK','pass');
+    else addLog('✗ location.href: not string','fail');
+  }catch(e){addLog('✗ location: '+e.message,'fail');}
+
+  // Protocol
+  addLog('Protocol: '+location.protocol,
+    location.protocol==='https:'?'pass':'warn');
+
+  addLog('=== Done ===','info');
 }
 
-function testStorage() {
-    try {
-        var key = 'roomdisplay_v5';
-        var existing = localStorage.getItem(key);
-        if(existing) {
-            addLog('✓ Found existing config in localStorage', 'pass');
-            addLog('Config: ' + existing.substring(0,100)+'...', 'info');
-        } else {
-            addLog('No existing config found', 'info');
-        }
-        addLog('localStorage length: ' + localStorage.length + ' items', 'info');
-    } catch(e) {
-        addLog('✗ Storage error: ' + e.message, 'fail');
+// ── MSAL TESTS ──
+function testMsalLoad(){
+  clear();
+  addLog('Testing MSAL v1 load...','info');
+  if(typeof Msal==='undefined'){
+    addLog('✗ Msal is UNDEFINED','fail');
+    addLog('Check: msal-v1.min.js uploaded to GitHub?','warn');
+    addLog('Check: filename matches exactly?','warn');
+  } else {
+    addLog('✓ Msal object found!','pass');
+    addLog('Type: '+typeof Msal,'info');
+    try{
+      var keys=Object.keys(Msal);
+      addLog('Keys: '+keys.join(', '),'info');
+      if(keys.indexOf('UserAgentApplication')>-1)
+        addLog('✓ UserAgentApplication found!','pass');
+      else
+        addLog('✗ UserAgentApplication NOT found','fail');
+    }catch(e){addLog('Keys error: '+e.message,'warn');}
+  }
+}
+
+function testMsalCreate(){
+  clear();
+  addLog('Testing MSAL instance creation...','info');
+  if(typeof Msal==='undefined'){addLog('✗ Msal not loaded first!','fail');return;}
+  try{
+    var inst=new Msal.UserAgentApplication({
+      auth:{
+        clientId:'80648895-4acf-4ac5-b4a3-c5bf6bc98983',
+        authority:'https://login.microsoftonline.com/817e531d-191b-4cf5-8812-f0061d89b53d',
+        redirectUri:location.href.split('?')[0].split('#')[0]
+      },
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+    addLog('✓ Instance created!','pass');
+    addLog('clientId: '+inst.clientId,'info');
+    addLog('authority: '+inst.authority,'info');
+
+    // Test callback
+    inst.handleRedirectCallback(function(err,resp){
+      if(err)addLog('Redirect err: '+(err.errorMessage||String(err)),'warn');
+      else addLog('Redirect resp: '+JSON.stringify(resp),'info');
+    });
+    addLog('✓ handleRedirectCallback set','pass');
+
+    // Check account
+    var acct=inst.getAccount();
+    if(acct){
+      addLog('✓ Found saved account: '+acct.userName,'pass');
+    } else {
+      addLog('No saved account (need to login first)','info');
     }
+
+    addLog('✓ All MSAL instance tests passed!','pass');
+  }catch(e){
+    addLog('✗ Error: '+e.message,'fail');
+  }
 }
 
-// Auto-run on load
-window.onload = function() {
-    addLog('Page loaded. Chrome: ' + (/Chrome\/(\d+)/.exec(navigator.userAgent)||['','?'])[1], 'info');
-    addLog('Tap "Run Tests" to check compatibility.', 'info');
+function testMsalAccount(){
+  clear();
+  addLog('Checking saved account in localStorage...','info');
+  var keys=['access_token','token_expires','id_token','account'];
+  var clientId='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
+  for(var i=0;i<keys.length;i++){
+    var k='msal.'+clientId+'.'+keys[i];
+    var v=localStorage.getItem(k);
+    if(v){
+      var display=v.length>50?v.substring(0,50)+'...':v;
+      addLog('✓ '+keys[i]+': '+display,'pass');
+    } else {
+      addLog('- '+keys[i]+': not set','info');
+    }
+  }
+  // Check expiry
+  var exp=localStorage.getItem('msal.'+clientId+'.token_expires');
+  if(exp){
+    var now=Math.floor(Date.now()/1000);
+    var left=parseInt(exp)-now;
+    if(left>0)addLog('Token valid for: '+Math.floor(left/60)+' min','pass');
+    else addLog('Token EXPIRED '+Math.floor(-left/60)+' min ago','fail');
+  }
+}
+
+// ── SAVE CONFIG SIMULATION ──
+function testSaveConfig(){
+  clear();
+  addLog('Simulating saveConfig()...','info');
+  var tenant=document.getElementById('sim-tenant').value.trim();
+  var client=document.getElementById('sim-client').value.trim();
+  var room=document.getElementById('sim-room').value.trim();
+  var email=document.getElementById('sim-email').value.trim();
+
+  if(!tenant||!client||!room||!email){
+    addLog('✗ Fill in all fields above first!','fail');return;
+  }
+  addLog('tenant: '+tenant.substring(0,8)+'...','info');
+  addLog('client: '+client.substring(0,8)+'...','info');
+  addLog('room: '+room,'info');
+  addLog('email: '+email,'info');
+
+  try{
+    var cfg={
+      tenant:tenant,client:client,
+      roomname:room,roomemail:email,
+      release:10,booking:true,approval:false,
+      extraRooms:[],teamsBtn:true
+    };
+    localStorage.setItem('roomdisplay_v5',JSON.stringify(cfg));
+    var saved=JSON.parse(localStorage.getItem('roomdisplay_v5'));
+    addLog('✓ Config saved to localStorage!','pass');
+    addLog('Saved: '+JSON.stringify(saved).substring(0,80)+'...','info');
+    addLog('Now tap "Test Full Init MSAL Flow"','info');
+  }catch(e){
+    addLog('✗ Save error: '+e.message,'fail');
+  }
+}
+
+function testInitMsal(){
+  clear();
+  addLog('Testing full MSAL init flow...','info');
+
+  var saved=localStorage.getItem('roomdisplay_v5');
+  if(!saved){addLog('✗ No config saved! Run "Simulate Save Config" first','fail');return;}
+
+  var cfg;
+  try{cfg=JSON.parse(saved);}
+  catch(e){addLog('✗ Config parse error: '+e.message,'fail');return;}
+
+  addLog('Config loaded: '+cfg.roomname,'pass');
+
+  if(typeof Msal==='undefined'){addLog('✗ Msal not loaded!','fail');return;}
+  addLog('Msal v1: found','pass');
+
+  try{
+    var msalInst=new Msal.UserAgentApplication({
+      auth:{
+        clientId:cfg.client,
+        authority:'https://login.microsoftonline.com/'+cfg.tenant,
+        redirectUri:location.href.split('?')[0].split('#')[0]
+      },
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+    addLog('MSAL instance: created','pass');
+
+    msalInst.handleRedirectCallback(function(err,resp){
+      if(err){addLog('Redirect error: '+(err.errorMessage||String(err)),'fail');return;}
+      if(resp&&resp.account){addLog('LOGIN SUCCESS! Account: '+resp.account.userName,'pass');}
+    });
+
+    var acct=msalInst.getAccount();
+    if(acct){
+      addLog('Found cached account: '+acct.userName,'pass');
+      addLog('✓ READY TO LAUNCH MAIN APP!','pass');
+    } else {
+      addLog('No cached account','info');
+      addLog('► Tap "Trigger Microsoft Login" to authenticate','warn');
+    }
+  }catch(e){
+    addLog('✗ MSAL error: '+e.message,'fail');
+  }
+}
+
+// ── NETWORK TESTS ──
+function testFetchWeather(){
+  clear();
+  addLog('Testing weather API fetch...','info');
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=13.72&longitude=100.52&current=temperature_2m&timezone=Asia/Bangkok')
+  .then(function(r){
+    addLog('HTTP status: '+r.status, r.ok?'pass':'fail');
+    return r.json();
+  })
+  .then(function(d){
+    addLog('✓ Weather fetch works!','pass');
+    addLog('Temp: '+d.current.temperature_2m+'°C','info');
+  })
+  .catch(function(e){
+    addLog('✗ Weather fetch failed: '+e.message,'fail');
+    addLog('(Corporate network may block this - OK to ignore)','warn');
+  });
+}
+
+function testFetchGraph(){
+  clear();
+  var clientId='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
+  var tok=localStorage.getItem('msal.'+clientId+'.access_token');
+  if(!tok){addLog('No token found. Login first via main app.','warn');return;}
+  addLog('Testing Graph API with saved token...','info');
+  fetch('https://graph.microsoft.com/v1.0/me',{
+    headers:{Authorization:'Bearer '+tok}
+  })
+  .then(function(r){
+    addLog('HTTP status: '+r.status,r.ok?'pass':'fail');
+    return r.json();
+  })
+  .then(function(d){
+    if(d.error){addLog('Graph error: '+d.error.message,'fail');return;}
+    addLog('✓ Graph API works!','pass');
+    addLog('User: '+d.displayName+' ('+d.userPrincipalName+')','info');
+  })
+  .catch(function(e){addLog('✗ Graph error: '+e.message,'fail');});
+}
+
+// ── STORAGE ──
+function testStorage(){
+  clear();
+  addLog('=== localStorage Contents ===','info');
+  addLog('Total items: '+localStorage.length,'info');
+  for(var i=0;i<localStorage.length;i++){
+    var k=localStorage.key(i);
+    var v=localStorage.getItem(k);
+    var display=v&&v.length>60?v.substring(0,60)+'...':v;
+    addLog(k+': '+display,'info');
+  }
+  if(localStorage.length===0)addLog('(empty)','warn');
+}
+
+function clearStorage(){
+  clear();
+  localStorage.clear();
+  addLog('✓ localStorage cleared','pass');
+  addLog('All config and tokens removed','info');
+}
+
+// ── DIRECT LOGIN ──
+function testDirectLogin(){
+  clear();
+  addLog('Preparing Microsoft login redirect...','info');
+  if(typeof Msal==='undefined'){addLog('✗ Msal not loaded!','fail');return;}
+
+  var saved=localStorage.getItem('roomdisplay_v5');
+  var cfg=saved?JSON.parse(saved):{
+    client:'80648895-4acf-4ac5-b4a3-c5bf6bc98983',
+    tenant:'817e531d-191b-4cf5-8812-f0061d89b53d'
+  };
+
+  try{
+    var msalInst=new Msal.UserAgentApplication({
+      auth:{
+        clientId:cfg.client,
+        authority:'https://login.microsoftonline.com/'+cfg.tenant,
+        redirectUri:location.href.split('?')[0].split('#')[0]
+      },
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+    addLog('Redirecting to Microsoft login in 2 seconds...','warn');
+    addLog('After login you will return to this test page','info');
+    setTimeout(function(){
+      msalInst.loginRedirect({
+        scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read']
+      });
+    },2000);
+  }catch(e){
+    addLog('✗ Error: '+e.message,'fail');
+  }
+}
+
+// Auto-run basic info on load
+window.onload=function(){
+  var cv=(/Chrome\/([\d]+)/.exec(navigator.userAgent)||['','?'])[1];
+  addLog('Chrome '+cv+' on Android '+(navigator.userAgent.match(/Android ([\d.]+)/)||['','?'])[1],'info');
+  addLog('Msal loaded: '+(typeof Msal!=='undefined'?'YES ✓':'NO ✗'),typeof Msal!=='undefined'?'pass':'fail');
+  addLog('Tap "Run All Core Tests" to begin','info');
 };
 </script>
 </body>
