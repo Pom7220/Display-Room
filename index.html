@@ -19,7 +19,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<script src="msal-browser.min.js"></script>
+<script src="msal-v1.min.js"></script>
 <!-- Polyfills for Chrome 42 / Android 4.4 -->
 <script>
 // Array.from polyfill
@@ -809,44 +809,53 @@ window.onerror=function(msg,src,line){
 };
 
 function initMsal(){
-  dbg('1. saveConfig OK');
+  dbg('1. saveConfig OK, checking Msal v1...');
   try{
-    if(typeof msal==='undefined'){dbg('ERROR: msal not loaded!');return;}
-    dbg('2. msal OK, creating instance');
-    msalInst=new msal.PublicClientApplication({
+    if(typeof Msal==='undefined'){
+      dbg('ERROR: Msal v1 not loaded! Upload msal-v1.min.js to GitHub');
+      show('config-screen');el('cfg-sticky-bar').style.display='block';return;
+    }
+    dbg('2. Msal v1 found!');
+    var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
+    msalInst=new Msal.UserAgentApplication({
       auth:{
         clientId:cfg.client,
         authority:'https://login.microsoftonline.com/'+cfg.tenant,
-        redirectUri:location.href.split('?')[0].split('#')[0]
+        redirectUri:location.href.split('?')[0].split('#')[0],
+        navigateToLoginRequestUrl:true
       },
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
-    dbg('3. instance created, calling initialize()');
-    msalInst.initialize().then(function(){
-      dbg('4. initialized OK');
-      return msalInst.handleRedirectPromise();
-    }).then(function(r){
-      if(r&&r.account){
-        dbg('5. redirect account found - launching');
-        account=r.account;hide('config-screen');el('cfg-sticky-bar').style.display='none';launch();return;
+    dbg('3. UserAgentApplication created');
+    // Set redirect callback
+    msalInst.handleRedirectCallback(function(err,resp){
+      if(err){
+        dbg('Redirect err: '+(err.errorMessage||String(err)));
+        el('auth-error').textContent=err.errorMessage||String(err);
+        showAuth();return;
       }
-      var acts=msalInst.getAllAccounts();
-      if(acts.length){
-        dbg('5. cached account found - launching');
-        account=acts[0];hide('config-screen');el('cfg-sticky-bar').style.display='none';launch();
-      } else {
-        dbg('5. no account - showing sign in');
-        hide('config-screen');el('cfg-sticky-bar').style.display='none';showAuth();
+      if(resp&&resp.account){
+        dbg('Redirect OK - got account');
+        account=resp.account;
+        hide('config-screen');el('cfg-sticky-bar').style.display='none';
+        launch();
       }
-    }).catch(function(e){
-      var msg=e&&e.message?e.message:String(e);
-      dbg('MSAL promise error: '+msg);
-      el('auth-error').textContent=msg;
-      showAuth();
     });
+    // Check existing account
+    var act=msalInst.getAccount();
+    if(act){
+      dbg('4. Found cached account - launching!');
+      account=act;
+      hide('config-screen');el('cfg-sticky-bar').style.display='none';
+      launch();
+    } else {
+      dbg('4. No account - showing sign in');
+      hide('config-screen');el('cfg-sticky-bar').style.display='none';
+      showAuth();
+    }
   }catch(e){
     var msg=e&&e.message?e.message:String(e);
-    dbg('MSAL catch error: '+msg);
+    dbg('MSAL error: '+msg);
     show('config-screen');el('cfg-sticky-bar').style.display='block';
   }
 }
@@ -855,10 +864,12 @@ function showAuth(){show('auth-overlay');hide('app');}
 
 function getToken(){
   var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
+  // MSAL v1 token acquisition
   return msalInst.acquireTokenSilent({scopes:scopes,account:account}).then(function(r){
     return r.accessToken;
   }).catch(function(){
-    return msalInst.acquireTokenRedirect({scopes:scopes}).then(function(){return null;});
+    msalInst.acquireTokenRedirect({scopes:scopes});
+    return null;
   });
 }
 
@@ -1418,7 +1429,7 @@ document.addEventListener('click', function(e){
 
   // Auth
   if(t.id==='btn-signin'||t.closest('#btn-signin')){
-    msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],prompt:'select_account'}).catch(function(e){el('auth-error').textContent=e.message;});
+    try{msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read']});}catch(e){el('auth-error').textContent=e.message||String(e);}
   }
 
   // Gear / settings — go through PIN
