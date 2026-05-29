@@ -168,7 +168,7 @@ function testMsalCreate(){
     var inst=new Msal.UserAgentApplication({
       auth:{clientId:'80648895-4acf-4ac5-b4a3-c5bf6bc98983',
         authority:'https://login.microsoftonline.com/817e531d-191b-4cf5-8812-f0061d89b53d',
-        redirectUri:location.href.split('?')[0].split('#')[0]},
+        redirectUri:'https://pom7220.github.io/Display-Room/'},
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
     inst.handleRedirectCallback(function(){});
@@ -217,7 +217,7 @@ function testInitMsal(){
     var inst=new Msal.UserAgentApplication({
       auth:{clientId:cfg.client,
         authority:'https://login.microsoftonline.com/'+cfg.tenant,
-        redirectUri:location.href.split('?')[0].split('#')[0]},
+        redirectUri:'https://pom7220.github.io/Display-Room/'},
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
     inst.handleRedirectCallback(function(err,resp){
@@ -283,7 +283,7 @@ function testDirectLogin(){
       var inst=new Msal.UserAgentApplication({
         auth:{clientId:cfg.client,
           authority:'https://login.microsoftonline.com/'+cfg.tenant,
-          redirectUri:location.href.split('?')[0].split('#')[0]},
+          redirectUri:'https://pom7220.github.io/Display-Room/'},
         cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
       });
       inst.loginRedirect({
