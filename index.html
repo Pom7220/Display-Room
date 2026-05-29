@@ -65,7 +65,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 
 /* ── BACKGROUND ── */
 #bg{
-  position:fixed;inset:0;z-index:0;
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;
   background:radial-gradient(ellipse 100% 55% at 50% -5%, var(--accent) 0%, transparent 70%),
              linear-gradient(180deg,#0a0a12 0%,#0a0a12 100%);
   opacity:0.9;
@@ -73,7 +73,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 }
 
 /* ── BURN-IN ── */
-#pixel-drift{position:fixed;inset:0;z-index:1;transition:transform 10s ease-in-out;}
+#pixel-drift{position:fixed;top:0;left:0;right:0;bottom:0;z-index:1;transition:transform 10s ease-in-out;}
 
 /* ── CONFIG ── */
 #config-screen{position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0a12;display:block;padding:20px 16px 120px;z-index:1000;overflow-y:scroll;-webkit-overflow-scrolling:touch;}
@@ -111,15 +111,15 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .cfg-note code{background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:11px;color:#7dd3fc;}
 
 /* ── AUTH ── */
-#auth-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:500;padding:32px;}
+#auth-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0a12;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;gap:16px;z-index:500;padding:32px;}
 #auth-overlay.hidden{display:none;}
 .auth-icon{font-size:52px;}
-.auth-title{font-size:26px;font-weight:900;color:var(--text);text-align:center;letter-spacing:-.03em;}
-.auth-sub{font-size:14px;color:var(--text3);text-align:center;line-height:1.6;max-width:300px;}
-.auth-btn{padding:15px 40px;background:var(--available);border:none;border-radius:var(--rs);color:#fff;font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;}
+.auth-title{font-size:24px;font-weight:900;color:#fff;text-align:center;letter-spacing:-.02em;}
+.auth-sub{font-size:14px;color:#666;text-align:center;line-height:1.6;max-width:300px;}
+.auth-btn{padding:15px 40px;background:#2979ff;border:none;border-radius:10px;color:#fff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;cursor:pointer;display:block;}
 
 /* ── MAIN APP ── */
-#app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;}
+#app{position:fixed;top:0;left:0;right:0;bottom:0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;overflow:hidden;}
 #app.hidden{display:none;}
 
 /* ── HEADER ── */
@@ -179,7 +179,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
   transition:background .6s,border-color .6s;
   border:1px solid var(--border2);
   background:rgba(0,0,0,.35);
-  backdrop-filter:blur(20px);
+  
 }
 .cur-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);transition:background .6s;border-radius:3px 3px 0 0;}
 
@@ -297,7 +297,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
   position:fixed;bottom:0;left:0;right:0;z-index:3;
   padding:10px 20px calc(env(safe-area-inset-bottom,0px)+10px);
   background:rgba(10,10,18,.9);border-top:1px solid var(--border);
-  backdrop-filter:blur(24px);
+  
   display:flex;justify-content:space-between;align-items:center;gap:10px;
 }
 .nav-btn{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;padding:9px 14px;border-radius:50px;background:none;border:none;font-family:var(--font);transition:all .2s;}
@@ -313,7 +313,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .rchip:active{transform:scale(.94);}
 
 /* ── BOOKING MODAL ── */
-#booking-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(10px);}
+#booking-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:200;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 #booking-modal.hidden{display:none;}
 .msheet{background:#13131e;border:1px solid var(--border2);border-radius:26px 26px 0 0;padding:26px 22px calc(env(safe-area-inset-bottom,0px)+36px);width:100%;max-width:500px;animation:sUp .3s cubic-bezier(.32,.72,0,1);}
 @keyframes sUp{from{transform:translateY(80px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -341,14 +341,14 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .mconfirm:disabled{opacity:.6;cursor:default;}
 
 /* ── TOAST ── */
-#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(18,18,28,.96);border:1px solid var(--border2);border-radius:50px;padding:11px 22px;font-size:13px;color:#fff;z-index:400;white-space:nowrap;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(20px);font-family:var(--font);font-weight:500;}
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(18,18,28,.96);border:1px solid var(--border2);border-radius:50px;padding:11px 22px;font-size:13px;color:#fff;z-index:400;white-space:nowrap;pointer-events:none;transition:opacity .3s;font-family:var(--font);font-weight:500;}
 #toast.hidden{opacity:0;}
 #toast.success{border-color:rgba(16,185,129,.35);color:#34d399;}
 #toast.error{border-color:rgba(229,57,53,.35);color:#f87171;}
 #toast.warn{border-color:rgba(245,158,11,.35);color:#fbbf24;}
 
 /* ── ERROR BANNER ── */
-#error-banner{position:fixed;bottom:70px;left:16px;right:16px;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.3);border-radius:var(--rs);padding:12px 16px;font-size:13px;color:#f87171;display:flex;align-items:center;justify-content:space-between;gap:10px;z-index:8999;backdrop-filter:blur(12px);font-family:var(--font);}
+#error-banner{position:fixed;bottom:70px;left:16px;right:16px;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.3);border-radius:var(--rs);padding:12px 16px;font-size:13px;color:#f87171;display:flex;align-items:center;justify-content:space-between;gap:10px;z-index:8999;font-family:var(--font);}
 #error-banner .err-msg{flex:1;line-height:1.4;}
 #error-banner .err-btn{background:rgba(229,57,53,.18);border:1px solid rgba(229,57,53,.25);border-radius:8px;padding:7px 12px;color:#f87171;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font);flex-shrink:0;}
 
@@ -357,7 +357,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 #float-gear:active{opacity:1;}
 
 /* ── IN-APP CONFIRM DIALOG ── */
-#confirm-dialog{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);padding:24px;}
+#confirm-dialog{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:600;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;padding:24px;}
 #confirm-dialog.hidden{display:none;}
 .cdlg-box{background:#13131e;border:1px solid var(--border2);border-radius:20px;padding:28px 24px;width:100%;max-width:320px;text-align:center;}
 .cdlg-icon{font-size:36px;margin-bottom:12px;}
@@ -367,7 +367,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .cdlg-cancel{flex:1;padding:13px;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:var(--rs);color:var(--text2);font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;}
 .cdlg-ok{flex:1;padding:13px;border:none;border-radius:var(--rs);font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;background:var(--busy);color:#fff;}
 .cdlg-ok:active{opacity:.85;}
-#pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(16px);}
+#pin-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:500;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 #pin-overlay.hidden{display:none;}
 .pin-box{background:#13131e;border:1px solid var(--border2);border-radius:24px;padding:32px 28px;width:300px;text-align:center;}
 .pin-title{font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-.02em;}
@@ -683,22 +683,63 @@ var WX_ICONS={
 };
 
 function fetchWeather(){
-  var url='https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok';
-  fetch(url).then(function(r){
-    if(!r.ok)return null;
+  // Try wttr.in first (JSON format, often allowed by corporate firewalls)
+  fetch('https://wttr.in/Bangkok?format=j1')
+  .then(function(r){
+    if(!r.ok)throw new Error('wttr failed');
     return r.json();
-  }).then(function(d){
-    if(!d)return;
-    var c=d.current;
-    var code=c.weather_code;
-    var temp=Math.round(c.temperature_2m);
-    var feels=Math.round(c.apparent_temperature);
-    el('wx-icon').textContent=WX_ICONS[code]||'\uD83C\uDF21';
-    el('wx-temp').textContent=temp+'°C';
-    el('wx-desc').textContent=WX_CODES[code]||'--';
-    el('wx-feels').textContent='Feels '+feels+'°';
-    el('weather-strip').style.display='flex';
-  }).catch(function(){});
+  })
+  .then(function(d){
+    try{
+      var cur=d.current_condition[0];
+      var temp=cur.temp_C;
+      var feels=cur.FeelsLikeC;
+      var desc=cur.weatherDesc[0].value;
+      // Simple icon mapping from description
+      var icon='🌡';
+      var dl=desc.toLowerCase();
+      if(dl.indexOf('sun')>-1||dl.indexOf('clear')>-1)icon='☀️';
+      else if(dl.indexOf('cloud')>-1&&dl.indexOf('part')>-1)icon='⛅';
+      else if(dl.indexOf('overcast')>-1||dl.indexOf('cloud')>-1)icon='☁️';
+      else if(dl.indexOf('rain')>-1||dl.indexOf('shower')>-1)icon='🌧';
+      else if(dl.indexOf('thunder')>-1||dl.indexOf('storm')>-1)icon='⛈';
+      else if(dl.indexOf('fog')>-1||dl.indexOf('mist')>-1)icon='🌫';
+      el('wx-icon').textContent=icon;
+      el('wx-temp').textContent=temp+'°C';
+      el('wx-desc').textContent=desc;
+      el('wx-feels').textContent='Feels '+feels+'°';
+      el('weather-strip').style.display='-webkit-box';
+      el('weather-strip').style.display='-webkit-flex';
+      el('weather-strip').style.display='flex';
+    }catch(e){}
+  })
+  .catch(function(){
+    // Try open-meteo as second option
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok')
+    .then(function(r){if(!r.ok)return null;return r.json();})
+    .then(function(d){
+      if(!d)return;
+      var c=d.current;
+      var temp=Math.round(c.temperature_2m);
+      var feels=Math.round(c.apparent_temperature);
+      var code=c.weather_code;
+      el('wx-icon').textContent=WX_ICONS[code]||'\uD83C\uDF21';
+      el('wx-temp').textContent=temp+'°C';
+      el('wx-desc').textContent=WX_CODES[code]||'--';
+      el('wx-feels').textContent='Feels '+feels+'°';
+      el('weather-strip').style.display='flex';
+    })
+    .catch(function(){
+      // Both failed - show static Bangkok weather estimate
+      // Bangkok avg: 34°C, hot and humid
+      el('wx-icon').textContent='🌤';
+      el('wx-temp').textContent='34°C';
+      el('wx-desc').textContent='Bangkok';
+      el('wx-feels').textContent='';
+      el('weather-strip').style.display='-webkit-flex';
+      el('weather-strip').style.display='flex';
+    });
+  });
 }
 
 // ══════════════════════════════════════
@@ -708,7 +749,7 @@ var driftX=0,driftY=0;
 function startBurnIn(){
   // Soft moving radial glow
   var canvas=document.createElement('canvas');
-  canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;transition:opacity 3s;';
+  canvas.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;transition:opacity 3s;';
   document.body.appendChild(canvas);
   var ctx=canvas.getContext('2d');
   var wx=0.5,wy=0.5,tx=0.5,ty=0.5;
