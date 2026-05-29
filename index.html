@@ -870,6 +870,7 @@ function addRoomRow(name,email){
     +'<button class="rm-del" data-action="delroom">×</button>';
   el('extra-rooms-list').appendChild(row);
 }
+function toggleApproval(){el('approval-fields').style.display=el('cfg-booking').checked?'block':'none';}
 function toggleDebugMode(){
   dbgEnabled=el('cfg-debug-toggle').checked;
   var d=el('debug-overlay');
