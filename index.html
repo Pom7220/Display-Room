@@ -544,7 +544,7 @@ if('serviceWorker' in navigator){
 
     <!-- Bottom nav -->
     <div class="nav">
-      <button class="nav-btn" id="nav-today-btn">☰ Today</button>
+      <button class="nav-btn" id="nav-today-btn" title="Scroll to top">&#8679; Today</button>
       <button class="nav-book-btn" id="nav-book-btn" style="display:none">+ Book Room</button>
       <div style="width:38px"></div><!-- spacer for gear -->
     </div>
@@ -637,7 +637,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 1,
-  minor: 7,
+  minor: 8,
   date: '2026-05-29',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -652,6 +652,7 @@ var APP_VERSION = {
 // v1.5 2026-05-29 - Full end-to-end verified, RIS auth icon
 // v1.6 2026-05-29 - Full ES6 clean sweep, single save button, More days fixed
 // v1.7 2026-05-29 - Debug toggle in settings, More/Less plain text fix
+// v1.8 2026-05-29 - Today badge counts remaining only, More+ scroll+highlight, nav label fix
 
 // ══════════════════════════════════════
 // STATE
@@ -1181,7 +1182,11 @@ function getMeetingsForDay(offset){
   return meetings.filter(function(m){return m.start>=d&&m.start<=de&&!isAllDay(m);});
 }
 function renderBadges(){
-  el('vbadge-today').textContent=getMeetingsForDay(0).length;
+  var n=new Date();
+  // Today badge: only count meetings that haven't ended yet
+  var todayAll=getMeetingsForDay(0);
+  var todayRemaining=todayAll.filter(function(m){return m.end>n;});
+  el('vbadge-today').textContent=todayRemaining.length;
   el('vbadge-tomorrow').textContent=getMeetingsForDay(1).length;
 }
 
@@ -1568,8 +1573,30 @@ document.addEventListener('click', function(e){
   // More days toggle
   if(t.id==='btn-more-days'||t.closest('#btn-more-days')){
     moreDaysOpen=!moreDaysOpen;
-    el('btn-more-days').textContent=moreDaysOpen?'Less -':'More +';
-    renderMoreDays();return;
+    var btn=el('btn-more-days');
+    if(moreDaysOpen){
+      btn.textContent='Less -';
+      btn.style.background='rgba(99,179,255,0.2)';
+      btn.style.borderColor='rgba(99,179,255,0.5)';
+      btn.style.color='#63b3ff';
+    } else {
+      btn.textContent='More +';
+      btn.style.background='';
+      btn.style.borderColor='';
+      btn.style.color='';
+    }
+    renderMoreDays();
+    // Scroll more-days section into view after opening
+    if(moreDaysOpen){
+      var wrap=el('more-days');
+      if(wrap){
+        setTimeout(function(){
+          var bs=document.querySelector('.body-scroll');
+          if(bs)bs.scrollTop=bs.scrollHeight;
+        },100);
+      }
+    }
+    return;
   }
 
   // Today nav
