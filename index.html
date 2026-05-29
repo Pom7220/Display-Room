@@ -408,6 +408,7 @@ if('serviceWorker' in navigator){
   <div class="cfg-logo">⬡ Room Display</div>
   <div class="cfg-title">Setup</div>
   <div class="cfg-sub">Meeting Room Kiosk — Configuration</div>
+  <div id="ver-display" style="font-size:10px;color:#444;text-align:center;margin-bottom:16px;font-family:monospace;"></div>
 
   <!-- SAVE BUTTON AT TOP — always visible -->
   <button class="btn-primary" id="btn-save-cfg" onclick="saveConfig()" style="margin-bottom:20px;margin-top:0">&#128190; Save &amp; Launch Display</button>
@@ -502,6 +503,7 @@ if('serviceWorker' in navigator){
         </div>
         <!-- Room name + status -->
         <div class="room-name-lg" id="disp-name">Room</div>
+        <div style="font-size:9px;color:#333;font-family:monospace;margin-top:2px;" id="ver-tag"></div>
         <div class="status-line">
           <div class="sdot av" id="sdot"></div>
           <div class="status-txt" id="status-txt">Loading…</div>
@@ -616,10 +618,31 @@ if('serviceWorker' in navigator){
   </div>
 </div>
 
+<!-- PERSISTENT DEBUG OVERLAY - survives screen changes, always on top -->
+<div id="debug-overlay" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,0.92);color:#f88;font-size:12px;padding:8px 12px;line-height:1.8;word-break:break-all;border-bottom:2px solid #f00;max-height:50%;overflow-y:auto;"></div>
+
 <!-- TOAST -->
 <div id="toast" class="hidden"></div>
 
 <script>
+// ══════════════════════════════════════
+// VERSION
+// ══════════════════════════════════════
+var APP_VERSION = {
+  major: 1,
+  minor: 4,
+  date: '2026-05-29',
+  label: function(){
+    return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
+  }
+};
+// History:
+// v1.0 2026-05-26 - Initial release with MSAL v3, basic calendar display
+// v1.1 2026-05-27 - Day tabs, Teams join, room switcher, color themes
+// v1.2 2026-05-27 - ES6->ES5 conversion for Chrome 42, custom MSAL v1
+// v1.3 2026-05-28 - inset:0 fix, weather fallback, PIN protection
+// v1.4 2026-05-29 - Persistent debug overlay, version control
+
 // ══════════════════════════════════════
 // STATE
 // ══════════════════════════════════════
@@ -837,15 +860,17 @@ function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checke
 var dbgLines=[];
 function dbg(msg){
   dbgLines.push(msg);
-  if(dbgLines.length>20)dbgLines.shift();
-  var d=el('cfg-debug');
-  if(d){d.style.display='block';d.innerHTML='<b>Debug:</b><br>'+dbgLines.join('<br>');}
+  if(dbgLines.length>15)dbgLines.shift();
+  // Use fixed overlay that persists across screen changes
+  var d=el('debug-overlay');
+  if(d){
+    d.style.display='block';
+    d.innerHTML='<b style="color:#fff">Debug Log:</b><br>'+dbgLines.join('<br>');
+  }
   try{console.log('DBG:',msg);}catch(ex){}
 }
 window.onerror=function(msg,src,line){
   dbg('JS ERROR: '+msg+' L:'+line);
-  show('config-screen');
-  el('cfg-sticky-bar').style.display='block';
   return false;
 };
 
@@ -919,6 +944,8 @@ function getToken(){
 // ══════════════════════════════════════
 function launch(){
   hide('auth-overlay');show('app');
+  var vt=el('ver-tag');
+  if(vt)vt.textContent=APP_VERSION.label();
   el('cfg-sticky-bar').style.display='none';
   activeRoom={name:cfg.roomname,email:cfg.roomemail};
   el('disp-name').textContent=activeRoom.name;
@@ -1546,6 +1573,15 @@ document.addEventListener('click', function(e){
 // ══════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════
+// Show version in config screen
+(function(){
+  var vd=el('ver-display');
+  if(vd)vd.textContent='RIS Room Display '+APP_VERSION.label()+' | Central Group';
+  // Also show in debug overlay on load
+  dbg('RIS Room Display '+APP_VERSION.label());
+  dbg('Chrome: '+((/Chrome\/([\d]+)/.exec(navigator.userAgent)||['','?'])[1]));
+})();
+
 loadCfg();
 if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail)initMsal();
 else{showConfig();el('cfg-sticky-bar').style.display='block';}
