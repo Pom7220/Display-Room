@@ -167,7 +167,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .status-txt{font-size:15px;font-weight:600;color:var(--accent);transition:color .6s;}
 
 /* ── BODY SCROLL ── */
-.body-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 22px 100px;position:relative;z-index:2;}
+.body-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 22px 140px;position:relative;z-index:2;}
 .body-scroll::-webkit-scrollbar{display:none;}
 
 /* ── CURRENT CARD ── */
@@ -284,13 +284,12 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .empty-day-txt{font-size:13px;}
 
 /* More days strip */
-.more-days{margin-top:16px;}
-.more-days-hdr{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
-.more-days-hdr::after{content:'';flex:1;height:1px;background:var(--border);}
-.day-row{margin-bottom:12px;}
-.day-row-hdr{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
-.day-row-hdr .wkend{color:var(--text3);font-weight:400;}
-.day-row-count{font-size:10px;color:var(--text3);background:rgba(255,255,255,.06);border-radius:10px;padding:1px 6px;}
+.more-days{margin-top:16px;padding-bottom:20px;}
+.more-days-hdr{font-size:11px;font-weight:600;color:#6b7280;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:8px;}
+.day-row{margin-bottom:16px;background:rgba(255,255,255,.03);border-radius:10px;padding:10px 12px;}
+.day-row-hdr{font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06);}
+.day-row-hdr .wkend{color:#9ca3af;font-weight:400;}
+.day-row-count{font-size:10px;color:#9ca3af;background:rgba(255,255,255,.08);border-radius:10px;padding:1px 7px;margin-left:6px;}
 
 /* ── BOTTOM NAV ── */
 .nav{
@@ -637,7 +636,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 1,
-  minor: 8,
+  minor: 9,
   date: '2026-05-29',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -653,6 +652,7 @@ var APP_VERSION = {
 // v1.6 2026-05-29 - Full ES6 clean sweep, single save button, More days fixed
 // v1.7 2026-05-29 - Debug toggle in settings, More/Less plain text fix
 // v1.8 2026-05-29 - Today badge counts remaining only, More+ scroll+highlight, nav label fix
+// v1.9 2026-05-29 - More days CSS fixed (no CSS vars), hardcoded colors for Chrome 42
 
 // ══════════════════════════════════════
 // STATE
@@ -1243,7 +1243,7 @@ function renderMoreDays(){
     var isWkend=d.getDay()===0||d.getDay()===6;
     var dlbl=weekdays[d.getDay()]+' '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
     html+='<div class="day-row"><div class="day-row-hdr">'+(isWkend?'<span class="wkend">'+dlbl+'</span>':dlbl)+'<span class="day-row-count">'+day.length+'</span></div>';
-    if(!day.length){html+='<div style="font-size:12px;color:#666;padding:6px 0">No meetings</div>';}
+    if(!day.length){html+='<div style="font-size:12px;color:#6b7280;padding:4px 0">No meetings scheduled</div>';}
     else{
       for(var mi=0;mi<Math.min(day.length,5);mi++){
         var mm=day[mi];
