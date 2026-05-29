@@ -20,6 +20,23 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <script src="msal-browser.min.js"></script>
+<!-- Polyfills for Chrome 42 / Android 4.4 -->
+<script>
+// Array.from polyfill
+if(!Array.from){Array.from=function(a){return Array.prototype.slice.call(a);};}
+// Array.prototype.find polyfill
+if(!Array.prototype.find){Array.prototype.find=function(fn){for(var i=0;i<this.length;i++){if(fn(this[i],i,this))return this[i];}return undefined;};}
+// Array.prototype.filter polyfill check
+if(!Array.prototype.filter){Array.prototype.filter=function(fn){var r=[];for(var i=0;i<this.length;i++){if(fn(this[i]))r.push(this[i]);}return r;};}
+// String.prototype.includes polyfill
+if(!String.prototype.includes){String.prototype.includes=function(s){return this.indexOf(s)>-1;};}
+// String.prototype.startsWith polyfill
+if(!String.prototype.startsWith){String.prototype.startsWith=function(s){return this.indexOf(s)===0;};}
+// String.prototype.endsWith polyfill
+if(!String.prototype.endsWith){String.prototype.endsWith=function(s){return this.indexOf(s,this.length-s.length)>-1;};}
+// Object.assign polyfill
+if(!Object.assign){Object.assign=function(t){for(var i=1;i<arguments.length;i++){var s=arguments[i];for(var k in s){if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}}return t;};}
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300&display=swap');
 
@@ -378,8 +395,8 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 <script>
 // Register service worker for PWA installability
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
   });
 }
 </script>
@@ -604,37 +621,37 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 // STATE
 // ══════════════════════════════════════
-const CFG_KEY='roomdisplay_v5';
-let cfg={},msalInst=null,account=null;
-let meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60;
-let activeRoom={name:'',email:''};
-let curView='today'; // 'today' | 'tomorrow'
-let moreDaysOpen=false;
-const locallyEnded=new Set(); // meeting IDs ended locally — suppressed even after fetchCal
+var CFG_KEY='roomdisplay_v5';
+var cfg={},msalInst=null,account=null;
+var meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60;
+var activeRoom={name:'',email:''};
+var curView='today'; // 'today' | 'tomorrow'
+var moreDaysOpen=false;
+var locallyEnded=[]; // meeting IDs ended locally
 
 // ══════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════
-const el=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const pad=n=>String(n).padStart(2,'0');
-const ft=d=>d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
-const fd=(s,e)=>{const m=Math.round((e-s)/60000);return m<60?m+'m':Math.floor(m/60)+'h'+(m%60?' '+(m%60)+'m':'');};
-const mu=d=>Math.max(0,Math.round((d-new Date())/60000));
-const localISO=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
-const gDate=o=>{const s=o.dateTime;return new Date(s.endsWith('Z')?s:s+'Z');};
-const isAllDay=m=>(m.end-m.start)>=86400000-60000; // ≥23h59m = all-day
-const show=id=>{const e=el(id);if(e)e.classList.remove('hidden');};
-const hide=id=>{const e=el(id);if(e)e.classList.add('hidden');};
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function el(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function pad(n){var s=String(n);while(s.length<2)s='0'+s;return s;}
+function ft(d){return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});}
+function fd(s,e){var m=Math.round((e-s)/60000);return m<60?m+'m':Math.floor(m/60)+'h'+(m%60?' '+(m%60)+'m':'');}
+function mu(d){return Math.max(0,Math.round((d-new Date())/60000));}
+function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';}
+function gDate(o){var s=o.dateTime;return new Date(s.charAt(s.length-1)==='Z'?s:s+'Z');}
+function isAllDay(m){return (m.end-m.start)>=86399000;}
+function show(id){var e=el(id);if(e)e.classList.remove('hidden');}
+function hide(id){var e=el(id);if(e)e.classList.add('hidden');}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 
 function toast(msg,type){
-  const t=el('toast');t.textContent=msg;t.className=type||'';
+  var t=el('toast');t.textContent=msg;t.className=type||'';
   t.classList.remove('hidden');clearTimeout(t._t);
-  t._t=setTimeout(()=>t.classList.add('hidden'),3500);
+  t._t=setTimeout(function(){t.classList.add('hidden');},3500);
 }
 function setErr(msg){
-  const isAccess=msg.toLowerCase().includes('access')||msg.toLowerCase().includes('forbidden')||msg.toLowerCase().includes('denied');
+  var isAccess=msg.toLowerCase().indexOf('access')>-1||msg.toLowerCase().indexOf('forbidden')>-1||msg.toLowerCase().indexOf('denied')>-1;
   el('err-msg').textContent=isAccess?'🔒 Access denied to room calendar. Grant Calendars.ReadWrite.Shared permission, or switch room.':'⚠ '+msg;
   el('error-banner').style.display='flex';
 }
@@ -644,7 +661,7 @@ function clearErr(){el('error-banner').style.display='none';}
 // WEATHER — Open-Meteo (free, no key)
 // Central Silom Tower: 13.7248, 100.5253
 // ══════════════════════════════════════
-const WX_CODES={
+var WX_CODES={
   0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',
   45:'Foggy',48:'Icy fog',
   51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',
@@ -653,7 +670,7 @@ const WX_CODES={
   80:'Light showers',81:'Showers',82:'Heavy showers',
   95:'Thunderstorm',96:'Thunderstorm+hail',99:'Thunderstorm+hail'
 };
-const WX_ICONS={
+var WX_ICONS={
   0:'☀️',1:'🌤',2:'⛅',3:'☁️',
   45:'🌫',48:'🌫',
   51:'🌦',53:'🌦',55:'🌧',
@@ -665,20 +682,20 @@ const WX_ICONS={
 
 async function fetchWeather(){
   try{
-    const url='https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok';
-    const r=await fetch(url);
+    var url='https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok';
+    var r=await fetch(url);
     if(!r.ok)return;
-    const d=await r.json();
-    const c=d.current;
-    const code=c.weather_code;
-    const temp=Math.round(c.temperature_2m);
-    const feels=Math.round(c.apparent_temperature);
-    const icon=WX_ICONS[code]||'🌡';
-    const desc=WX_CODES[code]||'--';
+    var d=await r.json();
+    var c=d.current;
+    var code=c.weather_code;
+    var temp=Math.round(c.temperature_2m);
+    var feels=Math.round(c.apparent_temperature);
+    var icon=WX_ICONS[code]||'🌡';
+    var desc=WX_CODES[code]||'--';
     el('wx-icon').textContent=icon;
     el('wx-temp').textContent=temp+'°C';
     el('wx-desc').textContent=desc;
-    el('wx-feels').textContent=`Feels ${feels}°`;
+    el('wx-feels').textContent='Feels '+feels+'°';
     el('weather-strip').style.display='flex';
   }catch(e){/* silent fail */}
 }
@@ -686,19 +703,19 @@ async function fetchWeather(){
 // ══════════════════════════════════════
 // BURN-IN
 // ══════════════════════════════════════
-let driftX=0,driftY=0;
+var driftX=0,driftY=0;
 function startBurnIn(){
   // Soft moving radial glow
-  const canvas=document.createElement('canvas');
+  var canvas=document.createElement('canvas');
   canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;transition:opacity 3s;';
   document.body.appendChild(canvas);
-  const ctx=canvas.getContext('2d');
-  let wx=0.5,wy=0.5,tx=0.5,ty=0.5;
+  var ctx=canvas.getContext('2d');
+  var wx=0.5,wy=0.5,tx=0.5,ty=0.5;
   function draw(){
     canvas.width=window.innerWidth;canvas.height=window.innerHeight;
     wx+=(tx-wx)*0.015;wy+=(ty-wy)*0.015;
-    const cx=wx*canvas.width,cy=wy*canvas.height;
-    const gr=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(canvas.width,canvas.height)*0.65);
+    var cx=wx*canvas.width,cy=wy*canvas.height;
+    var gr=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(canvas.width,canvas.height)*0.65);
     gr.addColorStop(0,'rgba(255,255,255,0.014)');
     gr.addColorStop(0.5,'rgba(255,255,255,0.006)');
     gr.addColorStop(1,'rgba(0,0,0,0)');
@@ -707,12 +724,12 @@ function startBurnIn(){
     requestAnimationFrame(draw);
   }
   draw();
-  setTimeout(()=>{canvas.style.opacity='1';},3000);
-  setInterval(()=>{tx=0.1+Math.random()*0.8;ty=0.1+Math.random()*0.8;},7000);
+  setTimeout(function(){canvas.style.opacity='1';},3000);
+  setInterval(function(){tx=0.1+Math.random()*0.8;ty=0.1+Math.random()*0.8;},7000);
   // Pixel drift ±3px every 12s
-  setInterval(()=>{
+  setInterval(function(){
     driftX=(Math.random()*6-3);driftY=(Math.random()*6-3);
-    el('pixel-drift').style.transform=`translate(${driftX}px,${driftY}px)`;
+    el('pixel-drift').style.transform='translate('+driftX+'px,'+driftY+'px)';
   },12000);
 }
 
@@ -722,20 +739,20 @@ function startBurnIn(){
 function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');}catch(e){cfg={};}}
 
 function saveConfig(){
-  const v=id=>el(id).value.trim();
-  const b=id=>el(id).checked;
+  function v(id){return el(id).value.trim();}
+  function b(id){return el(id).checked;}
   if(!v('cfg-tenant')||!v('cfg-client')||!v('cfg-roomname')||!v('cfg-roomemail')){alert('Fill in all required fields.');return;}
   if(b('cfg-booking')&&b('cfg-approval')&&!v('cfg-owner')){alert('Enter room owner email for approval.');return;}
-  const extraRooms=[];
-  document.querySelectorAll('.room-row').forEach(row=>{
-    const nm=row.querySelector('.rr-name').value.trim();
-    const em=row.querySelector('.rr-email').value.trim();
+  var extraRooms=[];
+  document.querySelectorAll('.room-row').forEach(function(row){
+    var nm=row.querySelector('.rr-name').value.trim();
+    var em=row.querySelector('.rr-email').value.trim();
     if(nm&&em)extraRooms.push({name:nm,email:em});
   });
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
-    extraRooms,teamsBtn:b('cfg-teams')!==false};
+    extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
   initMsal();
 }
@@ -752,13 +769,13 @@ function showConfig(){
   el('cfg-approval').checked=!!cfg.approval;      // default OFF
   el('cfg-teams').checked=cfg.teamsBtn!==false;   // default ON
   if(cfg.owner)el('cfg-owner').value=cfg.owner;
-  const list=el('extra-rooms-list');list.innerHTML='';
-  (cfg.extraRooms||[]).forEach(r=>addRoomRow(r.name,r.email));
+  var list=el('extra-rooms-list');list.innerHTML='';
+  (cfg.extraRooms||[]).forEach(function(r){addRoomRow(r.name,r.email);});
   toggleApproval();toggleOwner();
 }
 
 function addRoomRow(name='',email=''){
-  const row=document.createElement('div');row.className='room-row';
+  var row=document.createElement('div');row.className='room-row';
   row.innerHTML=`<input class="rr-name" placeholder="Room name" value="${esc(name)}">
     <input class="rr-email" placeholder="room@central.co.th" value="${esc(email)}">
     <button class="rm-del" data-action="delroom">×</button>`;
@@ -773,14 +790,14 @@ function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checke
 async function initMsal(){
   hide('config-screen');
   msalInst=new msal.PublicClientApplication({
-    auth:{clientId:cfg.client,authority:`https://login.microsoftonline.com/${cfg.tenant}`,redirectUri:location.href.split('?')[0].split('#')[0]},
+    auth:{clientId:cfg.client,authority:'https://login.microsoftonline.com/'+cfg.tenant,redirectUri:location.href.split('?')[0].split('#')[0]},
     cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
   });
   try{
     await msalInst.initialize();
-    const r=await msalInst.handleRedirectPromise();
+    var r=await msalInst.handleRedirectPromise();
     if(r?.account){account=r.account;launch();return;}
-    const acts=msalInst.getAllAccounts();
+    var acts=msalInst.getAllAccounts();
     if(acts.length){account=acts[0];launch();}
     else showAuth();
   }catch(e){el('auth-error').textContent=e.message;showAuth();}
@@ -788,8 +805,8 @@ async function initMsal(){
 function showAuth(){show('auth-overlay');hide('app');}
 
 async function getToken(){
-  const scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
-  try{const r=await msalInst.acquireTokenSilent({scopes,account});return r.accessToken;}
+  var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
+  try{var r=await msalInst.acquireTokenSilent({scopes,account});return r.accessToken;}
   catch(e){await msalInst.acquireTokenRedirect({scopes});return null;}
 }
 
@@ -813,8 +830,8 @@ function launch(){
 // ROOM SWITCHER
 // ══════════════════════════════════════
 function renderRoomChips(){
-  const all=[{name:cfg.roomname,email:cfg.roomemail},...(cfg.extraRooms||[])];
-  const c=el('room-chips');
+  var all=[{name:cfg.roomname,email:cfg.roomemail},...(cfg.extraRooms||[])];
+  var c=el('room-chips');
   if(all.length<2){c.style.display='none';return;}
   c.style.display='flex';
   c.innerHTML=all.map(r=>`<div class="rchip${r.email===activeRoom.email?' active':''}" data-name="${esc(r.name)}" data-email="${esc(r.email)}">${esc(r.name)}</div>`).join('');
@@ -826,15 +843,15 @@ function switchRoom(name,email){
   clearErr();
   renderRoomChips();
   el('meet-list').innerHTML='<div class="spinner lg"></div>';
-  fetchCal();toast(`Switched to ${name}`,'success');
+  fetchCal();toast('Switched to '+name,'success');
 }
 
 // ══════════════════════════════════════
 // CLOCK
 // ══════════════════════════════════════
 function startClock(){
-  const tick=()=>{
-    const n=new Date();
+  var tick=function(){
+    var n=new Date();
     el('clock-time').textContent=pad(n.getHours())+':'+pad(n.getMinutes());
     el('clock-date').textContent=n.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long'});
     updateCurrentCard();
@@ -846,39 +863,36 @@ function startClock(){
 // CALENDAR FETCH — 7 days
 // ══════════════════════════════════════
 async function fetchCal(){
-  const tok=await getToken();if(!tok)return;
-  const s=new Date();s.setHours(0,0,0,0);
-  const e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
-  const url=`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(activeRoom.email)}/calendarView`
-    +`?startDateTime=${s.toISOString()}&endDateTime=${e.toISOString()}`
-    +`&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled&$orderby=start/dateTime&$top=60`;
+  var tok=await getToken();if(!tok)return;
+  var s=new Date();s.setHours(0,0,0,0);
+  var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
+  var url='https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(activeRoom.email)+'/calendarView'
+    +'?startDateTime='+s.toISOString()+'&endDateTime='+e.toISOString()
+    +'&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled&$orderby=start/dateTime&$top=60';
   try{
-    const r=await fetch(url,{headers:{Authorization:`Bearer ${tok}`}});
-    if(!r.ok){const er=await r.json();setErr(er.error?.message||'Calendar error');return;}
-    const d=await r.json();
-    meetings=(d.value||[]).map(ev=>({
+    var r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+    if(!r.ok){var er=await r.json();setErr(er.error?.message||'Calendar error');return;}
+    var d=await r.json();
+    meetings=(d.value||[]).map(function(ev){return {
       id:ev.id,title:ev.subject||'(No title)',
       organizer:ev.organizer?.emailAddress?.name||ev.organizer?.emailAddress?.address||'',
       start:gDate(ev.start),end:gDate(ev.end),
       attendees:(ev.attendees||[]).length,isPending:false,
-      joinUrl:ev.onlineMeeting?.joinUrl||ev.onlineMeeting?.joinWebUrl||null,
+      joinUrl:(ev.onlineMeeting&&ev.onlineMeeting.joinUrl)||(ev.onlineMeeting&&ev.onlineMeeting.joinWebUrl)||null,
       isOnline:!!ev.isOnlineMeeting,
       showAs:ev.showAs||'busy',          // free|tentative|busy|oof|workingElsewhere|unknown
       isCancelled:!!ev.isCancelled,
       // Tentative = pending Exchange approval — show as amber pending
       isPending: ev.showAs==='tentative',
-      isExchangePending: ev.showAs==='tentative' // waiting for room owner in Outlook
-    }));
+      isExchangePending: ev.showAs==='tentative'
+    };});
     // Keep confirmed + tentative (pending approval), exclude free/cancelled/unknown
-    meetings=meetings.filter(m=>
-      !m.isCancelled &&
-      (m.showAs==='busy' || m.showAs==='oof' || m.showAs==='workingElsewhere' || m.showAs==='tentative')
-    );
+    meetings=meetings.filter(function(m){return !m.isCancelled&&(m.showAs==='busy'||m.showAs==='oof'||m.showAs==='workingElsewhere'||m.showAs==='tentative');});
     // Add back our local pending bookings (not yet in Exchange)
-    pendingLocal.forEach(pb=>{if(!meetings.some(m=>Math.abs(m.start-pb.start)<60000&&m.title===pb.title))meetings.push(pb);});
+    pendingLocal.forEach(function(pb){if(!meetings.some(function(m){return Math.abs(m.start-pb.start)<60000&&m.title===pb.title;}))meetings.push(pb);});
     // Filter out meetings the user ended locally
-    if(locallyEnded.size>0) meetings=meetings.filter(m=>!locallyEnded.has(m.id));
-    meetings.sort((a,b)=>a.start-b.start);
+    if(locallyEnded.length>0){meetings=meetings.filter(function(m){return locallyEnded.indexOf(m.id)===-1;});}
+    meetings.sort(function(a,b){return a.start-b.start;});
     clearErr();
     updateCurrentCard();renderBadges();renderMeetList();renderMoreDays();
   }catch(e){setErr(e.message);}
@@ -888,57 +902,57 @@ async function fetchCal(){
 // THEME
 // ══════════════════════════════════════
 function setTheme(status){
-  const map={
+  var map={
     available:{rgb:'41,121,255',   bg:'rgba(41,121,255,1.0)',    mid:'rgba(41,121,255,0.55)',  card:'rgba(41,121,255,0.18)',  border:'rgba(41,121,255,0.55)'},
     busy:     {rgb:'243,43,43',    bg:'rgba(243,43,43,1.0)',     mid:'rgba(243,43,43,0.60)',   card:'rgba(243,43,43,0.20)',   border:'rgba(243,43,43,0.60)'},
     soon:     {rgb:'255,149,0',    bg:'rgba(255,149,0,1.0)',     mid:'rgba(255,149,0,0.55)',   card:'rgba(255,149,0,0.18)',   border:'rgba(255,149,0,0.55)'},
     pending:  {rgb:'255,149,0',    bg:'rgba(255,149,0,1.0)',     mid:'rgba(255,149,0,0.55)',   card:'rgba(255,149,0,0.18)',   border:'rgba(255,149,0,0.55)'}
   };
-  const t=map[status]||map.available;
+  var t=map[status]||map.available;
   document.documentElement.style.setProperty('--accent',`rgb(${t.rgb})`);
 
   // Dramatic 4-stop gradient: vivid top bloom → strong mid wash → fade → dark base
   el('bg').style.background=
-    `radial-gradient(ellipse 140% 65% at 50% -5%, ${t.bg} 0%, ${t.mid} 35%, rgba(${t.rgb},0.08) 60%, transparent 75%),`+
-    `linear-gradient(180deg,#0a0a12 0%,#0a0a12 100%)`;
+    'radial-gradient(ellipse 140% 65% at 50% -5%, '+t.bg+' 0%, '+t.mid+' 35%, rgba('+t.rgb+',0.08) 60%, transparent 75%),'+
+    'linear-gradient(180deg,#0a0a12 0%,#0a0a12 100%)';
 
   // Tint the current card
-  const card=el('cur-card');
+  var card=el('cur-card');
   if(card){
     card.style.background=t.card;
     card.style.borderColor=t.border;
     card.style.boxShadow=`0 0 40px ${t.mid}, inset 0 1px 0 ${t.border}`;
   }
 
-  const dot=el('sdot');
+  var dot=el('sdot');
   dot.className='sdot '+({available:'av',busy:'busy',soon:'soon',pending:'pend'}[status]||'av');
 }
 
 // ══════════════════════════════════════
 // CURRENT CARD
 // ══════════════════════════════════════
-function getCur(){const n=new Date();return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start<=n&&m.end>=n)||null;}
+function getCur(){var n=new Date();return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start<=n&&m.end>=n)||null;}
 function getNext(){
-  const n=new Date();
+  var n=new Date();
   // Only show upcoming meetings from TODAY — not tomorrow or future days
-  const endOfToday=new Date();endOfToday.setHours(23,59,59,999);
+  var endOfToday=new Date();endOfToday.setHours(23,59,59,999);
   return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday)||null;
 }
 
 function updateCurrentCard(){
-  const n=new Date(),cur=getCur(),nxt=getNext();
-  const card=el('cur-card'),cont=el('cur-content');
+  var n=new Date(),cur=getCur(),nxt=getNext();
+  var card=el('cur-card'),cont=el('cur-content');
 
   if(cur){
-    const ip=cur.isPending;
+    var ip=cur.isPending;
     setTheme(ip?'pending':'busy');
     el('status-txt').textContent=ip?'Pending Approval':'In Use';
-    const pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
-    let btns='';
+    var pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
+    var btns='';
     if(ip){
-      const pendMsg = cur.isExchangePending
-        ? `${svgClock()} Awaiting room owner approval in Outlook`
-        : `${svgClock()} Awaiting approval…`;
+      var pendMsg = cur.isExchangePending
+        ? svgClock()+' Awaiting room owner approval in Outlook'
+        : svgClock()+' Awaiting approval...';
       btns=`<button class="abtn abtn-pend" disabled>${pendMsg}</button>`;
     } else {
       btns += checkedIn
@@ -948,9 +962,9 @@ function updateCurrentCard(){
       btns+=`<button class="abtn abtn-extend" id="ext-btn">${svgPlus()} +30m</button>`;
       if(cfg.teamsBtn!==false&&cur.joinUrl)btns+=`<button class="abtn abtn-teams" id="teams-btn">${svgTeams()} Join Teams</button>`;
     }
-    let warn='';
+    var warn='';
     if(!ip&&!checkedIn&&cfg.release>0){
-      const ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
+      var ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
       if(ml>0)warn=`<div class="rel-warn">⚠ Releases in ${ml} min without check-in</div>`;
     }
     cont.innerHTML=`
@@ -963,11 +977,11 @@ function updateCurrentCard(){
     el('nav-book-btn').style.display='none';
 
   } else if(nxt){
-    const m=mu(nxt.start);
-    const isSoon=m<=30;
+    var m=mu(nxt.start);
+    var isSoon=m<=30;
     setTheme(isSoon?'soon':'available');
     el('status-txt').textContent=isSoon?`Available · next in ${m}m`:`Available · free until ${ft(nxt.start)}`;
-    const bookBtn=cfg.booking!==false?`<button class="abtn abtn-checkin" id="book-btn-card">${svgCal()} Book Room</button>`:'';
+    var bookBtn=cfg.booking!==false?`<button class="abtn abtn-checkin" id="book-btn-card">${svgCal()} Book Room</button>`:'';
     cont.innerHTML=`
       <div class="meet-tag soon">🟡 UPCOMING</div>
       <div class="meet-title-lg">${esc(nxt.title)}</div>
@@ -979,7 +993,7 @@ function updateCurrentCard(){
   } else {
     setTheme('available');
     el('status-txt').textContent='Available';
-    const bookBtn=cfg.booking!==false?`<button class="book-big" id="book-big-btn">${svgCal()} Book This Room</button>`:'';
+    var bookBtn=cfg.booking!==false?`<button class="book-big" id="book-big-btn">${svgCal()} Book This Room</button>`:'';
     cont.innerHTML=`
       <div class="av-state">
         <div class="av-icon">✓</div>
@@ -995,8 +1009,8 @@ function updateCurrentCard(){
 // BADGE COUNTS
 // ══════════════════════════════════════
 function getMeetingsForDay(offset){
-  const d=new Date();d.setDate(d.getDate()+offset);d.setHours(0,0,0,0);
-  const de=new Date(d);de.setHours(23,59,59,999);
+  var d=new Date();d.setDate(d.getDate()+offset);d.setHours(0,0,0,0);
+  var de=new Date(d);de.setHours(23,59,59,999);
   return meetings.filter(m=>m.start>=d&&m.start<=de&&!isAllDay(m));
 }
 function renderBadges(){
@@ -1008,37 +1022,37 @@ function renderBadges(){
 // MEETING LIST (today / tomorrow)
 // ══════════════════════════════════════
 function renderMeetList(){
-  const n=new Date();
-  const offset=curView==='today'?0:1;
-  const day=getMeetingsForDay(offset);
-  const show=offset===0?day.filter(m=>m.end>n):day;
-  const list=el('meet-list');
+  var n=new Date();
+  var offset=curView==='today'?0:1;
+  var day=getMeetingsForDay(offset);
+  var show=offset===0?day.filter(function(m){return m.end>n;}):day;
+  var list=el('meet-list');
   if(!show.length){
-    const lbl=curView==='today'?'today':'tomorrow';
-    list.innerHTML=`<div class="empty-day"><div class="empty-day-icon">📅</div><div class="empty-day-txt">No meetings ${lbl}</div>${offset===0&&cfg.booking!==false?`<div style="margin-top:12px;font-size:13px;color:rgba(99,179,255,.7);cursor:pointer" data-action="book">+ Book this room</div>`:''}</div>`;
+    var lbl=curView==='today'?'today':'tomorrow';
+    list.innerHTML='<div class="empty-day"><div class="empty-day-icon">&#128197;</div><div class="empty-day-txt">No meetings '+lbl+'</div>'+(offset===0&&cfg.booking!==false?'<div style="margin-top:12px;font-size:13px;color:rgba(99,179,255,.7);cursor:pointer" data-action="book">+ Book this room</div>':'')+'</div>';
     return;
   }
-  list.innerHTML=show.slice(0,12).map((m,i)=>{
-    const ip=m.isPending;
-    const hasTeams=!ip&&!!m.joinUrl;
-    const isNow=n>=m.start&&n<=m.end;
-    const isPast=offset===0&&m.end<n;
-    let cls='mitem';
+  list.innerHTML=show.slice(0,12).map(function(m,i){
+    var ip=m.isPending;
+    var hasTeams=!ip&&!!m.joinUrl;
+    var isNow=n>=m.start&&n<=m.end;
+    var isPast=offset===0&&m.end<n;
+    var cls='mitem';
     if(ip)cls+=' is-pend';
     else if(isNow)cls+=' is-now';
     else if(i===0&&!isPast)cls+=' is-next';
     if(hasTeams&&!isNow)cls+=' is-teams';
     if(isPast)cls+=' is-past';
-    const badge=ip?'<span class="mitem-badge pend">PENDING</span>'
+    var badge=ip?'<span class="mitem-badge pend">PENDING</span>'
       :isNow?'<span class="mitem-badge now">NOW</span>'
       :hasTeams&&i===0&&!isPast?'<span class="mitem-badge teams">TEAMS</span>'
       :i===0&&!isPast?'<span class="mitem-badge next">NEXT</span>':'';
-    return `<div class="${cls}">${badge}
-      <div class="mitem-bar"></div>
-      <div class="mitem-time"><div class="mitem-t">${ft(m.start)}</div><div class="mitem-d">${fd(m.start,m.end)}</div></div>
-      <div class="mitem-sep"></div>
-      <div class="mitem-info"><div class="mitem-title">${esc(m.title)}</div><div class="mitem-org">${esc(ip?m.organizer+' · pending':m.organizer)}</div></div>
-    </div>`;
+    return '<div class="'+cls+'">'+badge+
+      '<div class="mitem-bar"></div>'+
+      '<div class="mitem-time"><div class="mitem-t">'+ft(m.start)+'</div><div class="mitem-d">'+fd(m.start,m.end)+'</div></div>'+
+      '<div class="mitem-sep"></div>'+
+      '<div class="mitem-info"><div class="mitem-title">'+esc(m.title)+'</div><div class="mitem-org">'+esc(ip?m.organizer+' - pending':m.organizer)+'</div></div>'+
+    '</div>';
   }).join('');
 }
 
@@ -1046,16 +1060,16 @@ function renderMeetList(){
 // MORE DAYS (Wed–7 days out)
 // ══════════════════════════════════════
 function renderMoreDays(){
-  const wrap=el('more-days');
+  var wrap=el('more-days');
   if(!moreDaysOpen){wrap.style.display='none';return;}
   wrap.style.display='block';
-  const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  let html='<div class="more-days-hdr">Next 5 days</div>';
-  for(let i=2;i<7;i++){
-    const d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
-    const day=getMeetingsForDay(i);
-    const isWkend=d.getDay()===0||d.getDay()===6;
-    const dlbl=`${weekdays[d.getDay()]} ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+  var weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var html='<div class="more-days-hdr">Next 5 days</div>';
+  for(var i=2;i<7;i++){
+    var d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
+    var day=getMeetingsForDay(i);
+    var isWkend=d.getDay()===0||d.getDay()===6;
+    var dlbl=`${weekdays[d.getDay()]} ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
     html+=`<div class="day-row"><div class="day-row-hdr">${isWkend?`<span class="wkend">${dlbl}</span>`:dlbl}<span class="day-row-count">${day.length}</span></div>`;
     if(!day.length){html+=`<div style="font-size:12px;color:var(--text3);padding:6px 0">No meetings</div>`;}
     else{html+=day.slice(0,5).map(m=>`<div class="mitem" style="padding:9px 12px;margin-bottom:5px">
@@ -1073,25 +1087,25 @@ function renderMoreDays(){
 // CHECK-IN / END / EXTEND
 // ══════════════════════════════════════
 async function doCheckin(){
-  const btn=el('checkin-btn');if(!btn)return;
+  var btn=el('checkin-btn');if(!btn)return;
   btn.disabled=true;
-  const sc=document.createElement('div');sc.className='scan-ln';btn.appendChild(sc);
+  var sc=document.createElement('div');sc.className='scan-ln';btn.appendChild(sc);
   await sleep(1200);sc.remove();
   checkedIn=true;updateCurrentCard();toast('✓ Checked in','success');
 }
 function endMeeting(){
-  const cur=getCur();if(!cur)return;
+  var cur=getCur();if(!cur)return;
   // Show in-app confirm dialog
   el('cdlg-title').textContent='End meeting?';
   el('cdlg-sub').textContent=`"${cur.title}" will end now and the room will show as available.`;
   el('cdlg-icon').textContent='⏹';
   el('cdlg-ok').textContent='End Meeting';
   el('cdlg-ok').style.background='var(--busy)';
-  el('cdlg-ok').onclick=()=>{
+  el('cdlg-ok').onclick=function(){
     hide('confirm-dialog');
     // Remember this meeting as locally ended so fetchCal won't restore it
-    if(cur.id) locallyEnded.add(cur.id);
-    const idx=meetings.indexOf(cur);
+    if(cur.id) locallyEnded.push(cur.id);
+    var idx=meetings.indexOf(cur);
     if(idx>-1)meetings.splice(idx,1);
     checkedIn=false;
     updateCurrentCard();renderBadges();renderMeetList();
@@ -1101,7 +1115,7 @@ function endMeeting(){
   show('confirm-dialog');
 }
 function extendMeeting(){
-  const cur=getCur();if(!cur)return;
+  var cur=getCur();if(!cur)return;
   cur.end=new Date(cur.end.getTime()+30*60000);
   updateCurrentCard();toast('+30 min extended','success');
 }
@@ -1117,7 +1131,7 @@ function openModal(){
   el('book-name').value='';el('book-title').value='';
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
-  const na=cfg.booking&&cfg.approval;
+  var na=cfg.booking&&cfg.approval;
   el('appr-banner').style.display=na?'block':'none';
   el('mconfirm').className='mconfirm '+(na?'appr':'inst');
   el('mconfirm-lbl').textContent=na?'Send approval request':'Confirm booking';
@@ -1126,84 +1140,85 @@ function openModal(){
   buildDurChips(bookStart, 60);
   updatePrev();
   show('booking-modal');
-  setTimeout(()=>el('book-name').focus(),350);
+  setTimeout(function(){el('book-name').focus();},350);
 }
 function closeModal(){hide('booking-modal');}
 // Round up to next 15-min boundary
 function nextQuarter(d){
-  const m=d.getMinutes(),s=d.getSeconds();
-  const rem=(s>0?1:0)+(m%15===0&&s===0?0:15-(m%15));
-  const r=new Date(d);
+  var m=d.getMinutes(),s=d.getSeconds();
+  var rem=(s>0?1:0)+(m%15===0&&s===0?0:15-(m%15));
+  var r=new Date(d);
   r.setSeconds(0,0);
   r.setMinutes(m + (m%15===0&&s===0?0:15-(m%15)));
   return r;
 }
 
-function buildDurChips(startTime, defaultMin=60){
-  const needsAppr=cfg.booking&&cfg.approval;
+function buildDurChips(startTime, defaultMin){
+  if(defaultMin===undefined)defaultMin=60;
+  var needsAppr=cfg.booking&&cfg.approval;
   // Offer 4 durations: 30, 60, 90, 120 min — show end time for each
-  const durations=[30,60,90,120];
-  const grid=el('dur-grid');
-  grid.innerHTML=durations.map(min=>{
-    const end=new Date(startTime.getTime()+min*60000);
-    const endStr=ft(end);
-    const label=min<60?`${min}m`:(min===60?'1h':(min===90?'1h 30m':'2h'));
-    const sel=min===defaultMin;
-    const cls='dchip'+(sel?' sel':'')+(needsAppr&&sel?' asel':'');
-    return `<div class="${cls}" data-min="${min}"><div style="font-size:13px;font-weight:700">${label}</div><div style="font-size:10px;opacity:.6;margin-top:2px">→ ${endStr}</div></div>`;
+  var durations=[30,60,90,120];
+  var grid=el('dur-grid');
+  grid.innerHTML=durations.map(function(min){
+    var end=new Date(startTime.getTime()+min*60000);
+    var endStr=ft(end);
+    var label=min<60?(min+'m'):(min===60?'1h':(min===90?'1h 30m':'2h'));
+    var sel=min===defaultMin;
+    var cls='dchip'+(sel?' sel':'')+(needsAppr&&sel?' asel':'');
+    return '<div class="'+cls+'" data-min="'+min+'"><div style="font-size:13px;font-weight:700">'+label+'</div><div style="font-size:10px;opacity:.6;margin-top:2px">&#8594; '+endStr+'</div></div>';
   }).join('');
   selDurMin=defaultMin;
 }
 
 function updatePrev(){
-  const s=bookStart||new Date();
-  const e=new Date(s.getTime()+selDurMin*60000);
+  var s=bookStart||new Date();
+  var e=new Date(s.getTime()+selDurMin*60000);
   el('prev-s').textContent=ft(s);
   el('prev-e').textContent=ft(e);
 }
 
-let bookStart=null; // the rounded start time for the current booking
+var bookStart=null; // the rounded start time for the current booking
 async function confirmBooking(){
-  const name=el('book-name').value.trim(),title=el('book-title').value.trim();
+  var name=el('book-name').value.trim(),title=el('book-title').value.trim();
   if(!name){toast('Please enter your name','warn');return;}
   if(!title){toast('Please enter a meeting title','warn');return;}
-  const btn=el('mconfirm');btn.disabled=true;
+  var btn=el('mconfirm');btn.disabled=true;
   el('mconfirm-lbl').innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>';
-  const s=bookStart||new Date(), e=new Date(s.getTime()+selDurMin*60000);
+  var s=bookStart||new Date(), e=new Date(s.getTime()+selDurMin*60000);
   if(cfg.approval)await sendApproval(name,title,s,e);
   else await createDirect(name,title,s,e);
   btn.disabled=false;
   el('mconfirm-lbl').textContent=cfg.approval?'Send approval request':'Confirm booking';
 }
 async function createDirect(name,title,s,e){
-  const tok=await getToken();if(!tok){closeModal();return;}
-  const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const body={subject:title,body:{contentType:'text',content:`Booked by ${name} from the room display.`},
+  var tok=await getToken();if(!tok){closeModal();return;}
+  var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  var body={subject:title,body:{contentType:'text',content:`Booked by ${name} from the room display.`},
     start:{dateTime:localISO(s),timeZone:tz},end:{dateTime:localISO(e),timeZone:tz},
     attendees:[{emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'resource'}],isOnlineMeeting:false};
   try{
-    const r=await fetch('https://graph.microsoft.com/v1.0/me/events',
-      {method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok){const er=await r.json();toast('Booking failed: '+(er.error?.message||r.status),'error');closeModal();return;}
+    var r=await fetch('https://graph.microsoft.com/v1.0/me/events',
+      {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){var er=await r.json();toast('Booking failed: '+((er.error&&er.error.message)||r.status),'error');closeModal();return;}
     closeModal();toast('✓ Room booked!','success');
     meetings.push({id:'loc-'+Date.now(),title,organizer:name,start:s,end:e,attendees:1,isPending:false,joinUrl:null,isOnline:false});
-    meetings.sort((a,b)=>a.start-b.start);
+    meetings.sort(function(a,b){return a.start-b.start;});
     updateCurrentCard();renderBadges();renderMeetList();
     setTimeout(fetchCal,6000);
   }catch(err){toast('Error: '+err.message,'error');closeModal();}
 }
 async function sendApproval(name,title,s,e){
-  const tok=await getToken();if(!tok){closeModal();return;}
-  const bid='BOOK-'+Date.now();
-  const dateStr=s.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const html=`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;"><table width="100%"><tr><td align="center" style="padding:32px 16px;"><table width="520" style="background:#fff;border-radius:12px;border:1px solid #e0e4eb;"><tr><td style="background:#0a0a12;padding:24px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#3b9eff;">⬡ ROOM DISPLAY</div><div style="font-size:12px;color:#6b82a8;margin-top:4px;">Booking Approval Request</div></td></tr><tr><td style="padding:28px;"><table width="100%" style="border:1px solid #e8ecf0;border-radius:8px;font-size:13px;"><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;width:130px;border-bottom:1px solid #e8ecf0;">Room</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(activeRoom.name)}</td></tr><tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Requested by</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(name)}</td></tr><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Meeting</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(title)}</td></tr><tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Date</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${dateStr}</td></tr><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Time</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${ft(s)} – ${ft(e)}</td></tr><tr><td style="padding:10px 14px;color:#666;">Booking ID</td><td style="padding:10px 14px;font-family:monospace;color:#888;font-size:11px;">${bid}</td></tr></table><table width="100%" style="margin-top:20px;"><tr><td style="padding-right:8px;"><a href="mailto:${activeRoom.email}?subject=APPROVE:${bid}" style="display:block;text-align:center;padding:14px;background:#00d68f;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✓ Approve</a></td><td style="padding-left:8px;"><a href="mailto:${activeRoom.email}?subject=DECLINE:${bid}" style="display:block;text-align:center;padding:14px;background:#ff4d6a;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✗ Decline</a></td></tr></table></td></tr></table></td></tr></table></body></html>`;
-  const mail={message:{subject:`[Approval] ${activeRoom.name}: "${title}" by ${name}`,body:{contentType:'html',content:html},toRecipients:[{emailAddress:{address:cfg.owner}}]},saveToSentItems:true};
+  var tok=await getToken();if(!tok){closeModal();return;}
+  var bid='BOOK-'+Date.now();
+  var dateStr=s.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var html=`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;"><table width="100%"><tr><td align="center" style="padding:32px 16px;"><table width="520" style="background:#fff;border-radius:12px;border:1px solid #e0e4eb;"><tr><td style="background:#0a0a12;padding:24px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#3b9eff;">⬡ ROOM DISPLAY</div><div style="font-size:12px;color:#6b82a8;margin-top:4px;">Booking Approval Request</div></td></tr><tr><td style="padding:28px;"><table width="100%" style="border:1px solid #e8ecf0;border-radius:8px;font-size:13px;"><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;width:130px;border-bottom:1px solid #e8ecf0;">Room</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(activeRoom.name)}</td></tr><tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Requested by</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(name)}</td></tr><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Meeting</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(title)}</td></tr><tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Date</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${dateStr}</td></tr><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Time</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${ft(s)} – ${ft(e)}</td></tr><tr><td style="padding:10px 14px;color:#666;">Booking ID</td><td style="padding:10px 14px;font-family:monospace;color:#888;font-size:11px;">${bid}</td></tr></table><table width="100%" style="margin-top:20px;"><tr><td style="padding-right:8px;"><a href="mailto:${activeRoom.email}?subject=APPROVE:${bid}" style="display:block;text-align:center;padding:14px;background:#00d68f;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✓ Approve</a></td><td style="padding-left:8px;"><a href="mailto:${activeRoom.email}?subject=DECLINE:${bid}" style="display:block;text-align:center;padding:14px;background:#ff4d6a;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✗ Decline</a></td></tr></table></td></tr></table></td></tr></table></body></html>`;
+  var mail={message:{subject:`[Approval] ${activeRoom.name}: "${title}" by ${name}`,body:{contentType:'html',content:html},toRecipients:[{emailAddress:{address:cfg.owner}}]},saveToSentItems:true};
   try{
-    const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',
-      {method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify(mail)});
-    if(!r.ok&&r.status!==202){const er=await r.json().catch(()=>({}));toast('Email failed: '+(er.error?.message||r.status),'error');closeModal();return;}
-    const pb={id:bid,title,organizer:name,start:s,end:e,attendees:1,isPending:true,joinUrl:null,isOnline:false};
-    pendingLocal.push(pb);meetings.push(pb);meetings.sort((a,b)=>a.start-b.start);
+    var r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',
+      {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(mail)});
+    if(!r.ok&&r.status!==202){var er=await r.json().catch(function(){return {};});toast('Email failed: '+((er.error&&er.error.message)||r.status),'error');closeModal();return;}
+    var pb={id:bid,title,organizer:name,start:s,end:e,attendees:1,isPending:true,joinUrl:null,isOnline:false};
+    pendingLocal.push(pb);meetings.push(pb);meetings.sort(function(a,b){return a.start-b.start;});
     closeModal();toast('✉ Approval request sent','warn');
     updateCurrentCard();renderBadges();renderMeetList();
   }catch(err){toast('Error: '+err.message,'error');closeModal();}
@@ -1212,14 +1227,14 @@ async function sendApproval(name,title,s,e){
 // ══════════════════════════════════════
 // PIN PROTECTION
 // ══════════════════════════════════════
-const PIN_KEY='roomdisplay_pin';
-let pinBuffer='', pinMode='verify'; // 'verify' | 'setup' | 'confirm'
-let pinSetupFirst='';
+var PIN_KEY='roomdisplay_pin';
+var pinBuffer='', pinMode='verify'; // 'verify' | 'setup' | 'confirm'
+var pinSetupFirst='';
 
 function getStoredPin(){return localStorage.getItem(PIN_KEY)||'';}
 
 function openPinOverlay(){
-  const stored=getStoredPin();
+  var stored=getStoredPin();
   pinBuffer='';
   if(!stored){
     // First time — set up a PIN
@@ -1238,8 +1253,8 @@ function openPinOverlay(){
 }
 
 function updatePinDots(error=false){
-  for(let i=0;i<4;i++){
-    const dot=el('pd'+i);
+  for(var i=0;i<4;i++){
+    var dot=el('pd'+i);
     dot.className='pin-dot'+(error?' error':pinBuffer.length>i?' filled':'');
   }
 }
@@ -1255,7 +1270,7 @@ function pinInput(key){
   updatePinDots();
 
   if(pinBuffer.length===4){
-    setTimeout(()=>{
+    setTimeout(function(){
       if(pinMode==='verify'){
         if(pinBuffer===getStoredPin()){
           hide('pin-overlay');
@@ -1263,7 +1278,7 @@ function pinInput(key){
         } else {
           updatePinDots(true);
           el('pin-sub').textContent='Wrong PIN — try again';
-          setTimeout(()=>{pinBuffer='';updatePinDots();el('pin-sub').textContent='Enter PIN to access settings';},900);
+          setTimeout(function(){pinBuffer='';updatePinDots();el('pin-sub').textContent='Enter PIN to access settings';},900);
         }
       } else if(pinMode==='setup'){
         pinSetupFirst=pinBuffer;
@@ -1281,7 +1296,7 @@ function pinInput(key){
         } else {
           updatePinDots(true);
           el('pin-sub').textContent='PINs don\'t match — start over';
-          setTimeout(()=>{
+          setTimeout(function(){
             pinBuffer='';pinSetupFirst='';pinMode='setup';
             el('pin-title').textContent='Set a PIN';
             el('pin-sub').textContent='Choose a 4-digit PIN to protect settings';
@@ -1304,7 +1319,7 @@ function svgTeams(s){return `<svg width="${s||14}" height="${s||14}" viewBox="0 
 // EVENT DELEGATION — all clicks here
 // ══════════════════════════════════════
 document.addEventListener('click', function(e){
-  const t=e.target;
+  var t=e.target;
 
   // Config toggles
   if(t.id==='cfg-booking'||t.closest('#cfg-booking'))toggleApproval();
@@ -1315,7 +1330,7 @@ document.addEventListener('click', function(e){
 
   // Auth
   if(t.id==='btn-signin'||t.closest('#btn-signin')){
-    msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],prompt:'select_account'}).catch(e=>{el('auth-error').textContent=e.message;});
+    msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],prompt:'select_account'}).catch(function(e){el('auth-error').textContent=e.message;});
   }
 
   // Gear / settings — go through PIN
@@ -1328,18 +1343,18 @@ document.addEventListener('click', function(e){
 
   // PIN overlay
   if(t.id==='pin-cancel-btn'||t.closest('#pin-cancel-btn')){hide('pin-overlay');return;}
-  const pk=t.closest('.pin-key');
+  var pk=t.closest('.pin-key');
   if(pk&&!pk.classList.contains('empty')){pinInput(pk.dataset.pin);return;}
 
   // Room chips
-  const chip=t.closest('.rchip');
+  var chip=t.closest('.rchip');
   if(chip){switchRoom(chip.dataset.name,chip.dataset.email);return;}
 
   // View tabs (today/tomorrow)
-  const vtab=t.closest('.vtab');
+  var vtab=t.closest('.vtab');
   if(vtab&&vtab.dataset.view){
     curView=vtab.dataset.view;
-    document.querySelectorAll('.vtab').forEach(v=>v.classList.toggle('active',v.dataset.view===curView));
+    document.querySelectorAll('.vtab').forEach(function(v){v.classList.toggle('active',v.dataset.view===curView);});
     renderMeetList();return;
   }
 
@@ -1353,7 +1368,7 @@ document.addEventListener('click', function(e){
   // Today nav
   if(t.id==='nav-today-btn'||t.closest('#nav-today-btn')){
     curView='today';
-    document.querySelectorAll('.vtab').forEach(v=>v.classList.toggle('active',v.dataset.view==='today'));
+    document.querySelectorAll('.vtab').forEach(function(v){v.classList.toggle('active',v.dataset.view==='today');});
     renderMeetList();
     el('body-scroll')||document.querySelector('.body-scroll')?.scrollTo({top:0,behavior:'smooth'});
     return;
@@ -1369,10 +1384,10 @@ document.addEventListener('click', function(e){
   if(t===el('booking-modal'))closeModal();
 
   // Duration chips
-  const dc=t.closest('.dchip');
+  var dc=t.closest('.dchip');
   if(dc){
-    const na=cfg.booking&&cfg.approval;
-    document.querySelectorAll('.dchip').forEach(c=>c.classList.remove('sel','asel'));
+    var na=cfg.booking&&cfg.approval;
+    document.querySelectorAll('.dchip').forEach(function(c){c.classList.remove('sel','asel');});
     dc.classList.add('sel');if(na)dc.classList.add('asel');
     selDurMin=parseInt(dc.dataset.min);
     updatePrev();
@@ -1384,7 +1399,7 @@ document.addEventListener('click', function(e){
   if(t.id==='end-btn'||t.closest('#end-btn'))endMeeting();
   if(t.id==='ext-btn'||t.closest('#ext-btn'))extendMeeting();
   if(t.id==='teams-btn'||t.closest('#teams-btn')){
-    const cur=getCur();if(cur?.joinUrl)joinTeams(cur.joinUrl);
+    var cur=getCur();if(cur?.joinUrl)joinTeams(cur.joinUrl);
   }
 });
 
