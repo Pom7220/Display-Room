@@ -59,38 +59,38 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 #pixel-drift{position:fixed;inset:0;z-index:1;transition:transform 10s ease-in-out;}
 
 /* ── CONFIG ── */
-#config-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:28px 20px 100px;z-index:1000;overflow-y:scroll;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+#config-screen{position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0a12;display:block;padding:20px 16px 120px;z-index:1000;overflow-y:scroll;-webkit-overflow-scrolling:touch;}
 #config-screen.hidden{display:none;}
-.cfg-logo{font-size:11px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;margin-top:12px;}
-.cfg-title{font-size:30px;font-weight:900;color:var(--text);margin-bottom:4px;letter-spacing:-.03em;}
-.cfg-sub{font-size:13px;color:var(--text3);margin-bottom:28px;}
-.cfg-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:20px;width:100%;max-width:440px;margin-bottom:12px;}
-.cfg-card h3{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(99,179,255,.7);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.cfg-logo{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#555;margin-bottom:4px;margin-top:8px;text-align:center;}
+.cfg-title{font-size:28px;font-weight:900;color:#fff;margin-bottom:2px;text-align:center;}
+.cfg-sub{font-size:13px;color:#666;margin-bottom:20px;text-align:center;}
+.cfg-card{background:#1a1a2e;border:1px solid #2a2a4a;-webkit-border-radius:12px;border-radius:12px;padding:16px;width:100%;max-width:440px;margin:0 auto 12px auto;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.cfg-card h3{font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#5599ff;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #2a2a4a;}
 .field{margin-bottom:12px;}
-.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;letter-spacing:.1em;text-transform:uppercase;}
-.field input,.field select{width:100%;padding:11px 14px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--rxs);color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color .2s;}
-.field input:focus,.field select:focus{border-color:var(--available);}
-.field select option{background:#141420;}
-.hint{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5;}
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
-.tr-label{font-size:14px;color:var(--text);font-weight:500;}
-.tr-sub{font-size:11px;color:var(--text3);margin-top:2px;}
-.tog{position:relative;width:44px;height:26px;flex-shrink:0;}
+.field label{display:block;font-size:11px;font-weight:700;color:#888;margin-bottom:5px;letter-spacing:.08em;text-transform:uppercase;}
+.field input,.field select{width:100%;padding:10px 12px;background:#111;border:1px solid #333;-webkit-border-radius:6px;border-radius:6px;color:#fff;font-size:14px;outline:none;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.field input:focus,.field select:focus{border-color:#2979ff;}
+.field select option{background:#111;}
+.hint{font-size:11px;color:#555;margin-top:4px;line-height:1.5;}
+.toggle-row{padding:10px 0;border-bottom:1px solid #1a1a2e;}
+.tr-label{font-size:14px;color:#ddd;font-weight:500;}
+.tr-sub{font-size:11px;color:#666;margin-top:2px;}
+.tog{position:relative;width:44px;height:26px;}
 .tog input{opacity:0;width:0;height:0;position:absolute;}
-.tog-slider{position:absolute;inset:0;background:rgba(255,255,255,.15);border-radius:13px;cursor:pointer;transition:.25s;}
-.tog-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,.3);}
-.tog input:checked+.tog-slider{background:var(--available);}
-.tog input:checked+.tog-slider::before{transform:translateX(18px);}
-.rooms-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
-.room-row{display:flex;gap:6px;align-items:center;}
-.room-row input{flex:1;padding:9px 11px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--rxs);color:var(--text);font-family:var(--font);font-size:13px;outline:none;}
-.rm-del{width:32px;height:32px;background:rgba(255,77,106,.1);border:1px solid rgba(255,77,106,.2);border-radius:8px;color:rgba(255,77,106,.7);cursor:pointer;font-size:16px;flex-shrink:0;}
-.btn-add-room{width:100%;padding:10px;background:none;border:1px dashed var(--border2);border-radius:var(--rxs);color:var(--text3);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;}
-.approval-fields{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
-.btn-primary{width:100%;max-width:440px;padding:16px;background:var(--available);border:none;border-radius:var(--rs);color:#fff;font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;transition:opacity .2s;}
-.btn-primary:active{opacity:.8;}
-.cfg-note{background:rgba(99,179,255,.05);border:1px solid rgba(99,179,255,.12);border-radius:var(--rxs);padding:14px 16px;font-size:12px;color:var(--text3);line-height:1.8;margin-top:8px;max-width:440px;width:100%;margin-bottom:32px;}
-.cfg-note strong{color:rgba(99,179,255,.8);}
+.tog-slider{position:absolute;top:0;left:0;right:0;bottom:0;background:#333;-webkit-border-radius:13px;border-radius:13px;cursor:pointer;}
+.tog-slider:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;-webkit-border-radius:50%;border-radius:50%;}
+.tog input:checked+.tog-slider{background:#2979ff;}
+.tog input:checked+.tog-slider:before{-webkit-transform:translateX(18px);transform:translateX(18px);}
+.rooms-list{margin-top:8px;}
+.room-row{margin-bottom:8px;}
+.room-row input{width:100%;padding:8px 10px;background:#111;border:1px solid #333;-webkit-border-radius:6px;border-radius:6px;color:#fff;font-size:13px;outline:none;margin-bottom:4px;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.rm-del{width:100%;padding:6px;background:#1a0000;border:1px solid #500;-webkit-border-radius:6px;border-radius:6px;color:#f66;font-size:13px;cursor:pointer;margin-bottom:4px;}
+.btn-add-room{width:100%;padding:10px;background:#0a0a1a;border:1px solid #333;-webkit-border-radius:6px;border-radius:6px;color:#888;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;}
+.approval-fields{margin-top:10px;padding-top:10px;border-top:1px solid #2a2a4a;}
+.btn-primary{display:block;width:100%;max-width:440px;padding:16px;background:#2979ff;border:none;-webkit-border-radius:10px;border-radius:10px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin:8px auto;-webkit-box-sizing:border-box;box-sizing:border-box;text-align:center;}
+.cfg-note{background:#0a0a1e;border:1px solid #1a1a3e;-webkit-border-radius:6px;border-radius:6px;padding:12px 14px;font-size:12px;color:#666;line-height:1.7;margin:8px auto 32px;max-width:440px;width:100%;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.cfg-note strong{color:#5599ff;}
+.cfg-note code{background:#111;padding:1px 5px;-webkit-border-radius:3px;border-radius:3px;font-size:11px;color:#7dd3fc;}
 .cfg-note code{background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:11px;color:#7dd3fc;}
 
 /* ── AUTH ── */
@@ -393,7 +393,7 @@ if('serviceWorker' in navigator){
   <div class="cfg-sub">Meeting Room Kiosk — Configuration</div>
 
   <!-- SAVE BUTTON AT TOP — always visible -->
-  <button class="btn-primary" id="btn-save-cfg" style="margin-bottom:20px;margin-top:0">💾 Save &amp; Launch Display</button>
+  <button class="btn-primary" id="btn-save-cfg" onclick="saveConfig()" style="margin-bottom:20px;margin-top:0">&#128190; Save &amp; Launch Display</button>
   <div class="cfg-card">
     <h3>Azure AD / Microsoft 365</h3>
     <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
@@ -416,13 +416,13 @@ if('serviceWorker' in navigator){
   <div class="cfg-card">
     <h3>Booking Settings</h3>
     <div class="toggle-row">
-      <div><div class="tr-label">Allow instant booking</div><div class="tr-sub">Book directly on this display</div></div>
-      <label class="tog"><input type="checkbox" id="cfg-booking" checked><span class="tog-slider"></span></label>
+      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Allow instant booking</div><div class="tr-sub">Book directly on this display</div></div>
+      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-booking" checked onchange="toggleApproval()"><span class="tog-slider"></span></label>
     </div>
     <div class="approval-fields" id="approval-fields">
       <div class="toggle-row" style="padding-top:0">
-        <div><div class="tr-label">Require owner approval</div><div class="tr-sub">Email sent before confirmed</div></div>
-        <label class="tog"><input type="checkbox" id="cfg-approval"><span class="tog-slider"></span></label>
+        <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Require owner approval</div><div class="tr-sub">Email sent before confirmed</div></div>
+        <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-approval" onchange="toggleOwner()"><span class="tog-slider"></span></label>
       </div>
       <div id="owner-field" style="display:none">
         <div class="field" style="margin-bottom:0;margin-top:10px"><label>Room Owner Email</label><input type="text" id="cfg-owner" placeholder="owner@central.co.th"></div>
@@ -432,8 +432,8 @@ if('serviceWorker' in navigator){
   <div class="cfg-card">
     <h3>Microsoft Teams</h3>
     <div class="toggle-row">
-      <div><div class="tr-label">Show "Join Teams" button</div><div class="tr-sub">One-tap join on active Teams meetings</div></div>
-      <label class="tog"><input type="checkbox" id="cfg-teams" checked><span class="tog-slider"></span></label>
+      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Show "Join Teams" button</div><div class="tr-sub">One-tap join on active Teams meetings</div></div>
+      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-teams" checked><span class="tog-slider"></span></label>
     </div>
   </div>
   <button class="btn-primary" id="btn-save-cfg">Save &amp; Launch Display</button>
