@@ -411,7 +411,6 @@ if('serviceWorker' in navigator){
   <div id="ver-display" style="font-size:10px;color:#444;text-align:center;margin-bottom:16px;font-family:monospace;"></div>
 
   <!-- SAVE BUTTON AT TOP — always visible -->
-  <button class="btn-primary" id="btn-save-cfg" onclick="saveConfig()" style="margin-bottom:20px;margin-top:0">&#128190; Save &amp; Launch Display</button>
   <div class="cfg-card">
     <h3>Azure AD / Microsoft 365</h3>
     <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
@@ -454,6 +453,14 @@ if('serviceWorker' in navigator){
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-teams" checked><span class="tog-slider"></span></label>
     </div>
   </div>
+  <div class="cfg-card">
+    <h3>Developer</h3>
+    <div class="toggle-row">
+      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Debug log overlay</div><div class="tr-sub">Show debug messages on screen — disable for production</div></div>
+      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-debug-toggle" onchange="toggleDebugMode()"><span class="tog-slider"></span></label>
+    </div>
+    <div style="font-size:11px;color:#555;margin-top:6px;">v<span id="ver-inline"></span> &nbsp;|&nbsp; To enable debug without config: open console and type <code style="background:#111;padding:1px 4px;border-radius:3px;color:#5599ff">dbgEnabled=true</code></div>
+  </div>
   <button class="btn-primary" onclick="saveConfig()">Save &amp; Launch Display</button>
   <!-- DEBUG PANEL - always visible when config screen is open -->
   <div id="cfg-debug" style="display:none;width:100%;max-width:440px;padding:12px;background:#1a0000;border:2px solid #f00;border-radius:8px;color:#f88;font-size:13px;margin-bottom:12px;word-break:break-all;line-height:1.6;"></div>
@@ -472,7 +479,7 @@ if('serviceWorker' in navigator){
 
 <!-- AUTH -->
 <div id="auth-overlay" class="hidden">
-  <div class="auth-icon">🔐</div>
+  <div class="auth-icon" style="width:80px;height:80px;background:rgba(41,121,255,0.15);border:2px solid rgba(41,121,255,0.4);border-radius:20px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;font-family:Arial,sans-serif;margin:0 auto;">RIS</div>
   <div class="auth-title">Sign in to Microsoft</div>
   <div class="auth-sub">Sign in with an account that has access to the room calendar.</div>
   <button class="auth-btn" id="btn-signin">Sign in with Microsoft</button>
@@ -525,7 +532,7 @@ if('serviceWorker' in navigator){
       <div class="view-tabs" id="view-tabs">
         <div class="vtab active" data-view="today">Today <span class="vtab-badge" id="vbadge-today">0</span></div>
         <div class="vtab" data-view="tomorrow">Tomorrow <span class="vtab-badge" id="vbadge-tomorrow">0</span></div>
-        <button class="vtab-more" id="btn-more-days">More ▾</button>
+        <button class="vtab-more" id="btn-more-days">More +</button>
       </div>
 
       <!-- Meeting list -->
@@ -630,7 +637,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 1,
-  minor: 4,
+  minor: 7,
   date: '2026-05-29',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -642,6 +649,9 @@ var APP_VERSION = {
 // v1.2 2026-05-27 - ES6->ES5 conversion for Chrome 42, custom MSAL v1
 // v1.3 2026-05-28 - inset:0 fix, weather fallback, PIN protection
 // v1.4 2026-05-29 - Persistent debug overlay, version control
+// v1.5 2026-05-29 - Full end-to-end verified, RIS auth icon
+// v1.6 2026-05-29 - Full ES6 clean sweep, single save button, More days fixed
+// v1.7 2026-05-29 - Debug toggle in settings, More/Less plain text fix
 
 // ══════════════════════════════════════
 // STATE
@@ -836,6 +846,15 @@ function showConfig(){
   el('cfg-booking').checked=cfg.booking!==false; // default ON
   el('cfg-approval').checked=!!cfg.approval;      // default OFF
   el('cfg-teams').checked=cfg.teamsBtn!==false;   // default ON
+  // Load debug state from localStorage
+  try{
+    var savedDbg=localStorage.getItem('roomdisplay_debug')==='1';
+    el('cfg-debug-toggle').checked=savedDbg;
+    dbgEnabled=savedDbg;
+  }catch(e){}
+  // Show version in developer card
+  var vi=el('ver-inline');
+  if(vi)vi.textContent=APP_VERSION.label();
   if(cfg.owner)el('cfg-owner').value=cfg.owner;
   var list=el('extra-rooms-list');list.innerHTML='';
   (cfg.extraRooms||[]).forEach(function(r){addRoomRow(r.name,r.email);});
@@ -851,7 +870,13 @@ function addRoomRow(name,email){
     +'<button class="rm-del" data-action="delroom">×</button>';
   el('extra-rooms-list').appendChild(row);
 }
-function toggleApproval(){el('approval-fields').style.display=el('cfg-booking').checked?'block':'none';}
+function toggleDebugMode(){
+  dbgEnabled=el('cfg-debug-toggle').checked;
+  var d=el('debug-overlay');
+  if(d)d.style.display=dbgEnabled?'block':'none';
+  // Save preference
+  try{localStorage.setItem('roomdisplay_debug',dbgEnabled?'1':'0');}catch(e){}
+}
 function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checked?'block':'none';}
 
 // ══════════════════════════════════════
@@ -965,11 +990,11 @@ function renderRoomChips(){
   var c=el('room-chips');
   if(all.length<2){c.style.display='none';return;}
   c.style.display='flex';
-  c.innerHTML=all.map(r=>`<div class="rchip${r.email===activeRoom.email?' active':''}" data-name="${esc(r.name)}" data-email="${esc(r.email)}">${esc(r.name)}</div>`).join('');
+  c.innerHTML=all.map(function(r){return '<div class="rchip'+(r.email===activeRoom.email?' active':'')+'" data-name="'+esc(r.name)+'" data-email="'+esc(r.email)+'">'+esc(r.name)+'</div>';}).join('');
 }
 function switchRoom(name,email){
   if(email===activeRoom.email)return;
-  activeRoom={name,email};meetings=[];pendingLocal=[];checkedIn=false;
+  activeRoom={name:name,email:email};meetings=[];pendingLocal=[];checkedIn=false;
   el('disp-name').textContent=name;
   clearErr();
   renderRoomChips();
@@ -1054,7 +1079,7 @@ function setTheme(status){
   if(card){
     card.style.background=t.card;
     card.style.borderColor=t.border;
-    card.style.boxShadow=`0 0 40px ${t.mid}, inset 0 1px 0 ${t.border}`;
+    card.style.boxShadow='0 0 40px '+t.mid+', inset 0 1px 0 '+t.border;
   }
 
   var dot=el('sdot');
@@ -1064,12 +1089,12 @@ function setTheme(status){
 // ══════════════════════════════════════
 // CURRENT CARD
 // ══════════════════════════════════════
-function getCur(){var n=new Date();return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start<=n&&m.end>=n)||null;}
+function getCur(){var n=new Date();return meetings.find(function(m){return !m.isPending&&!isAllDay(m)&&m.start<=n&&m.end>=n;})||null;}
 function getNext(){
   var n=new Date();
   // Only show upcoming meetings from TODAY — not tomorrow or future days
   var endOfToday=new Date();endOfToday.setHours(23,59,59,999);
-  return meetings.find(m=>!m.isPending&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday)||null;
+  return meetings.find(function(m){return !m.isPending&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday;})||null;
 }
 
 function updateCurrentCard(){
@@ -1086,54 +1111,54 @@ function updateCurrentCard(){
       var pendMsg = cur.isExchangePending
         ? svgClock()+' Awaiting room owner approval in Outlook'
         : svgClock()+' Awaiting approval...';
-      btns=`<button class="abtn abtn-pend" disabled>${pendMsg}</button>`;
+      btns='<button class="abtn abtn-pend" disabled>'+pendMsg+'</button>';
     } else {
       btns += checkedIn
-        ? `<button class="abtn abtn-checkin checked" disabled>${svgCheck()} Checked In</button>`
-        : `<button class="abtn abtn-checkin" id="checkin-btn">${svgCheck()} Check In</button>`;
-      btns+=`<button class="abtn abtn-end" id="end-btn">${svgX()} End</button>`;
-      btns+=`<button class="abtn abtn-extend" id="ext-btn">${svgPlus()} +30m</button>`;
-      if(cfg.teamsBtn!==false&&cur.joinUrl)btns+=`<button class="abtn abtn-teams" id="teams-btn">${svgTeams()} Join Teams</button>`;
+        ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
+        : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>';
+      btns+='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
+      btns+='<button class="abtn abtn-extend" id="ext-btn">'+svgPlus()+' +30m</button>';
+      if(cfg.teamsBtn!==false&&cur.joinUrl)btns+='<button class="abtn abtn-teams" id="teams-btn">'+svgTeams()+' Join Teams</button>';
     }
     var warn='';
     if(!ip&&!checkedIn&&cfg.release>0){
       var ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
-      if(ml>0)warn=`<div class="rel-warn">⚠ Releases in ${ml} min without check-in</div>`;
+      if(ml>0)warn='<div class="rel-warn">⚠ Releases in '+ml+' min without check-in</div>';
     }
-    cont.innerHTML=`
-      <div class="meet-tag ${ip?'pend':'busy'}">${ip?'⏳ PENDING':'🔴 IN USE'}</div>
-      <div class="meet-title-lg">${esc(cur.title)}</div>
-      <div class="meet-time-lg" style="color:var(--busy)">${ft(cur.start)} – ${ft(cur.end)}</div>
-      ${cur.organizer?`<div class="meet-org">${svgUser(13)}${esc(cur.organizer)}</div>`:''}
-      <div class="prog"><div class="prog-fill" style="width:${pct}%;background:var(--busy)"></div></div>
-      <div class="action-row">${btns}</div>${warn}`;
+    cont.innerHTML=
+      '<div class="meet-tag '+(ip?'pend':'busy')+'">'+(ip?'&#9203; PENDING':'&#128308; IN USE')+'</div>'+
+      '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
+      '<div class="meet-time-lg" style="color:var(--busy)">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
+      (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
+      '<div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:var(--busy)"></div></div>'+
+      '<div class="action-row">'+btns+'</div>'+warn;
     el('nav-book-btn').style.display='none';
 
   } else if(nxt){
     var m=mu(nxt.start);
     var isSoon=m<=30;
     setTheme(isSoon?'soon':'available');
-    el('status-txt').textContent=isSoon?`Available · next in ${m}m`:`Available · free until ${ft(nxt.start)}`;
-    var bookBtn=cfg.booking!==false?`<button class="abtn abtn-checkin" id="book-btn-card">${svgCal()} Book Room</button>`:'';
-    cont.innerHTML=`
-      <div class="meet-tag soon">🟡 UPCOMING</div>
-      <div class="meet-title-lg">${esc(nxt.title)}</div>
-      <div class="meet-time-lg" style="color:var(--soon)">${ft(nxt.start)} – ${ft(nxt.end)}</div>
-      ${nxt.organizer?`<div class="meet-org">${svgUser(13)}${esc(nxt.organizer)}</div>`:''}
-      <div class="action-row"><button class="abtn abtn-checkin off" disabled>No active meeting</button>${bookBtn}</div>`;
+    el('status-txt').textContent=isSoon?('Available - next in '+m+'m'):('Available - free until '+ft(nxt.start));
+    var bookBtn=cfg.booking!==false?('<button class="abtn abtn-checkin" id="book-btn-card">'+svgCal()+' Book Room</button>'):'';
+    cont.innerHTML=
+      '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
+      '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
+      '<div class="meet-time-lg" style="color:var(--soon)">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
+      (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'')+
+      '<div class="action-row"><button class="abtn abtn-checkin off" disabled>No active meeting</button>'+bookBtn+'</div>';
     el('nav-book-btn').style.display='none'; // card has book btn, hide nav duplicate
 
   } else {
     setTheme('available');
     el('status-txt').textContent='Available';
-    var bookBtn=cfg.booking!==false?`<button class="book-big" id="book-big-btn">${svgCal()} Book This Room</button>`:'';
-    cont.innerHTML=`
-      <div class="av-state">
-        <div class="av-icon">✓</div>
-        <div class="av-title">Free to Book</div>
-        <div class="av-sub">No meetings scheduled<br>Available for the rest of the day</div>
-        ${bookBtn}
-      </div>`;
+    var bookBtn=cfg.booking!==false?('<button class="book-big" id="book-big-btn">'+svgCal()+' Book This Room</button>'):'';
+    cont.innerHTML=
+      '<div class="av-state">'+
+      '<div class="av-icon">&#10003;</div>'+
+      '<div class="av-title">Free to Book</div>'+
+      '<div class="av-sub">No meetings scheduled<br>Available for the rest of the day</div>'+
+      bookBtn+
+      '</div>';
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   }
 }
@@ -1144,7 +1169,7 @@ function updateCurrentCard(){
 function getMeetingsForDay(offset){
   var d=new Date();d.setDate(d.getDate()+offset);d.setHours(0,0,0,0);
   var de=new Date(d);de.setHours(23,59,59,999);
-  return meetings.filter(m=>m.start>=d&&m.start<=de&&!isAllDay(m));
+  return meetings.filter(function(m){return m.start>=d&&m.start<=de&&!isAllDay(m);});
 }
 function renderBadges(){
   el('vbadge-today').textContent=getMeetingsForDay(0).length;
@@ -1202,15 +1227,20 @@ function renderMoreDays(){
     var d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
     var day=getMeetingsForDay(i);
     var isWkend=d.getDay()===0||d.getDay()===6;
-    var dlbl=`${weekdays[d.getDay()]} ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
-    html+=`<div class="day-row"><div class="day-row-hdr">${isWkend?`<span class="wkend">${dlbl}</span>`:dlbl}<span class="day-row-count">${day.length}</span></div>`;
-    if(!day.length){html+=`<div style="font-size:12px;color:var(--text3);padding:6px 0">No meetings</div>`;}
-    else{html+=day.slice(0,5).map(m=>`<div class="mitem" style="padding:9px 12px;margin-bottom:5px">
-      <div class="mitem-bar"></div>
-      <div class="mitem-time"><div class="mitem-t" style="font-size:12px">${ft(m.start)}</div><div class="mitem-d">${fd(m.start,m.end)}</div></div>
-      <div class="mitem-sep"></div>
-      <div class="mitem-info"><div class="mitem-title" style="font-size:12px">${esc(m.title)}</div><div class="mitem-org">${esc(m.organizer)}</div></div>
-    </div>`).join('');}
+    var dlbl=weekdays[d.getDay()]+' '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    html+='<div class="day-row"><div class="day-row-hdr">'+(isWkend?'<span class="wkend">'+dlbl+'</span>':dlbl)+'<span class="day-row-count">'+day.length+'</span></div>';
+    if(!day.length){html+='<div style="font-size:12px;color:#666;padding:6px 0">No meetings</div>';}
+    else{
+      for(var mi=0;mi<Math.min(day.length,5);mi++){
+        var mm=day[mi];
+        html+='<div class="mitem" style="padding:9px 12px;margin-bottom:5px">'+
+          '<div class="mitem-bar"></div>'+
+          '<div class="mitem-time"><div class="mitem-t" style="font-size:12px">'+ft(mm.start)+'</div><div class="mitem-d">'+fd(mm.start,mm.end)+'</div></div>'+
+          '<div class="mitem-sep"></div>'+
+          '<div class="mitem-info"><div class="mitem-title" style="font-size:12px">'+esc(mm.title)+'</div><div class="mitem-org">'+esc(mm.organizer)+'</div></div>'+
+          '</div>';
+      }
+    }
     html+='</div>';
   }
   wrap.innerHTML=html;
@@ -1419,7 +1449,8 @@ function openPinOverlay(){
   show('pin-overlay');
 }
 
-function updatePinDots(error=false){
+function updatePinDots(error){
+  if(error===undefined)error=false;
   for(var i=0;i<4;i++){
     var dot=el('pd'+i);
     dot.className='pin-dot'+(error?' error':pinBuffer.length>i?' filled':'');
@@ -1474,13 +1505,13 @@ function pinInput(key){
     },120);
   }
 }
-function svgCheck(s){return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;}
-function svgClock(s){return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;}
-function svgCal(s){return `<svg width="${s||14}" height="${s||14}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;}
-function svgUser(s){return `<svg width="${s||12}" height="${s||12}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;}
-function svgX(s){return `<svg width="${s||13}" height="${s||13}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;}
-function svgPlus(s){return `<svg width="${s||13}" height="${s||13}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;}
-function svgTeams(s){return `<svg width="${s||14}" height="${s||14}" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8-2h4v2h-4V4zm8 14H8V8h12v10z"/><path d="M10 12h4v1.5h-4zm0 2.5h4V16h-4z"/></svg>`;}
+function svgCheck(s){return '<svg width="'+(s||14)+'" height="'+(s||14)+'" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';}
+function svgClock(s){return '<svg width="'+(s||14)+'" height="'+(s||14)+'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';}
+function svgCal(s){return '<svg width="'+(s||14)+'" height="'+(s||14)+'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';}
+function svgUser(s){return '<svg width="'+(s||12)+'" height="'+(s||12)+'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';}
+function svgX(s){return '<svg width="'+(s||13)+'" height="'+(s||13)+'" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';}
+function svgPlus(s){return '<svg width="'+(s||13)+'" height="'+(s||13)+'" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';}
+function svgTeams(s){return '<svg width="'+(s||14)+'" height="'+(s||14)+'" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8-2h4v2h-4V4zm8 14H8V8h12v10z"/><path d="M10 12h4v1.5h-4zm0 2.5h4V16h-4z"/></svg>';}
 
 // ══════════════════════════════════════
 // EVENT DELEGATION — all clicks here
@@ -1528,7 +1559,7 @@ document.addEventListener('click', function(e){
   // More days toggle
   if(t.id==='btn-more-days'||t.closest('#btn-more-days')){
     moreDaysOpen=!moreDaysOpen;
-    el('btn-more-days').textContent=moreDaysOpen?'Less ▴':'More ▾';
+    el('btn-more-days').textContent=moreDaysOpen?'Less -':'More +';
     renderMoreDays();return;
   }
 
@@ -1537,7 +1568,8 @@ document.addEventListener('click', function(e){
     curView='today';
     document.querySelectorAll('.vtab').forEach(function(v){v.classList.toggle('active',v.dataset.view==='today');});
     renderMeetList();
-    el('body-scroll')||document.querySelector('.body-scroll')?.scrollTo({top:0,behavior:'smooth'});
+    var bs=el('body-scroll')||document.querySelector('.body-scroll');
+    if(bs&&bs.scrollTo)bs.scrollTo({top:0,behavior:'smooth'});
     return;
   }
 
@@ -1566,7 +1598,7 @@ document.addEventListener('click', function(e){
   if(t.id==='end-btn'||t.closest('#end-btn'))endMeeting();
   if(t.id==='ext-btn'||t.closest('#ext-btn'))extendMeeting();
   if(t.id==='teams-btn'||t.closest('#teams-btn')){
-    var cur=getCur();if(cur?.joinUrl)joinTeams(cur.joinUrl);
+    var cur=getCur();if(cur&&cur.joinUrl)joinTeams(cur.joinUrl);
   }
 });
 
@@ -1583,6 +1615,8 @@ document.addEventListener('click', function(e){
 })();
 
 loadCfg();
+// Restore debug state
+try{dbgEnabled=localStorage.getItem('roomdisplay_debug')==='1';}catch(e){}
 if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail)initMsal();
 else{showConfig();el('cfg-sticky-bar').style.display='block';}
 </script>
