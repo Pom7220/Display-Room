@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser Test</title>
+<style>
+body{font-family:Arial,sans-serif;padding:16px;background:#111;color:#fff;font-size:14px;}
+h2{color:#5599ff;margin-bottom:12px;}
+.pass{color:#00e676;padding:4px 0;}
+.fail{color:#f32b2b;padding:4px 0;font-weight:bold;}
+.info{color:#fbbf24;padding:4px 0;}
+#result{margin-top:16px;padding:12px;background:#1a1a2e;border-radius:8px;}
+button{padding:12px 24px;background:#2979ff;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;width:100%;margin-bottom:8px;}
+input{width:100%;padding:10px;background:#222;border:1px solid #444;color:#fff;border-radius:6px;font-size:14px;margin-bottom:8px;box-sizing:border-box;}
+</style>
+</head>
+<body>
+<h2>Browser Compatibility Test</h2>
+<div id="result">Tap "Run Tests" to start...</div>
+
+<br>
+<input type="text" id="test-input" value="test value" placeholder="Type here to test input">
+<button onclick="runTests()">Run Tests</button>
+<button onclick="testSave()">Test Save Button Click</button>
+<button onclick="testMsal()">Test MSAL Load</button>
+<button onclick="testFetch()">Test Fetch API</button>
+<button onclick="testStorage()">Test localStorage</button>
+
+<script src="msal-browser.min.js"></script>
+<script>
+var log = [];
+
+function addLog(msg, type) {
+    log.push('<div class="' + (type||'info') + '">' + msg + '</div>');
+    document.getElementById('result').innerHTML = log.join('');
+}
+
+function runTests() {
+    log = [];
+    addLog('=== Browser Tests ===', 'info');
+    addLog('User Agent: ' + navigator.userAgent, 'info');
+    addLog('---', 'info');
+
+    // Test 1: Basic JS
+    try {
+        var x = 1 + 1;
+        addLog('✓ Basic JS works', 'pass');
+    } catch(e) { addLog('✗ Basic JS: ' + e.message, 'fail'); }
+
+    // Test 2: JSON
+    try {
+        var j = JSON.stringify({a:1});
+        JSON.parse(j);
+        addLog('✓ JSON works', 'pass');
+    } catch(e) { addLog('✗ JSON: ' + e.message, 'fail'); }
+
+    // Test 3: localStorage
+    try {
+        localStorage.setItem('test', '123');
+        var v = localStorage.getItem('test');
+        localStorage.removeItem('test');
+        addLog('✓ localStorage works: ' + v, 'pass');
+    } catch(e) { addLog('✗ localStorage: ' + e.message, 'fail'); }
+
+    // Test 4: Promise
+    try {
+        var p = new Promise(function(resolve) { resolve(1); });
+        addLog('✓ Promise works', 'pass');
+    } catch(e) { addLog('✗ Promise: ' + e.message, 'fail'); }
+
+    // Test 5: fetch
+    try {
+        if(typeof fetch !== 'undefined') {
+            addLog('✓ fetch API available', 'pass');
+        } else {
+            addLog('✗ fetch NOT available', 'fail');
+        }
+    } catch(e) { addLog('✗ fetch: ' + e.message, 'fail'); }
+
+    // Test 6: classList
+    try {
+        var d = document.createElement('div');
+        d.classList.add('test');
+        d.classList.remove('test');
+        addLog('✓ classList works', 'pass');
+    } catch(e) { addLog('✗ classList: ' + e.message, 'fail'); }
+
+    // Test 7: MSAL library
+    try {
+        if(typeof msal !== 'undefined') {
+            addLog('✓ MSAL library loaded', 'pass');
+        } else {
+            addLog('✗ MSAL NOT loaded', 'fail');
+        }
+    } catch(e) { addLog('✗ MSAL check: ' + e.message, 'fail'); }
+
+    // Test 8: Input value
+    try {
+        var val = document.getElementById('test-input').value;
+        addLog('✓ Input read works: "' + val + '"', 'pass');
+    } catch(e) { addLog('✗ Input read: ' + e.message, 'fail'); }
+
+    // Test 9: onclick works
+    addLog('✓ onclick works (you clicked the button!)', 'pass');
+
+    // Test 10: Array methods
+    try {
+        var arr = [1,2,3];
+        var found = arr.find(function(x){ return x===2; });
+        var filtered = arr.filter(function(x){ return x>1; });
+        addLog('✓ Array.find/filter works', 'pass');
+    } catch(e) { addLog('✗ Array methods: ' + e.message, 'fail'); }
+
+    // Test 11: HTTPS
+    addLog('Protocol: ' + location.protocol, location.protocol==='https:'?'pass':'fail');
+
+    addLog('--- Done ---', 'info');
+}
+
+function testSave() {
+    addLog('Save button clicked! onclick works.', 'pass');
+    var tenant = document.getElementById('test-input').value;
+    addLog('Input value: "' + tenant + '"', 'info');
+
+    // Simulate what saveConfig does
+    try {
+        localStorage.setItem('roomdisplay_test', JSON.stringify({test:true}));
+        var saved = JSON.parse(localStorage.getItem('roomdisplay_test'));
+        addLog('✓ Config save simulation works: ' + JSON.stringify(saved), 'pass');
+        localStorage.removeItem('roomdisplay_test');
+    } catch(e) {
+        addLog('✗ Config save failed: ' + e.message, 'fail');
+    }
+}
+
+function testMsal() {
+    try {
+        if(typeof msal === 'undefined') {
+            addLog('✗ MSAL not loaded - check msal-browser.min.js file', 'fail');
+            return;
+        }
+        addLog('✓ MSAL object exists', 'pass');
+        addLog('MSAL type: ' + typeof msal, 'info');
+        addLog('MSAL keys: ' + Object.keys(msal).join(', '), 'info');
+
+        // Try creating instance
+        var inst = new msal.PublicClientApplication({
+            auth:{
+                clientId:'00000000-0000-0000-0000-000000000000',
+                authority:'https://login.microsoftonline.com/common',
+                redirectUri: location.href
+            },
+            cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+        });
+        addLog('✓ MSAL PublicClientApplication created', 'pass');
+
+        // Try initialize
+        inst.initialize().then(function(){
+            addLog('✓ MSAL initialize() Promise resolved!', 'pass');
+        }).catch(function(e){
+            addLog('MSAL initialize error: ' + (e&&e.message?e.message:String(e)), 'info');
+        });
+    } catch(e) {
+        addLog('✗ MSAL error: ' + e.message, 'fail');
+    }
+}
+
+function testFetch() {
+    addLog('Testing fetch...', 'info');
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=13.72&longitude=100.52&current=temperature_2m&timezone=Asia/Bangkok')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        addLog('✓ fetch works! Temp: ' + d.current.temperature_2m + '°C', 'pass');
+    })
+    .catch(function(e){
+        addLog('✗ fetch failed: ' + e.message, 'fail');
+    });
+}
+
+function testStorage() {
+    try {
+        var key = 'roomdisplay_v5';
+        var existing = localStorage.getItem(key);
+        if(existing) {
+            addLog('✓ Found existing config in localStorage', 'pass');
+            addLog('Config: ' + existing.substring(0,100)+'...', 'info');
+        } else {
+            addLog('No existing config found', 'info');
+        }
+        addLog('localStorage length: ' + localStorage.length + ' items', 'info');
+    } catch(e) {
+        addLog('✗ Storage error: ' + e.message, 'fail');
+    }
+}
+
+// Auto-run on load
+window.onload = function() {
+    addLog('Page loaded. Chrome: ' + (/Chrome\/(\d+)/.exec(navigator.userAgent)||['','?'])[1], 'info');
+    addLog('Tap "Run Tests" to check compatibility.', 'info');
+};
+</script>
+</body>
+</html>
