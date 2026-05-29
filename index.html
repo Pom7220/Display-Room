@@ -626,7 +626,7 @@ if('serviceWorker' in navigator){
 </div>
 
 <!-- PERSISTENT DEBUG OVERLAY - survives screen changes, always on top -->
-<div id="debug-overlay" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,0.92);color:#f88;font-size:12px;padding:8px 12px;line-height:1.8;word-break:break-all;border-bottom:2px solid #f00;max-height:50%;overflow-y:auto;"></div>
+<div id="debug-overlay" onclick="this.style.display='none';dbgEnabled=false;try{localStorage.setItem('roomdisplay_debug','0');}catch(e){}" style="display:none;position:fixed;top:0;left:0;right:0;z-index:450;background:rgba(0,0,0,0.92);color:#f88;font-size:11px;padding:6px 12px 6px 12px;line-height:1.7;word-break:break-all;border-bottom:2px solid #f00;max-height:40%;overflow-y:auto;cursor:pointer;" title="Tap to dismiss"></div>
 
 <!-- TOAST -->
 <div id="toast" class="hidden"></div>
@@ -884,19 +884,27 @@ function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checke
 // MSAL
 // ══════════════════════════════════════
 var dbgLines=[];
+var dbgEnabled=false;
 function dbg(msg){
   dbgLines.push(msg);
   if(dbgLines.length>15)dbgLines.shift();
-  // Use fixed overlay that persists across screen changes
+  try{console.log('DBG:',msg);}catch(ex){}
+  if(!dbgEnabled)return;
   var d=el('debug-overlay');
   if(d){
     d.style.display='block';
-    d.innerHTML='<b style="color:#fff">Debug Log:</b><br>'+dbgLines.join('<br>');
+    d.innerHTML='<span style="color:#aaa;font-size:10px;float:right">tap to close</span>'+
+      '<b style="color:#fff">Debug Log:</b><br>'+dbgLines.join('<br>');
   }
-  try{console.log('DBG:',msg);}catch(ex){}
 }
 window.onerror=function(msg,src,line){
-  dbg('JS ERROR: '+msg+' L:'+line);
+  // Always show JS errors regardless of dbgEnabled
+  var d=el('debug-overlay');
+  if(d){
+    d.style.display='block';
+    d.innerHTML='<span style="color:#aaa;font-size:10px;float:right">tap to close</span>'+
+      '<b style="color:#f00">JS ERROR: '+msg+' L:'+line+'</b>';
+  }
   return false;
 };
 
