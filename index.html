@@ -411,6 +411,8 @@ if('serviceWorker' in navigator){
 
   <!-- SAVE BUTTON AT TOP — always visible -->
   <button class="btn-primary" id="btn-save-cfg" onclick="saveConfig()" style="margin-bottom:20px;margin-top:0">&#128190; Save &amp; Launch Display</button>
+  <!-- DEBUG PANEL - shows errors on screen -->
+  <div id="cfg-debug" style="display:none;width:100%;max-width:440px;padding:12px;background:#1a0000;border:1px solid #f00;border-radius:8px;color:#f88;font-size:12px;margin-bottom:12px;word-break:break-all;"></div>
   <div class="cfg-card">
     <h3>Azure AD / Microsoft 365</h3>
     <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
@@ -680,24 +682,23 @@ var WX_ICONS={
   95:'⛈',96:'⛈',99:'⛈'
 };
 
-async function fetchWeather(){
-  try{
-    var url='https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok';
-    var r=await fetch(url);
-    if(!r.ok)return;
-    var d=await r.json();
+function fetchWeather(){
+  var url='https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok';
+  fetch(url).then(function(r){
+    if(!r.ok)return null;
+    return r.json();
+  }).then(function(d){
+    if(!d)return;
     var c=d.current;
     var code=c.weather_code;
     var temp=Math.round(c.temperature_2m);
     var feels=Math.round(c.apparent_temperature);
-    var icon=WX_ICONS[code]||'🌡';
-    var desc=WX_CODES[code]||'--';
-    el('wx-icon').textContent=icon;
+    el('wx-icon').textContent=WX_ICONS[code]||'\uD83C\uDF21';
     el('wx-temp').textContent=temp+'°C';
-    el('wx-desc').textContent=desc;
+    el('wx-desc').textContent=WX_CODES[code]||'--';
     el('wx-feels').textContent='Feels '+feels+'°';
     el('weather-strip').style.display='flex';
-  }catch(e){/* silent fail */}
+  }).catch(function(){});
 }
 
 // ══════════════════════════════════════
@@ -774,11 +775,13 @@ function showConfig(){
   toggleApproval();toggleOwner();
 }
 
-function addRoomRow(name='',email=''){
+function addRoomRow(name,email){
+  if(name===undefined)name='';
+  if(email===undefined)email='';
   var row=document.createElement('div');row.className='room-row';
-  row.innerHTML=`<input class="rr-name" placeholder="Room name" value="${esc(name)}">
-    <input class="rr-email" placeholder="room@central.co.th" value="${esc(email)}">
-    <button class="rm-del" data-action="delroom">×</button>`;
+  row.innerHTML='<input class="rr-name" placeholder="Room name" value="'+esc(name)+'">'
+    +'<input class="rr-email" placeholder="room@central.co.th" value="'+esc(email)+'">'
+    +'<button class="rm-del" data-action="delroom">×</button>';
   el('extra-rooms-list').appendChild(row);
 }
 function toggleApproval(){el('approval-fields').style.display=el('cfg-booking').checked?'block':'none';}
@@ -787,27 +790,64 @@ function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checke
 // ══════════════════════════════════════
 // MSAL
 // ══════════════════════════════════════
-async function initMsal(){
-  hide('config-screen');
-  msalInst=new msal.PublicClientApplication({
-    auth:{clientId:cfg.client,authority:'https://login.microsoftonline.com/'+cfg.tenant,redirectUri:location.href.split('?')[0].split('#')[0]},
-    cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
-  });
-  try{
-    await msalInst.initialize();
-    var r=await msalInst.handleRedirectPromise();
-    if(r?.account){account=r.account;launch();return;}
-    var acts=msalInst.getAllAccounts();
-    if(acts.length){account=acts[0];launch();}
-    else showAuth();
-  }catch(e){el('auth-error').textContent=e.message;showAuth();}
+function dbg(msg){
+  var d=el('cfg-debug');
+  if(d){d.style.display='block';d.textContent=msg;}
+  console.log('DBG:',msg);
 }
+
+function initMsal(){
+  dbg('Initializing MSAL...');
+  hide('config-screen');
+  el('cfg-sticky-bar').style.display='none';
+  try{
+    msalInst=new msal.PublicClientApplication({
+      auth:{
+        clientId:cfg.client,
+        authority:'https://login.microsoftonline.com/'+cfg.tenant,
+        redirectUri:location.href.split('?')[0].split('#')[0]
+      },
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+    dbg('MSAL created, initializing...');
+    msalInst.initialize().then(function(){
+      dbg('MSAL initialized, handling redirect...');
+      return msalInst.handleRedirectPromise();
+    }).then(function(r){
+      if(r&&r.account){
+        dbg('Got account from redirect');
+        account=r.account;launch();return;
+      }
+      var acts=msalInst.getAllAccounts();
+      if(acts.length){
+        dbg('Got cached account');
+        account=acts[0];launch();
+      } else {
+        dbg('No account, showing auth...');
+        showAuth();
+      }
+    }).catch(function(e){
+      dbg('MSAL error: '+e.message);
+      el('auth-error').textContent=e.message;
+      showAuth();
+    });
+  }catch(e){
+    dbg('MSAL init error: '+e.message);
+    el('auth-error').textContent=e.message;
+    show('config-screen');
+    el('cfg-sticky-bar').style.display='block';
+  }
+}
+
 function showAuth(){show('auth-overlay');hide('app');}
 
-async function getToken(){
+function getToken(){
   var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
-  try{var r=await msalInst.acquireTokenSilent({scopes,account});return r.accessToken;}
-  catch(e){await msalInst.acquireTokenRedirect({scopes});return null;}
+  return msalInst.acquireTokenSilent({scopes:scopes,account:account}).then(function(r){
+    return r.accessToken;
+  }).catch(function(){
+    return msalInst.acquireTokenRedirect({scopes:scopes}).then(function(){return null;});
+  });
 }
 
 // ══════════════════════════════════════
@@ -862,40 +902,42 @@ function startClock(){
 // ══════════════════════════════════════
 // CALENDAR FETCH — 7 days
 // ══════════════════════════════════════
-async function fetchCal(){
-  var tok=await getToken();if(!tok)return;
-  var s=new Date();s.setHours(0,0,0,0);
-  var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
-  var url='https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(activeRoom.email)+'/calendarView'
-    +'?startDateTime='+s.toISOString()+'&endDateTime='+e.toISOString()
-    +'&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled&$orderby=start/dateTime&$top=60';
-  try{
-    var r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok){var er=await r.json();setErr(er.error?.message||'Calendar error');return;}
-    var d=await r.json();
-    meetings=(d.value||[]).map(function(ev){return {
-      id:ev.id,title:ev.subject||'(No title)',
-      organizer:ev.organizer?.emailAddress?.name||ev.organizer?.emailAddress?.address||'',
-      start:gDate(ev.start),end:gDate(ev.end),
-      attendees:(ev.attendees||[]).length,isPending:false,
-      joinUrl:(ev.onlineMeeting&&ev.onlineMeeting.joinUrl)||(ev.onlineMeeting&&ev.onlineMeeting.joinWebUrl)||null,
-      isOnline:!!ev.isOnlineMeeting,
-      showAs:ev.showAs||'busy',          // free|tentative|busy|oof|workingElsewhere|unknown
-      isCancelled:!!ev.isCancelled,
-      // Tentative = pending Exchange approval — show as amber pending
-      isPending: ev.showAs==='tentative',
-      isExchangePending: ev.showAs==='tentative'
-    };});
-    // Keep confirmed + tentative (pending approval), exclude free/cancelled/unknown
+function fetchCal(){
+  getToken().then(function(tok){
+    if(!tok)return;
+    var s=new Date();s.setHours(0,0,0,0);
+    var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
+    var url='https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(activeRoom.email)+'/calendarView'
+      +'?startDateTime='+s.toISOString()+'&endDateTime='+e.toISOString()
+      +'&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled&$orderby=start/dateTime&$top=60';
+    return fetch(url,{headers:{Authorization:'Bearer '+tok}});
+  }).then(function(r){
+    if(!r)return null;
+    if(!r.ok){return r.json().then(function(er){setErr((er.error&&er.error.message)||'Calendar error');return null;});}
+    return r.json();
+  }).then(function(d){
+    if(!d)return;
+    meetings=(d.value||[]).map(function(ev){
+      return {
+        id:ev.id,title:ev.subject||'(No title)',
+        organizer:(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name)||(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.address)||'',
+        start:gDate(ev.start),end:gDate(ev.end),
+        attendees:(ev.attendees||[]).length,isPending:false,
+        joinUrl:(ev.onlineMeeting&&ev.onlineMeeting.joinUrl)||(ev.onlineMeeting&&ev.onlineMeeting.joinWebUrl)||null,
+        isOnline:!!ev.isOnlineMeeting,
+        showAs:ev.showAs||'busy',
+        isCancelled:!!ev.isCancelled,
+        isPending:ev.showAs==='tentative',
+        isExchangePending:ev.showAs==='tentative'
+      };
+    });
     meetings=meetings.filter(function(m){return !m.isCancelled&&(m.showAs==='busy'||m.showAs==='oof'||m.showAs==='workingElsewhere'||m.showAs==='tentative');});
-    // Add back our local pending bookings (not yet in Exchange)
     pendingLocal.forEach(function(pb){if(!meetings.some(function(m){return Math.abs(m.start-pb.start)<60000&&m.title===pb.title;}))meetings.push(pb);});
-    // Filter out meetings the user ended locally
     if(locallyEnded.length>0){meetings=meetings.filter(function(m){return locallyEnded.indexOf(m.id)===-1;});}
     meetings.sort(function(a,b){return a.start-b.start;});
     clearErr();
     updateCurrentCard();renderBadges();renderMeetList();renderMoreDays();
-  }catch(e){setErr(e.message);}
+  }).catch(function(e){setErr(e.message);});
 }
 
 // ══════════════════════════════════════
@@ -909,7 +951,7 @@ function setTheme(status){
     pending:  {rgb:'255,149,0',    bg:'rgba(255,149,0,1.0)',     mid:'rgba(255,149,0,0.55)',   card:'rgba(255,149,0,0.18)',   border:'rgba(255,149,0,0.55)'}
   };
   var t=map[status]||map.available;
-  document.documentElement.style.setProperty('--accent',`rgb(${t.rgb})`);
+  document.documentElement.style.setProperty('--accent','rgb('+t.rgb+')');
 
   // Dramatic 4-stop gradient: vivid top bloom → strong mid wash → fade → dark base
   el('bg').style.background=
@@ -1086,30 +1128,30 @@ function renderMoreDays(){
 // ══════════════════════════════════════
 // CHECK-IN / END / EXTEND
 // ══════════════════════════════════════
-async function doCheckin(){
+function doCheckin(){
   var btn=el('checkin-btn');if(!btn)return;
   btn.disabled=true;
   var sc=document.createElement('div');sc.className='scan-ln';btn.appendChild(sc);
-  await sleep(1200);sc.remove();
-  checkedIn=true;updateCurrentCard();toast('✓ Checked in','success');
+  sleep(1200).then(function(){
+    sc.remove();
+    checkedIn=true;updateCurrentCard();toast('Checked in','success');
+  });
 }
 function endMeeting(){
   var cur=getCur();if(!cur)return;
-  // Show in-app confirm dialog
   el('cdlg-title').textContent='End meeting?';
-  el('cdlg-sub').textContent=`"${cur.title}" will end now and the room will show as available.`;
-  el('cdlg-icon').textContent='⏹';
+  el('cdlg-sub').textContent='"'+cur.title+'" will end now and the room will show as available.';
+  el('cdlg-icon').textContent='Stop';
   el('cdlg-ok').textContent='End Meeting';
-  el('cdlg-ok').style.background='var(--busy)';
+  el('cdlg-ok').style.background='#f32b2b';
   el('cdlg-ok').onclick=function(){
     hide('confirm-dialog');
-    // Remember this meeting as locally ended so fetchCal won't restore it
-    if(cur.id) locallyEnded.push(cur.id);
+    if(cur.id)locallyEnded.push(cur.id);
     var idx=meetings.indexOf(cur);
     if(idx>-1)meetings.splice(idx,1);
     checkedIn=false;
     updateCurrentCard();renderBadges();renderMeetList();
-    toast('Meeting ended — room is now available','success');
+    toast('Meeting ended','success');
     setTimeout(fetchCal,5000);
   };
   show('confirm-dialog');
@@ -1178,50 +1220,84 @@ function updatePrev(){
 }
 
 var bookStart=null; // the rounded start time for the current booking
-async function confirmBooking(){
+function confirmBooking(){
   var name=el('book-name').value.trim(),title=el('book-title').value.trim();
   if(!name){toast('Please enter your name','warn');return;}
   if(!title){toast('Please enter a meeting title','warn');return;}
   var btn=el('mconfirm');btn.disabled=true;
   el('mconfirm-lbl').innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>';
-  var s=bookStart||new Date(), e=new Date(s.getTime()+selDurMin*60000);
-  if(cfg.approval)await sendApproval(name,title,s,e);
-  else await createDirect(name,title,s,e);
-  btn.disabled=false;
-  el('mconfirm-lbl').textContent=cfg.approval?'Send approval request':'Confirm booking';
+  var s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  var done=function(){btn.disabled=false;el('mconfirm-lbl').textContent=cfg.approval?'Send approval request':'Confirm booking';};
+  if(cfg.approval)sendApproval(name,title,s,e,done);
+  else createDirect(name,title,s,e,done);
 }
-async function createDirect(name,title,s,e){
-  var tok=await getToken();if(!tok){closeModal();return;}
-  var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  var body={subject:title,body:{contentType:'text',content:`Booked by ${name} from the room display.`},
-    start:{dateTime:localISO(s),timeZone:tz},end:{dateTime:localISO(e),timeZone:tz},
-    attendees:[{emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'resource'}],isOnlineMeeting:false};
-  try{
-    var r=await fetch('https://graph.microsoft.com/v1.0/me/events',
+
+function createDirect(name,title,s,e,done){
+  getToken().then(function(tok){
+    if(!tok){closeModal();if(done)done();return;}
+    var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var body={subject:title,
+      body:{contentType:'text',content:'Booked by '+name+' from the room display.'},
+      start:{dateTime:localISO(s),timeZone:tz},
+      end:{dateTime:localISO(e),timeZone:tz},
+      attendees:[{emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'resource'}],
+      isOnlineMeeting:false};
+    return fetch('https://graph.microsoft.com/v1.0/me/events',
       {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok){var er=await r.json();toast('Booking failed: '+((er.error&&er.error.message)||r.status),'error');closeModal();return;}
-    closeModal();toast('✓ Room booked!','success');
-    meetings.push({id:'loc-'+Date.now(),title,organizer:name,start:s,end:e,attendees:1,isPending:false,joinUrl:null,isOnline:false});
+  }).then(function(r){
+    if(!r)return;
+    if(!r.ok){return r.json().then(function(er){toast('Booking failed: '+((er.error&&er.error.message)||r.status),'error');closeModal();if(done)done();});}
+    closeModal();toast('Room booked!','success');
+    meetings.push({id:'loc-'+Date.now(),title:title,organizer:name,start:s,end:e,attendees:1,isPending:false,joinUrl:null,isOnline:false});
     meetings.sort(function(a,b){return a.start-b.start;});
     updateCurrentCard();renderBadges();renderMeetList();
     setTimeout(fetchCal,6000);
-  }catch(err){toast('Error: '+err.message,'error');closeModal();}
+    if(done)done();
+  }).catch(function(err){toast('Error: '+err.message,'error');closeModal();if(done)done();});
 }
-async function sendApproval(name,title,s,e){
-  var tok=await getToken();if(!tok){closeModal();return;}
-  var bid='BOOK-'+Date.now();
-  var dateStr=s.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var html=`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;"><table width="100%"><tr><td align="center" style="padding:32px 16px;"><table width="520" style="background:#fff;border-radius:12px;border:1px solid #e0e4eb;"><tr><td style="background:#0a0a12;padding:24px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#3b9eff;">⬡ ROOM DISPLAY</div><div style="font-size:12px;color:#6b82a8;margin-top:4px;">Booking Approval Request</div></td></tr><tr><td style="padding:28px;"><table width="100%" style="border:1px solid #e8ecf0;border-radius:8px;font-size:13px;"><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;width:130px;border-bottom:1px solid #e8ecf0;">Room</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(activeRoom.name)}</td></tr><tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Requested by</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(name)}</td></tr><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Meeting</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${esc(title)}</td></tr><tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Date</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${dateStr}</td></tr><tr style="background:#f8f9fb;"><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Time</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">${ft(s)} – ${ft(e)}</td></tr><tr><td style="padding:10px 14px;color:#666;">Booking ID</td><td style="padding:10px 14px;font-family:monospace;color:#888;font-size:11px;">${bid}</td></tr></table><table width="100%" style="margin-top:20px;"><tr><td style="padding-right:8px;"><a href="mailto:${activeRoom.email}?subject=APPROVE:${bid}" style="display:block;text-align:center;padding:14px;background:#00d68f;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✓ Approve</a></td><td style="padding-left:8px;"><a href="mailto:${activeRoom.email}?subject=DECLINE:${bid}" style="display:block;text-align:center;padding:14px;background:#ff4d6a;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">✗ Decline</a></td></tr></table></td></tr></table></td></tr></table></body></html>`;
-  var mail={message:{subject:`[Approval] ${activeRoom.name}: "${title}" by ${name}`,body:{contentType:'html',content:html},toRecipients:[{emailAddress:{address:cfg.owner}}]},saveToSentItems:true};
-  try{
-    var r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',
+
+function sendApproval(name,title,s,e,done){
+  getToken().then(function(tok){
+    if(!tok){closeModal();if(done)done();return;}
+    var bid='BOOK-'+Date.now();
+    var dateStr=s.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    var emailHtml='<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;">'
+      +'<table width="100%"><tr><td align="center" style="padding:32px 16px;">'
+      +'<table width="520" style="background:#fff;border-radius:12px;border:1px solid #e0e4eb;">'
+      +'<tr><td style="background:#0a0a12;padding:24px;text-align:center;">'
+      +'<div style="font-size:20px;font-weight:bold;color:#3b9eff;">ROOM DISPLAY</div>'
+      +'<div style="font-size:12px;color:#6b82a8;margin-top:4px;">Booking Approval Request</div>'
+      +'</td></tr><tr><td style="padding:28px;">'
+      +'<table width="100%" style="border:1px solid #e8ecf0;border-radius:8px;font-size:13px;">'
+      +'<tr><td style="padding:10px 14px;color:#666;width:130px;border-bottom:1px solid #e8ecf0;">Room</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">'+esc(activeRoom.name)+'</td></tr>'
+      +'<tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Requested by</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">'+esc(name)+'</td></tr>'
+      +'<tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Meeting</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">'+esc(title)+'</td></tr>'
+      +'<tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Date</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">'+dateStr+'</td></tr>'
+      +'<tr><td style="padding:10px 14px;color:#666;border-bottom:1px solid #e8ecf0;">Time</td><td style="padding:10px 14px;font-weight:bold;border-bottom:1px solid #e8ecf0;">'+ft(s)+' - '+ft(e)+'</td></tr>'
+      +'<tr><td style="padding:10px 14px;color:#666;">Booking ID</td><td style="padding:10px 14px;font-family:monospace;color:#888;font-size:11px;">'+bid+'</td></tr>'
+      +'</table>'
+      +'<table width="100%" style="margin-top:20px;"><tr>'
+      +'<td style="padding-right:8px;"><a href="mailto:'+activeRoom.email+'?subject=APPROVE:'+bid+'" style="display:block;text-align:center;padding:14px;background:#00d68f;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">Approve</a></td>'
+      +'<td style="padding-left:8px;"><a href="mailto:'+activeRoom.email+'?subject=DECLINE:'+bid+'" style="display:block;text-align:center;padding:14px;background:#ff4d6a;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">Decline</a></td>'
+      +'</tr></table></td></tr></table></td></tr></table></body></html>';
+    var mail={message:{
+      subject:'[Approval] '+activeRoom.name+': "'+title+'" by '+name,
+      body:{contentType:'html',content:emailHtml},
+      toRecipients:[{emailAddress:{address:cfg.owner}}]
+    },saveToSentItems:true};
+    return fetch('https://graph.microsoft.com/v1.0/me/sendMail',
       {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(mail)});
-    if(!r.ok&&r.status!==202){var er=await r.json().catch(function(){return {};});toast('Email failed: '+((er.error&&er.error.message)||r.status),'error');closeModal();return;}
-    var pb={id:bid,title,organizer:name,start:s,end:e,attendees:1,isPending:true,joinUrl:null,isOnline:false};
-    pendingLocal.push(pb);meetings.push(pb);meetings.sort(function(a,b){return a.start-b.start;});
-    closeModal();toast('✉ Approval request sent','warn');
+  }).then(function(r){
+    if(!r)return;
+    if(!r.ok&&r.status!==202){toast('Email failed','error');closeModal();if(done)done();return;}
+    var bid='BOOK-'+Date.now();
+    var pb={id:bid,title:title,organizer:name,start:s,end:e,attendees:1,isPending:true,joinUrl:null,isOnline:false};
+    pendingLocal.push(pb);meetings.push(pb);
+    meetings.sort(function(a,b){return a.start-b.start;});
+    closeModal();toast('Approval request sent','warn');
     updateCurrentCard();renderBadges();renderMeetList();
-  }catch(err){toast('Error: '+err.message,'error');closeModal();}
+    if(done)done();
+  }).catch(function(err){toast('Error: '+err.message,'error');closeModal();if(done)done();});
 }
 
 // ══════════════════════════════════════
