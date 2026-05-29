@@ -411,8 +411,6 @@ if('serviceWorker' in navigator){
 
   <!-- SAVE BUTTON AT TOP — always visible -->
   <button class="btn-primary" id="btn-save-cfg" onclick="saveConfig()" style="margin-bottom:20px;margin-top:0">&#128190; Save &amp; Launch Display</button>
-  <!-- DEBUG PANEL - shows errors on screen -->
-  <div id="cfg-debug" style="display:none;width:100%;max-width:440px;padding:12px;background:#1a0000;border:1px solid #f00;border-radius:8px;color:#f88;font-size:12px;margin-bottom:12px;word-break:break-all;"></div>
   <div class="cfg-card">
     <h3>Azure AD / Microsoft 365</h3>
     <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
@@ -455,7 +453,9 @@ if('serviceWorker' in navigator){
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-teams" checked><span class="tog-slider"></span></label>
     </div>
   </div>
-  <button class="btn-primary" id="btn-save-cfg">Save &amp; Launch Display</button>
+  <button class="btn-primary" onclick="saveConfig()">Save &amp; Launch Display</button>
+  <!-- DEBUG PANEL - always visible when config screen is open -->
+  <div id="cfg-debug" style="display:none;width:100%;max-width:440px;padding:12px;background:#1a0000;border:2px solid #f00;border-radius:8px;color:#f88;font-size:13px;margin-bottom:12px;word-break:break-all;line-height:1.6;"></div>
   <div class="cfg-note">
     <strong>Required Azure App permissions (Delegated):</strong><br>
     • <code>Calendars.ReadWrite</code> &nbsp;• <code>Calendars.ReadWrite.Shared</code><br>
@@ -464,9 +464,9 @@ if('serviceWorker' in navigator){
   </div>
 </div>
 
-<!-- Sticky save bar for mobile -->
-<div id="cfg-sticky-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;padding:12px 20px calc(env(safe-area-inset-bottom,0px)+12px);background:rgba(10,10,18,.97);border-top:1px solid rgba(255,255,255,.1);z-index:1001;backdrop-filter:blur(20px);">
-  <button class="btn-primary" style="margin-top:0" onclick="saveConfig()">Save &amp; Launch Display</button>
+<!-- Sticky save bar - always visible at bottom of config screen -->
+<div id="cfg-sticky-bar" style="position:fixed;bottom:0;left:0;right:0;padding:12px 20px;background:#0a0a12;border-top:2px solid #2979ff;z-index:1001;">
+  <button style="display:block;width:100%;padding:16px;background:#2979ff;border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;" onclick="saveConfig()">Save &amp; Launch Display</button>
 </div>
 
 <!-- AUTH -->
