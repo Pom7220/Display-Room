@@ -127,15 +127,15 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
   position:relative;z-index:2;flex-shrink:0;
   padding:env(safe-area-inset-top,0px) 0 0;
 }
-.hdr-inner{padding:20px 22px 0;}
-.hdr-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+.hdr-inner{padding:12px 16px 0;}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
 
 /* RIS logo */
-.ris-logo{width:42px;height:42px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;letter-spacing:.04em;flex-shrink:0;}
+.ris-logo{width:36px;height:36px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;letter-spacing:.04em;flex-shrink:0;}
 
 /* Clock */
 .clock-block{text-align:right;}
-.clock-time{font-size:40px;font-weight:200;color:#fff;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;}
+.clock-time{font-size:32px;font-weight:200;color:#fff;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;}
 .clock-date{font-size:12px;color:var(--text3);margin-top:2px;font-weight:400;}
 
 /* Weather */
@@ -148,13 +148,13 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
   margin-bottom:14px;
   width:fit-content;
 }
-.weather-icon{font-size:18px;line-height:1;}
-.weather-temp{font-size:15px;font-weight:700;color:#fff;}
-.weather-desc{font-size:12px;color:var(--text2);}
-.weather-feels{font-size:11px;color:var(--text3);}
+.weather-icon{font-size:14px;line-height:1;}
+.weather-temp{font-size:13px;font-weight:700;color:#fff;}
+.weather-desc{font-size:11px;color:#aaa;}
+.weather-feels{font-size:10px;color:#777;}
 
 /* Room info */
-.room-name-lg{font-size:48px;font-weight:900;color:#fff;letter-spacing:-.03em;line-height:1.05;margin-bottom:6px;}
+.room-name-lg{font-size:36px;font-weight:900;color:#fff;letter-spacing:-.03em;line-height:1;margin-bottom:4px;}
 .status-line{display:flex;align-items:center;gap:8px;margin-bottom:0;}
 .sdot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 .sdot.av{background:#00e676;animation:pulse-g 2s infinite;}
@@ -164,7 +164,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 @keyframes pulse-g{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,230,118,.6)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(0,230,118,0)}}
 @keyframes pulse-r{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(243,43,43,.7)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(243,43,43,0)}}
 @keyframes pulse-y{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,149,0,.6)}50%{opacity:.8;box-shadow:0 0 0 8px rgba(255,149,0,0)}}
-.status-txt{font-size:15px;font-weight:600;color:var(--accent);transition:color .6s;}
+.status-txt{font-size:13px;font-weight:600;color:var(--accent);transition:color .6s;}
 
 /* ── BODY SCROLL ── */
 .body-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 22px 140px;position:relative;z-index:2;}
@@ -184,7 +184,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .cur-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);transition:background .6s;border-radius:3px 3px 0 0;}
 
 /* Available big state */
-.av-state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 0;}
+.av-state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 0;}
 .av-icon{
   width:72px;height:72px;border-radius:50%;
   background:rgba(16,185,129,.1);
@@ -194,8 +194,8 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
   animation:spin-slow 12s linear infinite;
 }
 @keyframes spin-slow{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-.av-title{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.02em;margin-bottom:6px;}
-.av-sub{font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.5;}
+.av-title{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.02em;margin-bottom:6px;}
+.av-sub{font-size:12px;color:#aaa;margin-bottom:14px;line-height:1.5;}
 .book-big{
   width:100%;padding:16px;
   background:var(--available);
@@ -212,8 +212,8 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .meet-tag.busy{background:rgba(229,57,53,.9);color:#fff;}
 .meet-tag.soon{background:rgba(245,158,11,.9);color:#fff;}
 .meet-tag.pend{background:rgba(245,158,11,.7);color:#fff;}
-.meet-title-lg{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1.2;margin-bottom:8px;}
-.meet-time-lg{font-size:30px;font-weight:300;letter-spacing:-.02em;margin-bottom:10px;font-variant-numeric:tabular-nums;transition:color .6s;}
+.meet-title-lg{font-size:20px;font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1.2;margin-bottom:6px;}
+.meet-time-lg{font-size:24px;font-weight:300;letter-spacing:-.02em;margin-bottom:8px;font-variant-numeric:tabular-nums;transition:color .6s;}
 .meet-org{font-size:13px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-bottom:14px;}
 .prog{height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin-bottom:16px;}
 .prog-fill{height:100%;border-radius:2px;transition:width 15s linear,background .6s;}
@@ -390,6 +390,21 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-fam
 .fade-up{animation:fadeUp .3s ease both;}
 @keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
 .scan-ln{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:scan 1.1s ease-in-out infinite;pointer-events:none;}
+/* ── NEXT 5 DAYS SLIDE PANEL ── */
+#days-panel{position:fixed;top:0;right:-100%;bottom:0;width:88%;max-width:360px;background:#0d0d1a;z-index:800;overflow-y:auto;-webkit-overflow-scrolling:touch;-webkit-transition:right .3s ease;transition:right .3s ease;padding:20px 16px 80px;-webkit-box-shadow:-4px 0 20px rgba(0,0,0,.5);box-shadow:-4px 0 20px rgba(0,0,0,.5);}
+#days-panel.open{right:0;}
+#days-panel-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:799;display:none;}
+#days-panel-overlay.open{display:block;}
+.dp-hdr{display:table;width:100%;margin-bottom:16px;}
+.dp-title{display:table-cell;font-size:16px;font-weight:800;color:#fff;vertical-align:middle;}
+.dp-close{display:table-cell;width:36px;text-align:right;vertical-align:middle;}
+.dp-close-btn{width:32px;height:32px;background:rgba(255,255,255,.1);border:none;border-radius:50%;color:#fff;font-size:18px;cursor:pointer;line-height:32px;text-align:center;padding:0;}
+.dp-day{margin-bottom:14px;background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;}
+.dp-day-hdr{font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08);}
+.dp-day-hdr .wkend{color:#9ca3af;font-weight:400;}
+.dp-count{font-size:10px;color:#9ca3af;background:rgba(255,255,255,.08);border-radius:10px;padding:1px 7px;margin-left:6px;}
+.dp-empty{font-size:12px;color:#6b7280;padding:4px 0;}
+
 </style>
 <script>
 // Register service worker for PWA installability
@@ -523,7 +538,7 @@ if('serviceWorker' in navigator){
       <div class="room-chips" id="room-chips" style="display:none;margin-top:14px"></div>
 
       <!-- Current card -->
-      <div class="cur-card" id="cur-card" style="margin-top:16px">
+      <div class="cur-card" id="cur-card" style="margin-top:10px">
         <div id="cur-content"><div class="spinner lg"></div></div>
       </div>
 
@@ -635,8 +650,8 @@ if('serviceWorker' in navigator){
 // VERSION
 // ══════════════════════════════════════
 var APP_VERSION = {
-  major: 1,
-  minor: 9,
+  major: 2,
+  minor: 0,
   date: '2026-05-29',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -652,7 +667,8 @@ var APP_VERSION = {
 // v1.6 2026-05-29 - Full ES6 clean sweep, single save button, More days fixed
 // v1.7 2026-05-29 - Debug toggle in settings, More/Less plain text fix
 // v1.8 2026-05-29 - Today badge counts remaining only, More+ scroll+highlight, nav label fix
-// v1.9 2026-05-29 - More days CSS fixed (no CSS vars), hardcoded colors for Chrome 42
+// v1.9 2026-05-29 - More days CSS fixed, hardcoded colors for Chrome 42
+// v2.0 2026-05-29 - Compact layout, Next 5 Days slide-in panel from right
 
 // ══════════════════════════════════════
 // STATE
@@ -1229,36 +1245,52 @@ function renderMeetList(){
 }
 
 // ══════════════════════════════════════
-// MORE DAYS (Wed–7 days out)
+// MORE DAYS SLIDE PANEL
 // ══════════════════════════════════════
-function renderMoreDays(){
-  var wrap=el('more-days');
-  if(!moreDaysOpen){wrap.style.display='none';return;}
-  wrap.style.display='block';
+function openDaysPanel(){
   var weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  var html='<div class="more-days-hdr">Next 5 days</div>';
+  var html='';
   for(var i=2;i<7;i++){
     var d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
     var day=getMeetingsForDay(i);
     var isWkend=d.getDay()===0||d.getDay()===6;
     var dlbl=weekdays[d.getDay()]+' '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-    html+='<div class="day-row"><div class="day-row-hdr">'+(isWkend?'<span class="wkend">'+dlbl+'</span>':dlbl)+'<span class="day-row-count">'+day.length+'</span></div>';
-    if(!day.length){html+='<div style="font-size:12px;color:#6b7280;padding:4px 0">No meetings scheduled</div>';}
-    else{
-      for(var mi=0;mi<Math.min(day.length,5);mi++){
+    html+='<div class="dp-day">';
+    html+='<div class="dp-day-hdr">'+(isWkend?'<span class="wkend">'+dlbl+'</span>':dlbl)+'<span class="dp-count">'+day.length+'</span></div>';
+    if(!day.length){
+      html+='<div class="dp-empty">No meetings scheduled</div>';
+    } else {
+      for(var mi=0;mi<day.length;mi++){
         var mm=day[mi];
-        html+='<div class="mitem" style="padding:9px 12px;margin-bottom:5px">'+
+        html+='<div class="mitem" style="padding:8px 0;margin-bottom:4px">'+
           '<div class="mitem-bar"></div>'+
-          '<div class="mitem-time"><div class="mitem-t" style="font-size:12px">'+ft(mm.start)+'</div><div class="mitem-d">'+fd(mm.start,mm.end)+'</div></div>'+
+          '<div class="mitem-time"><div class="mitem-t">'+ft(mm.start)+'</div><div class="mitem-d">'+fd(mm.start,mm.end)+'</div></div>'+
           '<div class="mitem-sep"></div>'+
-          '<div class="mitem-info"><div class="mitem-title" style="font-size:12px">'+esc(mm.title)+'</div><div class="mitem-org">'+esc(mm.organizer)+'</div></div>'+
+          '<div class="mitem-info"><div class="mitem-title">'+esc(mm.title)+'</div><div class="mitem-org">'+esc(mm.organizer)+'</div></div>'+
           '</div>';
       }
     }
     html+='</div>';
   }
-  wrap.innerHTML=html;
+  el('days-panel-content').innerHTML=html;
+  el('days-panel').className='open';
+  el('days-panel-overlay').className='open';
+  el('btn-more-days').textContent='Less -';
+  el('btn-more-days').style.background='rgba(99,179,255,0.2)';
+  el('btn-more-days').style.borderColor='rgba(99,179,255,0.5)';
+  el('btn-more-days').style.color='#63b3ff';
+  moreDaysOpen=true;
 }
+function closeDaysPanel(){
+  el('days-panel').className='';
+  el('days-panel-overlay').className='';
+  el('btn-more-days').textContent='More +';
+  el('btn-more-days').style.background='';
+  el('btn-more-days').style.borderColor='';
+  el('btn-more-days').style.color='';
+  moreDaysOpen=false;
+}
+function renderMoreDays(){el('more-days').style.display='none';}
 
 // ══════════════════════════════════════
 // CHECK-IN / END / EXTEND
@@ -1570,32 +1602,9 @@ document.addEventListener('click', function(e){
     renderMeetList();return;
   }
 
-  // More days toggle
+  // More days - slide panel
   if(t.id==='btn-more-days'||t.closest('#btn-more-days')){
-    moreDaysOpen=!moreDaysOpen;
-    var btn=el('btn-more-days');
-    if(moreDaysOpen){
-      btn.textContent='Less -';
-      btn.style.background='rgba(99,179,255,0.2)';
-      btn.style.borderColor='rgba(99,179,255,0.5)';
-      btn.style.color='#63b3ff';
-    } else {
-      btn.textContent='More +';
-      btn.style.background='';
-      btn.style.borderColor='';
-      btn.style.color='';
-    }
-    renderMoreDays();
-    // Scroll more-days section into view after opening
-    if(moreDaysOpen){
-      var wrap=el('more-days');
-      if(wrap){
-        setTimeout(function(){
-          var bs=document.querySelector('.body-scroll');
-          if(bs)bs.scrollTop=bs.scrollHeight;
-        },100);
-      }
-    }
+    if(moreDaysOpen)closeDaysPanel();else openDaysPanel();
     return;
   }
 
@@ -1656,5 +1665,15 @@ try{dbgEnabled=localStorage.getItem('roomdisplay_debug')==='1';}catch(e){}
 if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail)initMsal();
 else{showConfig();el('cfg-sticky-bar').style.display='block';}
 </script>
+<!-- NEXT 5 DAYS SLIDE PANEL -->
+<div id="days-panel-overlay" onclick="closeDaysPanel()"></div>
+<div id="days-panel">
+  <div class="dp-hdr">
+    <div class="dp-title">Next 5 Days</div>
+    <div class="dp-close"><button class="dp-close-btn" onclick="closeDaysPanel()">&#215;</button></div>
+  </div>
+  <div id="days-panel-content"></div>
+</div>
+
 </body>
 </html>
