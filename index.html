@@ -470,6 +470,10 @@ if('serviceWorker' in navigator){
   <div class="cfg-card">
     <h3>Developer</h3>
     <div class="toggle-row">
+      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Kiosk mode (fullscreen lock)</div><div class="tr-sub">Auto fullscreen on launch, PIN required to exit</div></div>
+      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-kiosk" checked><span class="tog-slider"></span></label>
+    </div>
+    <div class="toggle-row">
       <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Debug log overlay</div><div class="tr-sub">Show debug messages on screen — disable for production</div></div>
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-debug-toggle" onchange="toggleDebugMode()"><span class="tog-slider"></span></label>
     </div>
@@ -651,7 +655,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 2,
-  minor: 0,
+  minor: 1,
   date: '2026-05-29',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -669,6 +673,7 @@ var APP_VERSION = {
 // v1.8 2026-05-29 - Today badge counts remaining only, More+ scroll+highlight, nav label fix
 // v1.9 2026-05-29 - More days CSS fixed, hardcoded colors for Chrome 42
 // v2.0 2026-05-29 - Compact layout, Next 5 Days slide-in panel from right
+// v2.1 2026-05-29 - Kiosk fullscreen lock, back button block, PIN to exit
 
 // ══════════════════════════════════════
 // STATE
@@ -869,6 +874,11 @@ function showConfig(){
     el('cfg-debug-toggle').checked=savedDbg;
     dbgEnabled=savedDbg;
   }catch(e){}
+  // Load kiosk state
+  try{
+    var savedKiosk=localStorage.getItem('roomdisplay_kiosk')!=='0';
+    el('cfg-kiosk').checked=savedKiosk;
+  }catch(e){}
   // Show version in developer card
   var vi=el('ver-inline');
   if(vi)vi.textContent=APP_VERSION.label();
@@ -894,6 +904,7 @@ function toggleDebugMode(){
   if(d)d.style.display=dbgEnabled?'block':'none';
   // Save preference
   try{localStorage.setItem('roomdisplay_debug',dbgEnabled?'1':'0');}catch(e){}
+  try{localStorage.setItem('roomdisplay_kiosk',el('cfg-kiosk').checked?'1':'0');}catch(e){}
 }
 function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checked?'block':'none';}
 
@@ -1006,7 +1017,48 @@ function launch(){
   setInterval(fetchCal,90000);
   setInterval(fetchWeather,1800000);
   startBurnIn();
+  // Enter fullscreen kiosk mode
+  enterKiosk();
 }
+
+// ══════════════════════════════════════
+// KIOSK / FULLSCREEN MODE
+// ══════════════════════════════════════
+function enterKiosk(){
+  // Check if kiosk mode is enabled (default ON)
+  var kioskOn=true;
+  try{kioskOn=localStorage.getItem('roomdisplay_kiosk')!=='0';}catch(e){}
+  if(!kioskOn)return;
+  var de=document.documentElement;
+  try{
+    if(de.requestFullscreen)de.requestFullscreen();
+    else if(de.webkitRequestFullscreen)de.webkitRequestFullscreen();
+    else if(de.mozRequestFullScreen)de.mozRequestFullScreen();
+    else if(de.msRequestFullscreen)de.msRequestFullscreen();
+  }catch(e){}
+  // Block back button / accidental exit on Android
+  window.history.pushState(null,'',window.location.href);
+  window.onpopstate=function(){
+    window.history.pushState(null,'',window.location.href);
+  };
+}
+
+// Re-enter fullscreen if user exits (e.g. swipe from edge)
+document.addEventListener('fullscreenchange',function(){
+  if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+    // Only re-enter if app is active (not on config/auth screen)
+    if(!el('app').classList.contains('hidden')){
+      setTimeout(enterKiosk,1000);
+    }
+  }
+});
+document.addEventListener('webkitfullscreenchange',function(){
+  if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+    if(!el('app').classList.contains('hidden')){
+      setTimeout(enterKiosk,1000);
+    }
+  }
+});
 
 // ══════════════════════════════════════
 // ROOM SWITCHER
@@ -1518,6 +1570,11 @@ function pinInput(key){
       if(pinMode==='verify'){
         if(pinBuffer===getStoredPin()){
           hide('pin-overlay');
+          // Exit fullscreen to allow settings interaction
+          try{
+            if(document.exitFullscreen)document.exitFullscreen();
+            else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
+          }catch(e){}
           showConfig();
         } else {
           updatePinDots(true);
