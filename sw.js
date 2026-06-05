@@ -1,47 +1,61 @@
-// RIS Room Display — Service Worker
-const CACHE = 'ris-room-display-v1';
-const CORE_FILES = ['./', './index.html', './msal-browser.min.js'];
+// RIS Room Display — Service Worker v2.1
+// Bump CACHE version to force all clients to update
+var CACHE = 'ris-room-display-v21';
+var CORE_FILES = ['./', './index.html', './msal-v1.min.js'];
 
-// Install: cache core files
-self.addEventListener('install', e => {
+// Install: cache core files, skip waiting immediately
+self.addEventListener('install', function(e) {
+  self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE)
-      .then(c => c.addAll(CORE_FILES))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE).then(function(c) {
+      return c.addAll(CORE_FILES);
+    })
   );
 });
 
-// Activate: clean old caches
-self.addEventListener('activate', e => {
+// Activate: delete ALL old caches, claim all clients immediately
+self.addEventListener('activate', function(e) {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys().then(function(keys) {
+      return Promise.all(
+        keys.map(function(k) {
+          // Delete any cache that isn't current version
+          if(k !== CACHE) {
+            console.log('SW: deleting old cache', k);
+            return caches.delete(k);
+          }
+        })
+      );
+    }).then(function() {
+      return self.clients.claim();
+    })
   );
 });
 
-// Fetch: network first, fall back to cache
-// Always use network for Microsoft Graph and auth calls
-self.addEventListener('fetch', e => {
-  const url = e.request.url;
+// Fetch: network FIRST, cache fallback
+// Always bypass cache for auth/API calls
+self.addEventListener('fetch', function(e) {
+  var url = e.request.url;
 
-  // Never intercept Microsoft/auth calls — always go to network
-  if (url.includes('microsoft') || url.includes('msauth') ||
-      url.includes('graph.microsoft') || url.includes('login.microsoftonline') ||
-      url.includes('open-meteo')) {
-    return; // let browser handle normally
+  // Never intercept Microsoft/auth/weather calls
+  if(url.indexOf('microsoft') > -1 ||
+     url.indexOf('msauth') > -1 ||
+     url.indexOf('login.microsoftonline') > -1 ||
+     url.indexOf('graph.microsoft') > -1 ||
+     url.indexOf('open-meteo') > -1 ||
+     url.indexOf('wttr.in') > -1) {
+    return;
   }
 
   e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        // Cache successful GET responses for our own files
-        if (e.request.method === 'GET' && res.status === 200) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      })
-      .catch(() => caches.match(e.request))
+    fetch(e.request).then(function(res) {
+      if(e.request.method === 'GET' && res.status === 200) {
+        var clone = res.clone();
+        caches.open(CACHE).then(function(c) { c.put(e.request, clone); });
+      }
+      return res;
+    }).catch(function() {
+      return caches.match(e.request);
+    })
   );
 });
