@@ -658,7 +658,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 2,
-  minor: 2,
+  minor: 3,
   date: '2026-06-05',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -678,6 +678,7 @@ var APP_VERSION = {
 // v2.0 2026-05-29 - Compact layout, Next 5 Days slide-in panel from right
 // v2.1 2026-05-29 - Kiosk fullscreen lock, back button block, PIN to exit
 // v2.2 2026-06-05 - Cache-bust meta tags (no-cache/no-store), fix ES6 spread in renderRoomChips
+// v2.3 2026-06-05 - Fix NodeList.forEach x4 (Chrome 42 crash in saveConfig/tabs/dchips), fix redirectUri stripping query string
 
 // ══════════════════════════════════════
 // STATE
@@ -848,11 +849,12 @@ function saveConfig(){
   if(b('cfg-booking')&&b('cfg-approval')&&!v('cfg-owner')){alert('Enter room owner email for approval.');return;}
   dbg('Validation passed, saving config...');
   var extraRooms=[];
-  document.querySelectorAll('.room-row').forEach(function(row){
-    var nm=row.querySelector('.rr-name').value.trim();
-    var em=row.querySelector('.rr-email').value.trim();
+  var roomRows=document.querySelectorAll('.room-row');
+  for(var ri=0;ri<roomRows.length;ri++){
+    var nm=roomRows[ri].querySelector('.rr-name').value.trim();
+    var em=roomRows[ri].querySelector('.rr-email').value.trim();
     if(nm&&em)extraRooms.push({name:nm,email:em});
-  });
+  }
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
@@ -953,7 +955,7 @@ function initMsal(){
       auth:{
         clientId:cfg.client,
         authority:'https://login.microsoftonline.com/'+cfg.tenant,
-        redirectUri:location.href.split('?')[0].split('#')[0],
+        redirectUri:location.protocol+'//'+location.host+location.pathname.split('index.html')[0],
         navigateToLoginRequestUrl:true
       },
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
@@ -1659,7 +1661,8 @@ document.addEventListener('click', function(e){
   var vtab=t.closest('.vtab');
   if(vtab&&vtab.dataset.view){
     curView=vtab.dataset.view;
-    document.querySelectorAll('.vtab').forEach(function(v){v.classList.toggle('active',v.dataset.view===curView);});
+    var vtabs=document.querySelectorAll('.vtab');
+    for(var vi=0;vi<vtabs.length;vi++){vtabs[vi].classList.toggle('active',vtabs[vi].dataset.view===curView);}
     renderMeetList();return;
   }
 
@@ -1672,7 +1675,8 @@ document.addEventListener('click', function(e){
   // Today nav
   if(t.id==='nav-today-btn'||t.closest('#nav-today-btn')){
     curView='today';
-    document.querySelectorAll('.vtab').forEach(function(v){v.classList.toggle('active',v.dataset.view==='today');});
+    var vtabs2=document.querySelectorAll('.vtab');
+    for(var vi2=0;vi2<vtabs2.length;vi2++){vtabs2[vi2].classList.toggle('active',vtabs2[vi2].dataset.view==='today');}
     renderMeetList();
     var bs=el('body-scroll')||document.querySelector('.body-scroll');
     if(bs&&bs.scrollTo)bs.scrollTo({top:0,behavior:'smooth'});
@@ -1692,7 +1696,8 @@ document.addEventListener('click', function(e){
   var dc=t.closest('.dchip');
   if(dc){
     var na=cfg.booking&&cfg.approval;
-    document.querySelectorAll('.dchip').forEach(function(c){c.classList.remove('sel','asel');});
+    var dchips=document.querySelectorAll('.dchip');
+    for(var di=0;di<dchips.length;di++){dchips[di].classList.remove('sel','asel');}
     dc.classList.add('sel');if(na)dc.classList.add('asel');
     selDurMin=parseInt(dc.dataset.min);
     updatePrev();
