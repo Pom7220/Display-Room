@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0a12">
+<meta name="theme-color" content="#0a0a12" id="meta-theme-color">
 <title>RIS Room Display</title>
 <meta name="description" content="RIS Meeting Room Display — Central Group">
 <meta name="application-name" content="RIS Room Display">
@@ -147,13 +147,13 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 /* ── CURRENT CARD ── */
 .cur-card{-webkit-border-radius:18px;border-radius:18px;padding:24px;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
 .cur-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:#2979ff;-webkit-border-radius:4px 4px 0 0;border-radius:4px 4px 0 0;}
-.cur-card.st-busy{border-color:#552222;background:#1a0d0d;}
-.cur-card.st-busy::before{background:#f32b2b;}
-.cur-card.st-soon{border-color:#553311;background:#1a1000;}
+.cur-card.st-busy{border-color:#cc2222;background:#3a0808;}
+.cur-card.st-busy::before{background:#ff3333;}
+.cur-card.st-soon{border-color:#cc6600;background:#3a1a00;}
 .cur-card.st-soon::before{background:#ff9500;}
-.cur-card.st-avail{border-color:#112233;background:#0d1a2a;}
+.cur-card.st-avail{border-color:#1155cc;background:#0d1f3a;}
 .cur-card.st-avail::before{background:#2979ff;}
-.cur-card.st-pend{border-color:#553311;background:#1a1000;}
+.cur-card.st-pend{border-color:#cc6600;background:#3a1a00;}
 .cur-card.st-pend::before{background:#ff9500;}
 
 /* Available state */
@@ -600,8 +600,8 @@ if('serviceWorker' in navigator){
 // VERSION
 // ══════════════════════════════════════
 var APP_VERSION = {
-  major: 2,
-  minor: 9,
+  major: 3,
+  minor: 0,
   date: '2026-06-05',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -628,6 +628,7 @@ var APP_VERSION = {
 // v2.7 2026-06-05 - Fix booking timezone: Intl.DateTimeFormat().resolvedOptions().timeZone undefined on Chrome 42, hardcode Asia/Bangkok fallback
 // v2.8 2026-06-05 - Full CSS rewrite: all solid colors, tablet-readable sizes (60px room, 58px clock, 32-40px card text), table layout for Chrome 42, remove all animations/transitions, fix keyboard lag
 // v2.9 2026-06-05 - Fix Cancel 10s lag: direct style.display on show/hide/closeModal; fix fullscreen scroll trick for Chrome 42 URL bar
+// v3.0 2026-06-05 - Strong filled status card colors; persistent pending approvals (localStorage); dynamic theme-color meta; kiosk instructions overlay
 
 // ══════════════════════════════════════
 // STATE
@@ -635,6 +636,40 @@ var APP_VERSION = {
 var CFG_KEY='roomdisplay_v5';
 var cfg={},msalInst=null,account=null;
 var meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60;
+
+// Load persisted pending bookings from localStorage
+function loadPendingLocal(){
+  pendingLocal=[];
+  try{
+    var raw=localStorage.getItem('roomdisplay_pending');
+    if(raw){
+      var arr=JSON.parse(raw);
+      var now=new Date();
+      // Filter out expired ones (end time passed)
+      arr=arr.filter(function(p){return new Date(p.endMs)>now;});
+      pendingLocal=arr.map(function(p){
+        return {id:p.id,title:p.title,organizer:p.organizer,
+          start:new Date(p.startMs),end:new Date(p.endMs),
+          attendees:1,isPending:true,joinUrl:null,isOnline:false};
+      });
+      // Resave cleaned list
+      savePendingLocal();
+    }
+  }catch(e){}
+}
+function savePendingLocal(){
+  try{
+    var arr=pendingLocal.map(function(p){
+      return {id:p.id,title:p.title,organizer:p.organizer,
+        startMs:p.start.getTime(),endMs:p.end.getTime()};
+    });
+    localStorage.setItem('roomdisplay_pending',JSON.stringify(arr));
+  }catch(e){}
+}
+function addPendingLocal(pb){
+  pendingLocal.push(pb);
+  savePendingLocal();
+}
 var activeRoom={name:'',email:''};
 var curView='today'; // 'today' | 'tomorrow'
 var moreDaysOpen=false;
@@ -973,6 +1008,7 @@ function launch(){
   if(vt)vt.textContent=APP_VERSION.label();
   el('cfg-sticky-bar').style.display='none';
   activeRoom={name:cfg.roomname,email:cfg.roomemail};
+  loadPendingLocal();
   el('disp-name').textContent=activeRoom.name;
   el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   renderRoomChips();
@@ -1048,7 +1084,8 @@ function renderRoomChips(){
 }
 function switchRoom(name,email){
   if(email===activeRoom.email)return;
-  activeRoom={name:name,email:email};meetings=[];pendingLocal=[];checkedIn=false;
+  activeRoom={name:name,email:email};meetings=[];checkedIn=false;
+  loadPendingLocal();
   el('disp-name').textContent=name;
   clearErr();
   renderRoomChips();
@@ -1114,17 +1151,19 @@ function fetchCal(){
 // THEME
 // ══════════════════════════════════════
 function setTheme(status){
-  // Update background colour
-  var bgMap={available:'#0d1a2e',busy:'#1a0808',soon:'#1a0e00',pending:'#1a0e00'};
+  var bgMap={available:'#0a1628',busy:'#280808',soon:'#1e1000',pending:'#1e1000'};
   el('bg').style.background=bgMap[status]||bgMap.available;
+  // Update theme-color meta for PWA status bar
+  var tc=el('meta-theme-color');
+  var tcMap={available:'#0a1628',busy:'#280808',soon:'#1e1000',pending:'#1e1000'};
+  if(tc)tc.setAttribute('content',tcMap[status]||tcMap.available);
   // Update card class
   var card=el('cur-card');
   if(card){
-    card.className='cur-card';
     var clsMap={available:'st-avail',busy:'st-busy',soon:'st-soon',pending:'st-pend'};
     card.className='cur-card '+(clsMap[status]||'st-avail');
   }
-  // Update status dot class
+  // Update status dot
   var dot=el('sdot');
   if(dot){
     var dotMap={available:'sdot av',busy:'sdot busy',soon:'sdot soon',pending:'sdot pend'};
@@ -1133,8 +1172,8 @@ function setTheme(status){
   // Update status text colour
   var stxt=el('status-txt');
   if(stxt){
-    var colMap={available:'#2979ff',busy:'#ff4444',soon:'#ff9500',pending:'#ff9500'};
-    stxt.style.color=colMap[status]||'#2979ff';
+    var colMap={available:'#4499ff',busy:'#ff5555',soon:'#ffaa33',pending:'#ffaa33'};
+    stxt.style.color=colMap[status]||'#4499ff';
   }
 }
 
@@ -1492,7 +1531,7 @@ function sendApproval(name,title,s,e,done){
     if(!r.ok&&r.status!==202){toast('Email failed','error');closeModal();if(done)done();return;}
     var bid='BOOK-'+Date.now();
     var pb={id:bid,title:title,organizer:name,start:s,end:e,attendees:1,isPending:true,joinUrl:null,isOnline:false};
-    pendingLocal.push(pb);meetings.push(pb);
+    addPendingLocal(pb);meetings.push(pb);
     meetings.sort(function(a,b){return a.start-b.start;});
     closeModal();toast('Approval request sent','warn');
     updateCurrentCard();renderBadges();renderMeetList();
@@ -1720,7 +1759,10 @@ else{showConfig();el('cfg-sticky-bar').style.display='block';}
 <div id="fs-overlay" onclick="doFullscreen();this.style.display='none';">
   <div class="fs-icon">&#9974;</div>
   <div class="fs-title">Tap to go fullscreen</div>
-  <div class="fs-sub">For URL-bar-free kiosk mode:<br>use Chrome menu &#8594; Add to Home Screen<br>then launch from the home screen icon</div>
+  <div class="fs-sub" style="max-width:320px;line-height:1.8;">
+    To hide the URL bar: Chrome menu &#8594; <strong style="color:#fff">Add to Home Screen</strong>, then launch from home screen icon.<br><br>
+    To hide Android nav bar: Settings &#8594; Security &#8594; <strong style="color:#fff">Screen Pinning</strong> &#8594; pin this app.
+  </div>
 </div>
 
 </body>
