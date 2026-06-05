@@ -601,7 +601,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 2,
-  minor: 8,
+  minor: 9,
   date: '2026-06-05',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -627,6 +627,7 @@ var APP_VERSION = {
 // v2.6 2026-06-05 - Fix booking modal: remove sUp animation (5s lag on Chrome 42), fix unreadable colors, scale up all modal text, remove slow transitions
 // v2.7 2026-06-05 - Fix booking timezone: Intl.DateTimeFormat().resolvedOptions().timeZone undefined on Chrome 42, hardcode Asia/Bangkok fallback
 // v2.8 2026-06-05 - Full CSS rewrite: all solid colors, tablet-readable sizes (60px room, 58px clock, 32-40px card text), table layout for Chrome 42, remove all animations/transitions, fix keyboard lag
+// v2.9 2026-06-05 - Fix Cancel 10s lag: direct style.display on show/hide/closeModal; fix fullscreen scroll trick for Chrome 42 URL bar
 
 // ══════════════════════════════════════
 // STATE
@@ -651,8 +652,16 @@ function mu(d){return Math.max(0,Math.round((d-new Date())/60000));}
 function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';}
 function gDate(o){var s=o.dateTime;return new Date(s.charAt(s.length-1)==='Z'?s:s+'Z');}
 function isAllDay(m){return (m.end-m.start)>=86399000;}
-function show(id){var e=el(id);if(e)e.classList.remove('hidden');}
-function hide(id){var e=el(id);if(e)e.classList.add('hidden');}
+function show(id){
+  var e=el(id);if(!e)return;
+  e.classList.remove('hidden');
+  if(e.style.display==='none')e.style.display='';
+}
+function hide(id){
+  var e=el(id);if(!e)return;
+  e.style.display='none';
+  e.classList.add('hidden');
+}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 
 function toast(msg,type){
@@ -979,13 +988,18 @@ function launch(){
 // KIOSK / FULLSCREEN MODE
 // ══════════════════════════════════════
 function doFullscreen(){
+  // Try standard fullscreen API first (works on newer Chrome)
   var de=document.documentElement;
   try{
-    if(de.requestFullscreen)de.requestFullscreen();
-    else if(de.webkitRequestFullscreen)de.webkitRequestFullscreen();
+    if(de.webkitRequestFullScreen)de.webkitRequestFullScreen();
+    else if(de.requestFullscreen)de.requestFullscreen();
     else if(de.mozRequestFullScreen)de.mozRequestFullScreen();
-    else if(de.msRequestFullscreen)de.msRequestFullscreen();
   }catch(e){}
+  // Chrome 42 Android fallback: scroll to hide URL bar
+  // Must delay slightly to let the page settle
+  setTimeout(function(){
+    try{window.scrollTo(0,1);}catch(e){}
+  },100);
 }
 
 function enterKiosk(){
@@ -997,11 +1011,11 @@ function enterKiosk(){
   window.onpopstate=function(){
     window.history.pushState(null,'',window.location.href);
   };
-  // Chrome 42 requires a user gesture to enter fullscreen — show tap prompt
+  // Show tap-to-fullscreen overlay
   var already=!!(document.fullscreenElement||document.webkitFullscreenElement);
   if(already)return;
   var ov=el('fs-overlay');
-  if(ov){ov.style.display='-webkit-box';ov.style.display='-webkit-flex';ov.style.display='flex';}
+  if(ov){ov.style.display='-webkit-flex';ov.style.display='flex';}
 }
 
 // Re-enter fullscreen if user exits (e.g. swipe from edge)
@@ -1360,10 +1374,14 @@ function openModal(){
   bookStart=nextQuarter(new Date());
   buildDurChips(bookStart, 60);
   updatePrev();
-  show('booking-modal');
+  var m=el('booking-modal');
+  if(m){m.classList.remove('hidden');m.style.display='-webkit-flex';m.style.display='flex';}
   // No auto-focus — causes keyboard lag on Chrome 42
 }
-function closeModal(){hide('booking-modal');}
+function closeModal(){
+  var m=el('booking-modal');
+  if(m){m.style.display='none';m.classList.add('hidden');}
+}
 // Round up to next 15-min boundary
 function nextQuarter(d){
   var m=d.getMinutes(),s=d.getSeconds();
@@ -1698,11 +1716,11 @@ else{showConfig();el('cfg-sticky-bar').style.display='block';}
   <div id="days-panel-content"></div>
 </div>
 
-<!-- FULLSCREEN TAP OVERLAY — Chrome 42 requires user gesture for fullscreen -->
+<!-- FULLSCREEN TAP OVERLAY -->
 <div id="fs-overlay" onclick="doFullscreen();this.style.display='none';">
   <div class="fs-icon">&#9974;</div>
-  <div class="fs-title">Tap to enter fullscreen</div>
-  <div class="fs-sub">Tap anywhere to lock the display in kiosk mode</div>
+  <div class="fs-title">Tap to go fullscreen</div>
+  <div class="fs-sub">For URL-bar-free kiosk mode:<br>use Chrome menu &#8594; Add to Home Screen<br>then launch from the home screen icon</div>
 </div>
 
 </body>
