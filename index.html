@@ -225,6 +225,14 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .day-row-count{font-size:11px;color:#7788aa;background:#1a1a2e;-webkit-border-radius:10px;border-radius:10px;padding:2px 8px;margin-left:6px;display:inline-block;}
 
 /* ── BOTTOM NAV ── */
+.pend-notice{background:#2a1a00;border:2px solid #886600;-webkit-border-radius:10px;border-radius:10px;padding:10px 14px;font-size:15px;color:#ffcc44;margin-top:14px;text-align:center;}
+.time-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:4px;}
+.tchip{padding:10px 18px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:8px;border-radius:8px;font-size:16px;font-weight:600;color:#8899bb;cursor:pointer;}
+.tchip.active{background:#1a3a6a;border-color:#2979ff;color:#ffffff;}
+.tslots{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:6px;width:100%;margin-top:8px;}
+.tslot{padding:8px 14px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:8px;border-radius:8px;font-size:15px;font-weight:600;color:#8899bb;cursor:pointer;}
+.tslot.active{background:#1a3a6a;border-color:#2979ff;color:#ffffff;}
+.book-note{background:#1a1200;border:2px solid #554400;-webkit-border-radius:8px;border-radius:8px;padding:10px 14px;font-size:14px;color:#ccaa44;line-height:1.6;margin-bottom:14px;}
 .nav{position:fixed;bottom:0;left:0;right:0;z-index:3;padding:12px 22px 18px;background:#0a0a12;border-top:2px solid #1a1a2e;display:table;width:100%;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .nav-left{display:table-cell;vertical-align:middle;}
 .nav-center{display:table-cell;vertical-align:middle;text-align:center;}
@@ -574,12 +582,22 @@ if('serviceWorker' in navigator){
     <div class="mdrag"></div>
     <div class="mtitle" id="modal-title">Book Room</div>
     <div class="msub" id="modal-sub"></div>
-    <div class="appr-banner" id="appr-banner" style="display:none"><strong>✉ Approval required</strong>An email will be sent to the room owner before confirming.</div>
+    <div class="appr-banner" id="appr-banner" style="display:none"><strong>&#9993; Approval required</strong> An email will be sent to the room owner before confirming.</div>
     <div class="mfield"><label>Your Name</label><input type="text" id="book-name" placeholder="Enter your name" autocomplete="off"></div>
     <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
-    <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
-    <label style="font-size:10px;font-weight:700;color:#5566aa;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:10px">Duration</label>
+    <!-- Start time row -->
+    <div class="mfield">
+      <label>Start Time</label>
+      <div class="time-row" id="time-row">
+        <button class="tchip active" id="tchip-now">Now</button>
+        <button class="tchip" id="tchip-custom">Custom &#9660;</button>
+        <div class="tslots" id="tslots" style="display:none"></div>
+      </div>
+    </div>
+    <div class="tprev">Start: <span id="prev-s">&#8212;</span> &nbsp;&#183;&nbsp; End: <span id="prev-e">&#8212;</span></div>
+    <label style="font-size:13px;font-weight:700;color:#8899bb;letter-spacing:.07em;text-transform:uppercase;display:block;margin-bottom:10px">Duration</label>
     <div class="dur-grid" id="dur-grid"></div>
+    <div class="book-note" id="book-note" style="display:none"></div>
     <div class="mactions">
       <button class="mcancel" id="modal-cancel">Cancel</button>
       <button class="mconfirm inst" id="mconfirm"><span id="mconfirm-lbl">Confirm booking</span></button>
@@ -599,7 +617,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 1,
+  minor: 2,
   date: '2026-06-05',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -628,6 +646,7 @@ var APP_VERSION = {
 // v2.9 2026-06-05 - Fix Cancel 10s lag: direct style.display on show/hide/closeModal; fix fullscreen scroll trick for Chrome 42 URL bar
 // v3.0 2026-06-05 - Strong filled status card colors; persistent pending approvals (localStorage); dynamic theme-color meta; kiosk instructions overlay
 // v3.1 2026-06-05 - Remove duplicate book buttons (1 floating only); early check-in 15min before; remove mitem-bar/sep; stronger card/bg colors; brighter action buttons
+// v3.2 2026-06-05 - Hide active meeting from list (shown in card); custom start time picker in booking; pending notice in available card; booking auto-decline note
 
 // ══════════════════════════════════════
 // STATE
@@ -1190,6 +1209,8 @@ function getNext(){
 function updateCurrentCard(){
   var n=new Date(),cur=getCur(),nxt=getNext();
   var card=el('cur-card'),cont=el('cur-content');
+  // Check for any pending local bookings to show notice
+  var hasPending=pendingLocal.length>0&&pendingLocal.some(function(p){return p.end>n;});
 
   if(cur){
     // ── BUSY / IN USE ──
@@ -1220,7 +1241,6 @@ function updateCurrentCard(){
       (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
       '<div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:#ff4444"></div></div>'+
       '<div class="action-row">'+btns+'</div>'+warn;
-    // No book button when room is in use
     el('nav-book-btn').style.display='none';
 
   } else if(nxt){
@@ -1229,33 +1249,33 @@ function updateCurrentCard(){
     var isSoon=m<=30;
     setTheme(isSoon?'soon':'available');
     el('status-txt').textContent=isSoon?('Available - next in '+m+'m'):('Available - free until '+ft(nxt.start));
-    // Allow early check-in up to 15 min before start
     var earlyCheckin=m<=15;
     var checkinBtn=earlyCheckin
       ? (checkedIn
           ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
           : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Early Check In</button>')
       : '<button class="abtn abtn-checkin off" disabled>Check In opens '+m+'m before start</button>';
+    var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
     cont.innerHTML=
       '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
       '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
       '<div class="meet-time-lg" style="color:#ffaa44">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
       (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'')+
-      '<div class="action-row">'+checkinBtn+'</div>';
-    // Show floating book button
+      '<div class="action-row">'+checkinBtn+'</div>'+pendNotice;
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else {
     // ── FULLY AVAILABLE ──
     setTheme('available');
     el('status-txt').textContent='Available';
+    var pendNotice2=hasPending?'<div class="pend-notice">&#9203; Pending approval request — check your email</div>':'';
     cont.innerHTML=
       '<div class="av-state">'+
       '<div class="av-icon">&#10003;</div>'+
       '<div class="av-title">Free to Book</div>'+
       '<div class="av-sub">No meetings scheduled<br>Available for the rest of the day</div>'+
+      pendNotice2+
       '</div>';
-    // Show only floating book button
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   }
 }
@@ -1284,7 +1304,13 @@ function renderMeetList(){
   var n=new Date();
   var offset=curView==='today'?0:1;
   var day=getMeetingsForDay(offset);
-  var show=offset===0?day.filter(function(m){return m.end>n;}):day;
+  var show=offset===0?day.filter(function(m){
+    if(m.end<=n)return false; // past
+    // Hide the currently-active non-pending meeting — it's shown in the card
+    var cur=getCur();
+    if(cur&&!cur.isPending&&m.id===cur.id)return false;
+    return true;
+  }):day;
   var list=el('meet-list');
   if(!show.length){
     var lbl=curView==='today'?'today':'tomorrow';
@@ -1411,14 +1437,50 @@ function openModal(){
   el('appr-banner').style.display=na?'block':'none';
   el('mconfirm').className='mconfirm '+(na?'appr':'inst');
   el('mconfirm-lbl').textContent=na?'Send approval request':'Confirm booking';
-  // Round start to next 15-min slot
+  // Show note about auto-decline if no approval flow
+  var note=el('book-note');
+  if(note&&!na){
+    note.innerHTML='&#8505; If booking is declined automatically, ask your M365 admin to grant your account <strong>booking rights</strong> to this room mailbox.';
+    note.style.display='block';
+  } else if(note){note.style.display='none';}
+  // Build start time slots: Now + next 8 x 30min slots
+  buildTimeSlots();
+  // Default to "Now"
   bookStart=nextQuarter(new Date());
   buildDurChips(bookStart, 60);
   updatePrev();
   var m=el('booking-modal');
   if(m){m.classList.remove('hidden');m.style.display='-webkit-flex';m.style.display='flex';}
-  // No auto-focus — causes keyboard lag on Chrome 42
 }
+
+function buildTimeSlots(){
+  var now=nextQuarter(new Date());
+  var slots=el('tslots');
+  if(!slots)return;
+  var html='';
+  // Generate 8 slots at 30-min intervals starting from next quarter
+  for(var i=1;i<=8;i++){
+    var t=new Date(now.getTime()+i*30*60000);
+    html+='<div class="tslot" data-ms="'+t.getTime()+'">'+ft(t)+'</div>';
+  }
+  slots.innerHTML=html;
+  // Reset to "Now" active
+  el('tchip-now').className='tchip active';
+  el('tchip-custom').className='tchip';
+  slots.style.display='none';
+}
+
+function selectTimeSlot(ms){
+  bookStart=new Date(ms);
+  buildDurChips(bookStart, selDurMin);
+  updatePrev();
+  // Mark slot active
+  var slots=el('tslots').querySelectorAll('.tslot');
+  for(var i=0;i<slots.length;i++){
+    slots[i].className=parseInt(slots[i].getAttribute('data-ms'))===ms?'tslot active':'tslot';
+  }
+}
+
 function closeModal(){
   var m=el('booking-modal');
   if(m){m.style.display='none';m.classList.add('hidden');}
@@ -1726,6 +1788,33 @@ document.addEventListener('click', function(e){
   if(t.id==='ext-btn'||t.closest('#ext-btn'))extendMeeting();
   if(t.id==='teams-btn'||t.closest('#teams-btn')){
     var cur=getCur();if(cur&&cur.joinUrl)joinTeams(cur.joinUrl);
+  }
+  // Time picker: Now button
+  if(t.id==='tchip-now'){
+    bookStart=nextQuarter(new Date());
+    el('tchip-now').className='tchip active';
+    el('tchip-custom').className='tchip';
+    el('tslots').style.display='none';
+    buildDurChips(bookStart,selDurMin);
+    updatePrev();
+  }
+  // Time picker: Custom button — toggle slot grid
+  if(t.id==='tchip-custom'){
+    var ss=el('tslots');
+    var showing=ss.style.display!=='none';
+    ss.style.display=showing?'none':'flex';
+    el('tchip-custom').className=showing?'tchip':'tchip active';
+    el('tchip-now').className=showing?'tchip active':'tchip';
+  }
+  // Time slot tap
+  var slotEl=t.classList&&t.classList.contains('tslot')?t:(t.closest&&t.closest('.tslot'));
+  if(slotEl){
+    var ms=parseInt(slotEl.getAttribute('data-ms'));
+    if(ms){
+      selectTimeSlot(ms);
+      el('tchip-custom').className='tchip active';
+      el('tchip-now').className='tchip';
+    }
   }
 });
 
