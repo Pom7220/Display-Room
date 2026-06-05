@@ -54,7 +54,7 @@ if(!Object.assign){Object.assign=function(t){for(var i=1;i<arguments.length;i++)
 html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:var(--font);overflow:hidden;-webkit-font-smoothing:antialiased;}
 
 /* ── BACKGROUND ── */
-#bg{position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;background:#1a2a4a;opacity:0.9;}
+#bg{position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;background:#0a1628;}
 
 /* ── BURN-IN ── */
 #pixel-drift{position:fixed;top:0;left:0;right:0;bottom:0;z-index:1;}
@@ -147,14 +147,14 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 /* ── CURRENT CARD ── */
 .cur-card{-webkit-border-radius:18px;border-radius:18px;padding:24px;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
 .cur-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:#2979ff;-webkit-border-radius:4px 4px 0 0;border-radius:4px 4px 0 0;}
-.cur-card.st-busy{border-color:#cc2222;background:#3a0808;}
-.cur-card.st-busy::before{background:#ff3333;}
-.cur-card.st-soon{border-color:#cc6600;background:#3a1a00;}
-.cur-card.st-soon::before{background:#ff9500;}
-.cur-card.st-avail{border-color:#1155cc;background:#0d1f3a;}
-.cur-card.st-avail::before{background:#2979ff;}
-.cur-card.st-pend{border-color:#cc6600;background:#3a1a00;}
-.cur-card.st-pend::before{background:#ff9500;}
+.cur-card.st-busy{border-color:#ff3333;background:#4a0000;}
+.cur-card.st-busy::before{background:#ff3333;height:6px;}
+.cur-card.st-soon{border-color:#ff9500;background:#3a1800;}
+.cur-card.st-soon::before{background:#ff9500;height:6px;}
+.cur-card.st-avail{border-color:#2979ff;background:#0a2040;}
+.cur-card.st-avail::before{background:#2979ff;height:6px;}
+.cur-card.st-pend{border-color:#ff9500;background:#3a1800;}
+.cur-card.st-pend::before{background:#ff9500;height:6px;}
 
 /* Available state */
 .av-state{text-align:center;padding:20px 0;}
@@ -175,13 +175,13 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;}
 .abtn{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:110px;padding:18px 12px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;text-align:center;display:block;}
-.abtn-checkin{background:#1a3a6a;color:#60aaff;border:2px solid #2255aa;}
-.abtn-checkin.checked{background:#0a2a1a;color:#33cc77;border:2px solid #117733;}
-.abtn-checkin.off{background:#1a1a2a;color:#555577;border:2px solid #2a2a3a;cursor:default;}
-.abtn-end{background:#2a0a0a;color:#ff6666;border:2px solid #661111;}
-.abtn-extend{background:#2a1a00;color:#ffaa33;border:2px solid #664400;}
-.abtn-teams{background:#1a1a3a;color:#8888ff;border:2px solid #333399;}
-.abtn-pend{background:#2a1a00;color:#ffaa33;border:2px solid #664400;cursor:default;-webkit-box-flex:2;-webkit-flex:2;flex:2;}
+.abtn-checkin{background:#1a4a8a;color:#88ccff;border:2px solid #2266bb;}
+.abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;}
+.abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;}
+.abtn-end{background:#6a0000;color:#ff8888;border:2px solid #cc2222;}
+.abtn-extend{background:#4a2a00;color:#ffcc44;border:2px solid #cc7700;}
+.abtn-teams{background:#1a1a5a;color:#aaaaff;border:2px solid #3333aa;}
+.abtn-pend{background:#3a2200;color:#ffcc44;border:2px solid #886600;cursor:default;-webkit-box-flex:2;-webkit-flex:2;flex:2;}
 .rel-warn{font-size:15px;color:#ffaa33;margin-top:10px;text-align:center;}
 
 /* ── TODAY/TOMORROW TABS ── */
@@ -195,23 +195,21 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 /* ── MEETING LIST ── */
 .meet-list{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;gap:10px;}
 .mitem{display:table;width:100%;padding:16px 18px;background:#111122;border:2px solid #222233;-webkit-border-radius:12px;border-radius:12px;position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;}
-.mitem.is-now{border-color:#551111;background:#150808;}
-.mitem.is-next{border-color:#553300;background:#150e00;}
+.mitem.is-now{border-color:#aa1111;background:#2a0606;}
+.mitem.is-next{border-color:#886600;background:#1a1200;}
+.mitem.is-pend{border-color:#886600;background:#1a1200;}
 .mitem.is-past{opacity:.35;}
-.mitem-bar{display:table-cell;width:5px;-webkit-border-radius:3px;border-radius:3px;background:#2a2a4a;vertical-align:top;padding-right:14px;}
-.mitem.is-now .mitem-bar{color:#f32b2b;}
-.mitem.is-next .mitem-bar{color:#ff9500;}
-.mitem-time-col{display:table-cell;width:70px;vertical-align:top;padding-right:14px;}
+.mitem-time-col{display:table-cell;width:72px;vertical-align:middle;padding-right:14px;}
 .mitem-t{font-size:18px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums;}
 .mitem-d{font-size:13px;color:#7788aa;margin-top:3px;}
-.mitem-info{display:table-cell;vertical-align:top;}
-.mitem-title{font-size:18px;font-weight:600;color:#ffffff;line-height:1.3;overflow:hidden;}
+.mitem-info{display:table-cell;vertical-align:middle;}
+.mitem-title{font-size:18px;font-weight:600;color:#ffffff;line-height:1.3;}
 .mitem-org{font-size:14px;color:#7788aa;margin-top:4px;}
 .mitem-badge{position:absolute;top:12px;right:12px;font-size:12px;-webkit-border-radius:20px;border-radius:20px;padding:4px 12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
-.mitem-badge.now{color:#ff6666;background:#2a0808;border:2px solid #661111;}
-.mitem-badge.next{color:#ffaa33;background:#2a1500;border:2px solid #664400;}
-.mitem-badge.teams{color:#8888ff;background:#0a0a2a;border:2px solid #333388;}
-.mitem-badge.pend{color:#ffaa33;background:#2a1500;border:2px solid #664400;}
+.mitem-badge.now{color:#ffaaaa;background:#440000;border:2px solid #aa2222;}
+.mitem-badge.next{color:#ffcc66;background:#2a1a00;border:2px solid #886600;}
+.mitem-badge.teams{color:#aaaaff;background:#0a0a2a;border:2px solid #333388;}
+.mitem-badge.pend{color:#ffcc66;background:#2a1a00;border:2px solid #886600;}
 
 /* Empty state */
 .empty-day{text-align:center;padding:40px 20px;color:#5566aa;}
@@ -601,7 +599,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 0,
+  minor: 1,
   date: '2026-06-05',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -629,6 +627,7 @@ var APP_VERSION = {
 // v2.8 2026-06-05 - Full CSS rewrite: all solid colors, tablet-readable sizes (60px room, 58px clock, 32-40px card text), table layout for Chrome 42, remove all animations/transitions, fix keyboard lag
 // v2.9 2026-06-05 - Fix Cancel 10s lag: direct style.display on show/hide/closeModal; fix fullscreen scroll trick for Chrome 42 URL bar
 // v3.0 2026-06-05 - Strong filled status card colors; persistent pending approvals (localStorage); dynamic theme-color meta; kiosk instructions overlay
+// v3.1 2026-06-05 - Remove duplicate book buttons (1 floating only); early check-in 15min before; remove mitem-bar/sep; stronger card/bg colors; brighter action buttons
 
 // ══════════════════════════════════════
 // STATE
@@ -1151,11 +1150,11 @@ function fetchCal(){
 // THEME
 // ══════════════════════════════════════
 function setTheme(status){
-  var bgMap={available:'#0a1628',busy:'#280808',soon:'#1e1000',pending:'#1e1000'};
+  var bgMap={available:'#071428',busy:'#300000',soon:'#201000',pending:'#201000'};
   el('bg').style.background=bgMap[status]||bgMap.available;
   // Update theme-color meta for PWA status bar
   var tc=el('meta-theme-color');
-  var tcMap={available:'#0a1628',busy:'#280808',soon:'#1e1000',pending:'#1e1000'};
+  var tcMap={available:'#071428',busy:'#300000',soon:'#201000',pending:'#201000'};
   if(tc)tc.setAttribute('content',tcMap[status]||tcMap.available);
   // Update card class
   var card=el('cur-card');
@@ -1193,63 +1192,70 @@ function updateCurrentCard(){
   var card=el('cur-card'),cont=el('cur-content');
 
   if(cur){
+    // ── BUSY / IN USE ──
     var ip=cur.isPending;
     setTheme(ip?'pending':'busy');
     el('status-txt').textContent=ip?'Pending Approval':'In Use';
     var pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
     var btns='';
     if(ip){
-      var pendMsg = cur.isExchangePending
-        ? svgClock()+' Awaiting room owner approval in Outlook'
-        : svgClock()+' Awaiting approval...';
-      btns='<button class="abtn abtn-pend" disabled>'+pendMsg+'</button>';
+      btns='<button class="abtn abtn-pend" disabled>'+svgClock()+' Awaiting approval&#8230;</button>';
     } else {
       btns += checkedIn
         ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
         : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>';
       btns+='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
-      btns+='<button class="abtn abtn-extend" id="ext-btn">'+svgPlus()+' +30m</button>';
-      if(cfg.teamsBtn!==false&&cur.joinUrl)btns+='<button class="abtn abtn-teams" id="teams-btn">'+svgTeams()+' Join Teams</button>';
+      btns+='<button class="abtn abtn-extend" id="ext-btn">+ +30m</button>';
+      if(cfg.teamsBtn!==false&&cur.joinUrl)btns+='<button class="abtn abtn-teams" id="teams-btn">'+svgTeams()+' Teams</button>';
     }
     var warn='';
     if(!ip&&!checkedIn&&cfg.release>0){
       var ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
-      if(ml>0)warn='<div class="rel-warn">⚠ Releases in '+ml+' min without check-in</div>';
+      if(ml>0)warn='<div class="rel-warn">&#9888; Releases in '+ml+' min without check-in</div>';
     }
     cont.innerHTML=
       '<div class="meet-tag '+(ip?'pend':'busy')+'">'+(ip?'&#9203; PENDING':'&#128308; IN USE')+'</div>'+
       '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
-      '<div class="meet-time-lg" style="color:#ff4444">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
+      '<div class="meet-time-lg" style="color:#ff6666">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
       (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
-      '<div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:#f32b2b"></div></div>'+
+      '<div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:#ff4444"></div></div>'+
       '<div class="action-row">'+btns+'</div>'+warn;
+    // No book button when room is in use
     el('nav-book-btn').style.display='none';
 
   } else if(nxt){
+    // ── AVAILABLE BUT UPCOMING SOON ──
     var m=mu(nxt.start);
     var isSoon=m<=30;
     setTheme(isSoon?'soon':'available');
     el('status-txt').textContent=isSoon?('Available - next in '+m+'m'):('Available - free until '+ft(nxt.start));
-    var bookBtn=cfg.booking!==false?('<button class="abtn abtn-checkin" id="book-btn-card">'+svgCal()+' Book Room</button>'):'';
+    // Allow early check-in up to 15 min before start
+    var earlyCheckin=m<=15;
+    var checkinBtn=earlyCheckin
+      ? (checkedIn
+          ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
+          : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Early Check In</button>')
+      : '<button class="abtn abtn-checkin off" disabled>Check In opens '+m+'m before start</button>';
     cont.innerHTML=
       '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
       '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
-      '<div class="meet-time-lg" style="color:#ff9500">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
+      '<div class="meet-time-lg" style="color:#ffaa44">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
       (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'')+
-      '<div class="action-row"><button class="abtn abtn-checkin off" disabled>No active meeting</button>'+bookBtn+'</div>';
-    el('nav-book-btn').style.display='none'; // card has book btn, hide nav duplicate
+      '<div class="action-row">'+checkinBtn+'</div>';
+    // Show floating book button
+    el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else {
+    // ── FULLY AVAILABLE ──
     setTheme('available');
     el('status-txt').textContent='Available';
-    var bookBtn=cfg.booking!==false?('<button class="book-big" id="book-big-btn">'+svgCal()+' Book This Room</button>'):'';
     cont.innerHTML=
       '<div class="av-state">'+
       '<div class="av-icon">&#10003;</div>'+
       '<div class="av-title">Free to Book</div>'+
       '<div class="av-sub">No meetings scheduled<br>Available for the rest of the day</div>'+
-      bookBtn+
       '</div>';
+    // Show only floating book button
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   }
 }
@@ -1301,10 +1307,8 @@ function renderMeetList(){
       :hasTeams&&i===0&&!isPast?'<span class="mitem-badge teams">TEAMS</span>'
       :i===0&&!isPast?'<span class="mitem-badge next">NEXT</span>':'';
     return '<div class="'+cls+'">'+badge+
-      '<div class="mitem-bar"></div>'+
-      '<div class="mitem-time"><div class="mitem-t">'+ft(m.start)+'</div><div class="mitem-d">'+fd(m.start,m.end)+'</div></div>'+
-      '<div class="mitem-sep"></div>'+
-      '<div class="mitem-info"><div class="mitem-title">'+esc(m.title)+'</div><div class="mitem-org">'+esc(ip?m.organizer+' - pending':m.organizer)+'</div></div>'+
+      '<div class="mitem-time-col"><div class="mitem-t">'+ft(m.start)+'</div><div class="mitem-d">'+fd(m.start,m.end)+'</div></div>'+
+      '<div class="mitem-info"><div class="mitem-title">'+esc(m.title)+'</div><div class="mitem-org">'+esc(ip?m.organizer+' \u2013 pending':m.organizer)+'</div></div>'+
     '</div>';
   }).join('');
 }
@@ -1327,10 +1331,8 @@ function openDaysPanel(){
     } else {
       for(var mi=0;mi<day.length;mi++){
         var mm=day[mi];
-        html+='<div class="mitem" style="padding:8px 0;margin-bottom:4px">'+
-          '<div class="mitem-bar"></div>'+
-          '<div class="mitem-time"><div class="mitem-t">'+ft(mm.start)+'</div><div class="mitem-d">'+fd(mm.start,mm.end)+'</div></div>'+
-          '<div class="mitem-sep"></div>'+
+        html+='<div class="mitem" style="padding:10px 12px;margin-bottom:6px">'+
+          '<div class="mitem-time-col"><div class="mitem-t">'+ft(mm.start)+'</div><div class="mitem-d">'+fd(mm.start,mm.end)+'</div></div>'+
           '<div class="mitem-info"><div class="mitem-title">'+esc(mm.title)+'</div><div class="mitem-org">'+esc(mm.organizer)+'</div></div>'+
           '</div>';
       }
