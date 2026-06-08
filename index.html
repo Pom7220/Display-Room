@@ -634,8 +634,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 5,
-  patch: 3,
+  minor: 6,
   date: '2026-06-08',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -672,6 +671,7 @@ var APP_VERSION = {
 // v3.5.1 2026-06-08 - Hotfix: gDate component parsing (new Date with space separator returns Invalid Date on Chrome desktop/strict browsers)
 // v3.5.2 2026-06-08 - Hotfix: remove showAs filter - room calendar events return showAs:free via delegated access, causing all meetings to be silently dropped
 // v3.5.3 2026-06-08 - Hotfix: gDate checks timeZone field from Graph response - Graph returns dateTime in UTC with timeZone:UTC, must append Z for correct local time conversion
+// v3.6 2026-06-08 - Token expiry auto-recovery (prompt:none silent re-auth); proactive refresh 15min before expiry; auto-relaunch: timestamp+reload approach for Chrome 42
 
 // ══════════════════════════════════════
 // STATE
@@ -1098,25 +1098,61 @@ function getToken(){
   return msalInst.acquireTokenSilent({scopes:scopes,account:account}).then(function(r){
     var expiry=r.expiresOn?r.expiresOn.getTime():(Date.now()+3600000);
     saveToken(r.accessToken,expiry);
+    _tokenRefreshPending=false;
+    dbg('Token refreshed OK, expires: '+new Date(expiry).toLocaleTimeString());
     return r.accessToken;
   }).catch(function(err){
     dbg('Silent token fail: '+(err&&err.errorCode||String(err)));
-    // Only redirect if it's a real auth error, not a network/transient error
     var code=err&&err.errorCode||'';
-    var needsLogin=code==='login_required'||code==='interaction_required'||code==='consent_required'||code==='user_login_error';
+    var msg=err&&err.errorMessage||'';
+    // Check for lifetime/expiry errors specifically
+    var isExpired=msg.indexOf('lifetime')!==-1||msg.indexOf('expired')!==-1||
+      msg.indexOf('AADSTS70011')!==-1||msg.indexOf('AADSTS50058')!==-1;
+    var needsLogin=isExpired||code==='login_required'||code==='interaction_required'||
+      code==='consent_required'||code==='user_login_error';
     if(needsLogin&&!_tokenRefreshPending){
       _tokenRefreshPending=true;
-      // Show auth screen instead of immediate redirect — avoids reload loop
       account=null;
       try{localStorage.removeItem('roomdisplay_token');}catch(e){}
-      showAuth();
+      // Auto-trigger re-auth via redirect — no user tap needed
+      dbg('Token expired — auto redirecting to login');
+      setTimeout(function(){
+        try{
+          msalInst.loginRedirect({
+            scopes:scopes,
+            prompt:'none' // silent login attempt first — no UI if session exists
+          });
+        }catch(ex){
+          // prompt:none failed — show auth screen for user to sign in
+          dbg('Silent login failed, showing auth screen');
+          showAuth();
+        }
+      },1000);
     } else if(_cachedToken&&_tokenExpiry>Date.now()){
-      // Transient failure — use stale token rather than redirect
       dbg('Using stale cached token due to transient error');
       return _cachedToken;
     }
     return null;
   });
+}
+
+// Proactive token refresh — check every 10 min, refresh if expiring within 15 min
+function startTokenRefreshTimer(){
+  setInterval(function(){
+    if(!account||!msalInst)return;
+    var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
+    var expiresIn=_tokenExpiry-Date.now();
+    if(expiresIn<900000){ // less than 15 min remaining
+      dbg('Proactive token refresh (expires in '+ Math.round(expiresIn/60000)+'m)');
+      msalInst.acquireTokenSilent({scopes:scopes,account:account}).then(function(r){
+        var expiry=r.expiresOn?r.expiresOn.getTime():(Date.now()+3600000);
+        saveToken(r.accessToken,expiry);
+        dbg('Proactive refresh OK');
+      }).catch(function(e){
+        dbg('Proactive refresh failed: '+(e&&e.errorCode||String(e)));
+      });
+    }
+  },600000); // every 10 minutes
 }
 
 // ══════════════════════════════════════
@@ -1139,29 +1175,59 @@ function launch(){
   // Enter fullscreen kiosk mode
   enterKiosk();
   startAutoRelaunch();
+  startTokenRefreshTimer();
 }
 
 function startAutoRelaunch(){
   var relaunchOn=true;
   try{relaunchOn=localStorage.getItem('roomdisplay_relaunch')!=='0';}catch(e){}
   if(!relaunchOn)return;
-  function appIsActive(){
+
+  // Save activity timestamp every 30 seconds while app is active
+  var _lastActive=Date.now();
+  setInterval(function(){
     var a=el('app');
-    return a&&a.style.display!=='none'&&!a.classList.contains('hidden');
-  }
-  // Re-enter fullscreen when page becomes visible (home button return)
-  document.addEventListener('visibilitychange',function(){
-    if(!document.hidden&&appIsActive()){
+    var appVisible=a&&a.style.display!=='none'&&!a.classList.contains('hidden');
+    if(appVisible)_lastActive=Date.now();
+  },30000);
+
+  function handleReturn(){
+    var a=el('app');
+    var appVisible=a&&a.style.display!=='none'&&!a.classList.contains('hidden');
+    if(!appVisible)return; // don't relaunch from config/auth screen
+    var away=Date.now()-_lastActive;
+    dbg('App returned, was away: '+Math.round(away/1000)+'s');
+    if(away>300000){
+      // Away more than 5 min — full reload to re-init
+      dbg('Away >5min, reloading page');
+      location.reload();
+    } else {
+      // Brief switch — just re-enter fullscreen
       setTimeout(function(){doFullscreen();},400);
     }
-  });
-  // Re-enter on pageshow (task switcher return)
-  window.addEventListener('pageshow',function(){
-    if(appIsActive()){setTimeout(function(){doFullscreen();},400);}
-  });
-  // Re-enter on window focus
+  }
+
+  // window.focus — most reliable on Chrome 42 Android
   window.addEventListener('focus',function(){
-    if(appIsActive()){setTimeout(function(){doFullscreen();},600);}
+    setTimeout(handleReturn,500);
+  });
+
+  // visibilitychange — fires when returning from home button
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden){
+      setTimeout(handleReturn,500);
+    }
+  });
+
+  // pageshow — fires on back navigation / task switcher
+  window.addEventListener('pageshow',function(e){
+    // e.persisted = true means from bfcache (back button)
+    if(e&&e.persisted){
+      dbg('Pageshow from cache — reloading');
+      location.reload();
+      return;
+    }
+    setTimeout(handleReturn,500);
   });
 }
 
