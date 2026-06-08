@@ -1,7 +1,7 @@
 buildscript {
     repositories {
         google()
-        mavenCentral()
+        maven { url 'https://repo1.maven.org/maven2' }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.6.4'
@@ -11,6 +11,6 @@ buildscript {
 allprojects {
     repositories {
         google()
-        mavenCentral()
+        maven { url 'https://repo1.maven.org/maven2' }
     }
 }
