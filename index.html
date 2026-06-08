@@ -578,6 +578,7 @@ if('serviceWorker' in navigator){
 </div>
 
 <!-- FLOAT GEAR -->
+<div id="ver-corner" style="position:fixed;bottom:72px;right:6px;font-size:11px;color:#ffffff;opacity:0.3;z-index:8999;letter-spacing:.03em;text-align:right;pointer-events:none;font-family:monospace;"></div>
 <button id="float-gear" aria-label="Settings">
   <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
 </button>
@@ -629,8 +630,8 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 3,
-  date: '2026-06-05',
+  minor: 4,
+  date: '2026-06-08',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
   }
@@ -660,6 +661,7 @@ var APP_VERSION = {
 // v3.1 2026-06-05 - Remove duplicate book buttons (1 floating only); early check-in 15min before; remove mitem-bar/sep; stronger card/bg colors; brighter action buttons
 // v3.2 2026-06-05 - Hide active meeting from list (shown in card); custom start time picker in booking; pending notice in available card; booking auto-decline note
 // v3.3 2026-06-05 - Fix touch lag: touchstart+up() helper replaces 27x closest() calls; PIN grid table layout (CSS grid not in Chrome 42); room name 90px
+// v3.4 2026-06-08 - Fix auth loop: token cache in localStorage, stale token fallback, no redirect on transient failures; check-in countdown fix; version label bottom-right
 
 // ══════════════════════════════════════
 // STATE
@@ -994,6 +996,11 @@ function initMsal(){
       if(resp&&resp.account){
         dbg('Redirect OK - got account');
         account=resp.account;
+        _tokenRefreshPending=false;
+        if(resp.accessToken){
+          var exp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
+          saveToken(resp.accessToken,exp);
+        }
         hide('config-screen');el('cfg-sticky-bar').style.display='none';
         launch();
       }
@@ -1019,13 +1026,57 @@ function initMsal(){
 
 function showAuth(){show('auth-overlay');hide('app');}
 
+var _cachedToken=null;
+var _tokenExpiry=0;
+var _tokenRefreshPending=false;
+
+// Load cached token from localStorage on startup
+(function(){
+  try{
+    var raw=localStorage.getItem('roomdisplay_token');
+    if(raw){
+      var obj=JSON.parse(raw);
+      if(obj&&obj.token&&obj.expiry&&obj.expiry>Date.now()+60000){
+        _cachedToken=obj.token;
+        _tokenExpiry=obj.expiry;
+      }
+    }
+  }catch(e){}
+})();
+
+function saveToken(tok,expiresOn){
+  _cachedToken=tok;
+  _tokenExpiry=expiresOn||(Date.now()+3600000);
+  try{localStorage.setItem('roomdisplay_token',JSON.stringify({token:tok,expiry:_tokenExpiry}));}catch(e){}
+}
+
 function getToken(){
   var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
-  // MSAL v1 token acquisition
+  // Return cached token if still valid for at least 5 min
+  if(_cachedToken&&_tokenExpiry>Date.now()+300000){
+    return Promise.resolve(_cachedToken);
+  }
+  // Try silent refresh
   return msalInst.acquireTokenSilent({scopes:scopes,account:account}).then(function(r){
+    var expiry=r.expiresOn?r.expiresOn.getTime():(Date.now()+3600000);
+    saveToken(r.accessToken,expiry);
     return r.accessToken;
-  }).catch(function(){
-    msalInst.acquireTokenRedirect({scopes:scopes});
+  }).catch(function(err){
+    dbg('Silent token fail: '+(err&&err.errorCode||String(err)));
+    // Only redirect if it's a real auth error, not a network/transient error
+    var code=err&&err.errorCode||'';
+    var needsLogin=code==='login_required'||code==='interaction_required'||code==='consent_required'||code==='user_login_error';
+    if(needsLogin&&!_tokenRefreshPending){
+      _tokenRefreshPending=true;
+      // Show auth screen instead of immediate redirect — avoids reload loop
+      account=null;
+      try{localStorage.removeItem('roomdisplay_token');}catch(e){}
+      showAuth();
+    } else if(_cachedToken&&_tokenExpiry>Date.now()){
+      // Transient failure — use stale token rather than redirect
+      dbg('Using stale cached token due to transient error');
+      return _cachedToken;
+    }
     return null;
   });
 }
@@ -1035,8 +1086,8 @@ function getToken(){
 // ══════════════════════════════════════
 function launch(){
   hide('auth-overlay');show('app');
-  var vt=el('ver-tag');
-  if(vt)vt.textContent=APP_VERSION.label();
+  var vt=el('ver-tag');if(vt)vt.textContent=APP_VERSION.label();
+  var vc=el('ver-corner');if(vc)vc.textContent=APP_VERSION.label();
   el('cfg-sticky-bar').style.display='none';
   activeRoom={name:cfg.roomname,email:cfg.roomemail};
   loadPendingLocal();
@@ -1267,7 +1318,7 @@ function updateCurrentCard(){
       ? (checkedIn
           ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
           : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Early Check In</button>')
-      : '<button class="abtn abtn-checkin off" disabled>Check In opens '+m+'m before start</button>';
+      : '<button class="abtn abtn-checkin off" disabled>Check In opens in '+(m-15)+'m</button>';
     var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
     cont.innerHTML=
       '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
@@ -1753,6 +1804,7 @@ function handleTap(e){
 
   // Auth
   if(upId(t,'btn-signin')){
+    _tokenRefreshPending=false;
     try{msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read']});}catch(err){el('auth-error').textContent=err.message||String(err);}
     return;
   }
