@@ -635,6 +635,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 6,
+  patch: 1,
   date: '2026-06-08',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -672,6 +673,7 @@ var APP_VERSION = {
 // v3.5.2 2026-06-08 - Hotfix: remove showAs filter - room calendar events return showAs:free via delegated access, causing all meetings to be silently dropped
 // v3.5.3 2026-06-08 - Hotfix: gDate checks timeZone field from Graph response - Graph returns dateTime in UTC with timeZone:UTC, must append Z for correct local time conversion
 // v3.6 2026-06-08 - Token expiry auto-recovery (prompt:none silent re-auth); proactive refresh 15min before expiry; auto-relaunch: timestamp+reload approach for Chrome 42
+// v3.6.1 2026-06-08 - Hotfix: token expiry banner shows Sign In button; doReauth() clears all MSAL+token cache and forces fresh loginRedirect; remove failed prompt:none approach
 
 // ══════════════════════════════════════
 // STATE
@@ -770,11 +772,25 @@ function toast(msg,type){
   t._t=setTimeout(function(){t.classList.add('hidden');},3500);
 }
 function setErr(msg){
-  var isAccess=msg.toLowerCase().indexOf('access')>-1||msg.toLowerCase().indexOf('forbidden')>-1||msg.toLowerCase().indexOf('denied')>-1;
-  el('err-msg').textContent=isAccess?'🔒 Access denied to room calendar. Grant Calendars.ReadWrite.Shared permission, or switch room.':'⚠ '+msg;
-  el('error-banner').style.display='flex';
+  var lower=msg.toLowerCase();
+  var isAccess=lower.indexOf('access')>-1||lower.indexOf('forbidden')>-1||lower.indexOf('denied')>-1;
+  var isExpiry=lower.indexOf('lifetime')>-1||lower.indexOf('expired')>-1||lower.indexOf('aadsts70011')>-1||lower.indexOf('aadsts50058')>-1;
+  if(isExpiry){
+    el('err-msg').textContent='🔑 Session expired — tap to sign in again';
+    el('err-settings-btn').textContent='Sign In';
+    el('err-settings-btn').setAttribute('data-action','reauth');
+  } else {
+    el('err-msg').textContent=isAccess?'🔒 Access denied to room calendar. Grant Calendars.ReadWrite.Shared permission.':'⚠ '+msg;
+    el('err-settings-btn').textContent='⚙ Settings';
+    el('err-settings-btn').removeAttribute('data-action');
+  }
+  el('error-banner').style.display='table';
 }
-function clearErr(){el('error-banner').style.display='none';}
+function clearErr(){
+  el('error-banner').style.display='none';
+  el('err-settings-btn').textContent='⚙ Settings';
+  el('err-settings-btn').removeAttribute('data-action');
+}
 
 // ══════════════════════════════════════
 // WEATHER — Open-Meteo (free, no key)
@@ -1062,6 +1078,37 @@ function initMsal(){
   }
 }
 
+function doReauth(){
+  dbg('doReauth called — clearing all token cache');
+  // Clear our token cache
+  _cachedToken=null;
+  _tokenExpiry=0;
+  _tokenRefreshPending=false;
+  try{localStorage.removeItem('roomdisplay_token');}catch(e){}
+  // Clear MSAL cache
+  try{
+    var keys=[];
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(k&&k.indexOf('msal.')===0)keys.push(k);
+    }
+    for(var j=0;j<keys.length;j++){localStorage.removeItem(keys[j]);}
+    dbg('Cleared '+keys.length+' MSAL cache keys');
+  }catch(e){}
+  // Clear MSAL instance account
+  try{if(msalInst)msalInst.clearCache();}catch(e){}
+  account=null;
+  clearErr();
+  // Force full login redirect
+  var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
+  try{
+    msalInst.loginRedirect({scopes:scopes,prompt:'select_account'});
+  }catch(err){
+    dbg('loginRedirect failed: '+String(err));
+    showAuth();
+  }
+}
+
 function showAuth(){show('auth-overlay');hide('app');}
 
 var _cachedToken=null;
@@ -1112,22 +1159,8 @@ function getToken(){
       code==='consent_required'||code==='user_login_error';
     if(needsLogin&&!_tokenRefreshPending){
       _tokenRefreshPending=true;
-      account=null;
-      try{localStorage.removeItem('roomdisplay_token');}catch(e){}
-      // Auto-trigger re-auth via redirect — no user tap needed
-      dbg('Token expired — auto redirecting to login');
-      setTimeout(function(){
-        try{
-          msalInst.loginRedirect({
-            scopes:scopes,
-            prompt:'none' // silent login attempt first — no UI if session exists
-          });
-        }catch(ex){
-          // prompt:none failed — show auth screen for user to sign in
-          dbg('Silent login failed, showing auth screen');
-          showAuth();
-        }
-      },1000);
+      dbg('Token expired — triggering reauth');
+      setTimeout(function(){doReauth();},500);
     } else if(_cachedToken&&_tokenExpiry>Date.now()){
       dbg('Using stale cached token due to transient error');
       return _cachedToken;
@@ -1950,7 +1983,15 @@ function handleTap(e){
 
   // Gear / settings
   if(upId(t,'float-gear')){openPinOverlay();return;}
-  if(upId(t,'err-settings-btn')){openPinOverlay();return;}
+  if(upId(t,'err-settings-btn')){
+    var btn=el('err-settings-btn');
+    if(btn&&btn.getAttribute('data-action')==='reauth'){
+      doReauth();
+    } else {
+      openPinOverlay();
+    }
+    return;
+  }
 
   // Confirm dialog
   if(upId(t,'cdlg-cancel')||t===el('confirm-dialog')){hide('confirm-dialog');return;}
