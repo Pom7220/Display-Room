@@ -635,7 +635,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 5,
-  patch: 2,
+  patch: 3,
   date: '2026-06-08',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -671,6 +671,7 @@ var APP_VERSION = {
 // v3.5 2026-06-08 - Today badge counts only future meetings; gDate timezone fix (no forced UTC); checked-in status bar green; auto-relaunch on home exit with config toggle
 // v3.5.1 2026-06-08 - Hotfix: gDate component parsing (new Date with space separator returns Invalid Date on Chrome desktop/strict browsers)
 // v3.5.2 2026-06-08 - Hotfix: remove showAs filter - room calendar events return showAs:free via delegated access, causing all meetings to be silently dropped
+// v3.5.3 2026-06-08 - Hotfix: gDate checks timeZone field from Graph response - Graph returns dateTime in UTC with timeZone:UTC, must append Z for correct local time conversion
 
 // ══════════════════════════════════════
 // STATE
@@ -729,30 +730,26 @@ function mu(d){return Math.max(0,Math.round((d-new Date())/60000));}
 function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';}
 function gDate(o){
   var s=o.dateTime;
+  var tz=o.timeZone||'';
   if(!s)return new Date();
-  // If already has Z suffix, it's UTC — convert to local
-  if(s.charAt(s.length-1)==='Z'){
-    return new Date(s);
+  // Strip sub-seconds
+  var t=s.replace(/\.\d+$/,'');
+  // If Graph says UTC, append Z so JS treats as UTC
+  if(tz==='UTC'||tz==='utc'){
+    if(t.charAt(t.length-1)!=='Z')t=t+'Z';
+    return new Date(t);
   }
-  // If has +offset (e.g. +07:00), parse as-is
-  if(s.indexOf('+')>10){
-    return new Date(s);
+  // Already has Z or +offset suffix
+  if(t.charAt(t.length-1)==='Z'||t.indexOf('+')>10){
+    return new Date(t);
   }
-  // No timezone suffix — Graph returns local Bangkok time
-  // Parse components manually for cross-browser safety
-  // Format: 2026-06-08T13:30:00 or 2026-06-08T13:30:00.0000000
-  var t=s.replace(/\.\d+$/,''); // strip sub-seconds
+  // No timezone info — parse as local time using components
   var parts=t.split('T');
   if(parts.length<2)return new Date(t);
   var dp=parts[0].split('-');
   var tp=parts[1].split(':');
-  var yr=parseInt(dp[0],10);
-  var mo=parseInt(dp[1],10)-1;
-  var dy=parseInt(dp[2],10);
-  var hr=parseInt(tp[0],10);
-  var mn=parseInt(tp[1],10);
-  var sc=tp[2]?parseInt(tp[2],10):0;
-  return new Date(yr,mo,dy,hr,mn,sc);
+  return new Date(parseInt(dp[0],10),parseInt(dp[1],10)-1,parseInt(dp[2],10),
+    parseInt(tp[0],10),parseInt(tp[1],10),tp[2]?parseInt(tp[2],10):0);
 }
 function isAllDay(m){return (m.end-m.start)>=86399000;}
 function show(id){
