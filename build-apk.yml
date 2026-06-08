@@ -1,0 +1,60 @@
+name: Build RIS Boot Launcher APK
+
+# Triggers: manually, or when boot-launcher source changes
+on:
+  workflow_dispatch:       # Manual trigger from GitHub Actions tab
+  push:
+    paths:
+      - 'boot-launcher/**' # Auto-trigger when source files change
+
+jobs:
+  build-apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the repo
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Set up Java 11 (required for Android Gradle Plugin 3.6)
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      # 3. Cache Gradle downloads to speed up future builds
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # 4. Make gradlew executable
+      - name: Make gradlew executable
+        run: chmod +x boot-launcher/gradlew
+
+      # 5. Build debug APK (signed with Android debug keystore — installable on any device with Unknown Sources enabled)
+      - name: Build debug APK
+        working-directory: boot-launcher
+        run: ./gradlew assembleDebug --no-daemon
+
+      # 6. Upload APK as downloadable artifact
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: RIS-Boot-Launcher-APK
+          path: boot-launcher/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 90
+
+      # 7. Also copy APK to repo root for easy access (optional)
+      - name: Show APK info
+        run: |
+          ls -lh boot-launcher/app/build/outputs/apk/debug/
+          echo "APK built successfully!"
+          echo "Download from the Actions tab → RIS-Boot-Launcher-APK artifact"
