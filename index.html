@@ -426,6 +426,10 @@ if('serviceWorker' in navigator){
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-kiosk" checked><span class="tog-slider"></span></label>
     </div>
     <div class="toggle-row">
+      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Auto-relaunch on exit</div><div class="tr-sub">Return to display if user navigates away — disable for maintenance</div></div>
+      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-relaunch" checked><span class="tog-slider"></span></label>
+    </div>
+    <div class="toggle-row">
       <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Debug log overlay</div><div class="tr-sub">Show debug messages on screen — disable for production</div></div>
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-debug-toggle" onchange="toggleDebugMode()"><span class="tog-slider"></span></label>
     </div>
@@ -630,7 +634,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 4,
+  minor: 5,
   date: '2026-06-08',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -662,6 +666,7 @@ var APP_VERSION = {
 // v3.2 2026-06-05 - Hide active meeting from list (shown in card); custom start time picker in booking; pending notice in available card; booking auto-decline note
 // v3.3 2026-06-05 - Fix touch lag: touchstart+up() helper replaces 27x closest() calls; PIN grid table layout (CSS grid not in Chrome 42); room name 90px
 // v3.4 2026-06-08 - Fix auth loop: token cache in localStorage, stale token fallback, no redirect on transient failures; check-in countdown fix; version label bottom-right
+// v3.5 2026-06-08 - Today badge counts only future meetings; gDate timezone fix (no forced UTC); checked-in status bar green; auto-relaunch on home exit with config toggle
 
 // ══════════════════════════════════════
 // STATE
@@ -718,7 +723,20 @@ function ft(d){return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-dig
 function fd(s,e){var m=Math.round((e-s)/60000);return m<60?m+'m':Math.floor(m/60)+'h'+(m%60?' '+(m%60)+'m':'');}
 function mu(d){return Math.max(0,Math.round((d-new Date())/60000));}
 function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';}
-function gDate(o){var s=o.dateTime;return new Date(s.charAt(s.length-1)==='Z'?s:s+'Z');}
+function gDate(o){
+  var s=o.dateTime;
+  // Graph API returns local time (Bangkok) without timezone suffix
+  // Do NOT append Z — that would treat it as UTC making times 7h wrong
+  // Parse as local time directly
+  if(!s)return new Date();
+  // If already has Z or +offset, parse as-is
+  if(s.charAt(s.length-1)==='Z'||s.indexOf('+')>10||s.indexOf('-',10)>10){
+    return new Date(s);
+  }
+  // No timezone — treat as local time (Bangkok) by parsing components
+  var p=s.replace('T',' ').replace(/\.\d+$/,'');
+  return new Date(p);
+}
 function isAllDay(m){return (m.end-m.start)>=86399000;}
 function show(id){
   var e=el(id);if(!e)return;
@@ -910,6 +928,11 @@ function showConfig(){
     var savedKiosk=localStorage.getItem('roomdisplay_kiosk')!=='0';
     el('cfg-kiosk').checked=savedKiosk;
   }catch(e){}
+  // Load relaunch state
+  try{
+    var savedRelaunch=localStorage.getItem('roomdisplay_relaunch')!=='0';
+    el('cfg-relaunch').checked=savedRelaunch;
+  }catch(e){}
   // Show version in developer card
   var vi=el('ver-inline');
   if(vi)vi.textContent=APP_VERSION.label();
@@ -936,6 +959,7 @@ function toggleDebugMode(){
   // Save preference
   try{localStorage.setItem('roomdisplay_debug',dbgEnabled?'1':'0');}catch(e){}
   try{localStorage.setItem('roomdisplay_kiosk',el('cfg-kiosk').checked?'1':'0');}catch(e){}
+  try{localStorage.setItem('roomdisplay_relaunch',el('cfg-relaunch').checked?'1':'0');}catch(e){}
 }
 function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checked?'block':'none';}
 
@@ -1100,6 +1124,31 @@ function launch(){
   startBurnIn();
   // Enter fullscreen kiosk mode
   enterKiosk();
+  startAutoRelaunch();
+}
+
+function startAutoRelaunch(){
+  var relaunchOn=true;
+  try{relaunchOn=localStorage.getItem('roomdisplay_relaunch')!=='0';}catch(e){}
+  if(!relaunchOn)return;
+  function appIsActive(){
+    var a=el('app');
+    return a&&a.style.display!=='none'&&!a.classList.contains('hidden');
+  }
+  // Re-enter fullscreen when page becomes visible (home button return)
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden&&appIsActive()){
+      setTimeout(function(){doFullscreen();},400);
+    }
+  });
+  // Re-enter on pageshow (task switcher return)
+  window.addEventListener('pageshow',function(){
+    if(appIsActive()){setTimeout(function(){doFullscreen();},400);}
+  });
+  // Re-enter on window focus
+  window.addEventListener('focus',function(){
+    if(appIsActive()){setTimeout(function(){doFullscreen();},600);}
+  });
 }
 
 // ══════════════════════════════════════
@@ -1280,7 +1329,15 @@ function updateCurrentCard(){
     // ── BUSY / IN USE ──
     var ip=cur.isPending;
     setTheme(ip?'pending':'busy');
-    el('status-txt').textContent=ip?'Pending Approval':'In Use';
+    // Update status text — show checked-in state prominently
+    var stxt=el('status-txt');
+    if(checkedIn&&!ip){
+      stxt.textContent='Checked In';
+      stxt.style.color='#44ee88';
+      el('sdot').className='sdot av';
+    } else {
+      stxt.textContent=ip?'Pending Approval':'In Use';
+    }
     var pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
     var btns='';
     if(ip){
@@ -1354,10 +1411,10 @@ function getMeetingsForDay(offset){
 }
 function renderBadges(){
   var n=new Date();
-  // Today badge: only count meetings that haven't ended yet
+  // Today badge: only meetings not yet started (excludes active meeting shown in card)
   var todayAll=getMeetingsForDay(0);
-  var todayRemaining=todayAll.filter(function(m){return m.end>n;});
-  el('vbadge-today').textContent=todayRemaining.length;
+  var todayUpcoming=todayAll.filter(function(m){return m.start>n;});
+  el('vbadge-today').textContent=todayUpcoming.length;
   el('vbadge-tomorrow').textContent=getMeetingsForDay(1).length;
 }
 
