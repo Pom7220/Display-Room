@@ -8,7 +8,8 @@ on:
 
 jobs:
   build-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+
     steps:
       - uses: actions/checkout@v4
 
@@ -17,17 +18,18 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Install Gradle 6.9.4
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '6.9.4'
+      - name: Install Android SDK components
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-29" \
+            "build-tools;29.0.3" 2>/dev/null | tail -3
+
+      - name: Make gradlew executable
+        run: chmod +x boot-launcher/gradlew
 
       - name: Build debug APK
         working-directory: boot-launcher
-        run: gradle assembleDebug --no-daemon --stacktrace
-        env:
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-          JAVA_HOME: ${{ env.JAVA_HOME }}
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
