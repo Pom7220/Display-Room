@@ -635,9 +635,11 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 5,
+  patch: 1,
   date: '2026-06-08',
   label: function(){
-    return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
+    var p=this.patch?'.'+this.patch:'';
+    return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
   }
 };
 // History:
@@ -667,6 +669,7 @@ var APP_VERSION = {
 // v3.3 2026-06-05 - Fix touch lag: touchstart+up() helper replaces 27x closest() calls; PIN grid table layout (CSS grid not in Chrome 42); room name 90px
 // v3.4 2026-06-08 - Fix auth loop: token cache in localStorage, stale token fallback, no redirect on transient failures; check-in countdown fix; version label bottom-right
 // v3.5 2026-06-08 - Today badge counts only future meetings; gDate timezone fix (no forced UTC); checked-in status bar green; auto-relaunch on home exit with config toggle
+// v3.5.1 2026-06-08 - Hotfix: gDate component parsing (new Date with space separator returns Invalid Date on Chrome desktop/strict browsers)
 
 // ══════════════════════════════════════
 // STATE
@@ -725,17 +728,30 @@ function mu(d){return Math.max(0,Math.round((d-new Date())/60000));}
 function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';}
 function gDate(o){
   var s=o.dateTime;
-  // Graph API returns local time (Bangkok) without timezone suffix
-  // Do NOT append Z — that would treat it as UTC making times 7h wrong
-  // Parse as local time directly
   if(!s)return new Date();
-  // If already has Z or +offset, parse as-is
-  if(s.charAt(s.length-1)==='Z'||s.indexOf('+')>10||s.indexOf('-',10)>10){
+  // If already has Z suffix, it's UTC — convert to local
+  if(s.charAt(s.length-1)==='Z'){
     return new Date(s);
   }
-  // No timezone — treat as local time (Bangkok) by parsing components
-  var p=s.replace('T',' ').replace(/\.\d+$/,'');
-  return new Date(p);
+  // If has +offset (e.g. +07:00), parse as-is
+  if(s.indexOf('+')>10){
+    return new Date(s);
+  }
+  // No timezone suffix — Graph returns local Bangkok time
+  // Parse components manually for cross-browser safety
+  // Format: 2026-06-08T13:30:00 or 2026-06-08T13:30:00.0000000
+  var t=s.replace(/\.\d+$/,''); // strip sub-seconds
+  var parts=t.split('T');
+  if(parts.length<2)return new Date(t);
+  var dp=parts[0].split('-');
+  var tp=parts[1].split(':');
+  var yr=parseInt(dp[0],10);
+  var mo=parseInt(dp[1],10)-1;
+  var dy=parseInt(dp[2],10);
+  var hr=parseInt(tp[0],10);
+  var mn=parseInt(tp[1],10);
+  var sc=tp[2]?parseInt(tp[2],10):0;
+  return new Date(yr,mo,dy,hr,mn,sc);
 }
 function isAllDay(m){return (m.end-m.start)>=86399000;}
 function show(id){
