@@ -635,7 +635,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 6,
-  patch: 1,
+  patch: 3,
   date: '2026-06-08',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -674,6 +674,8 @@ var APP_VERSION = {
 // v3.5.3 2026-06-08 - Hotfix: gDate checks timeZone field from Graph response - Graph returns dateTime in UTC with timeZone:UTC, must append Z for correct local time conversion
 // v3.6 2026-06-08 - Token expiry auto-recovery (prompt:none silent re-auth); proactive refresh 15min before expiry; auto-relaunch: timestamp+reload approach for Chrome 42
 // v3.6.1 2026-06-08 - Hotfix: token expiry banner shows Sign In button; doReauth() clears all MSAL+token cache and forces fresh loginRedirect; remove failed prompt:none approach
+// v3.6.2 2026-06-08 - Fix relaunch blank page: 45s grace period prevents MSAL redirect triggering reload; use location.href not reload() to preserve ?v= query string; increase event delay to 800ms
+// v3.6.3 2026-06-08 - PWA relaunch: use base URL + Date.now() cache-bust instead of fixed versioned URL, so PWA always fetches latest version on relaunch
 
 // ══════════════════════════════════════
 // STATE
@@ -1216,6 +1218,11 @@ function startAutoRelaunch(){
   try{relaunchOn=localStorage.getItem('roomdisplay_relaunch')!=='0';}catch(e){}
   if(!relaunchOn)return;
 
+  // Grace period — ignore all relaunch events for first 45 seconds after launch
+  // This prevents false triggers from MSAL redirect returns and page init
+  var _launchTime=Date.now();
+  var GRACE_MS=45000;
+
   // Save activity timestamp every 30 seconds while app is active
   var _lastActive=Date.now();
   setInterval(function(){
@@ -1224,43 +1231,55 @@ function startAutoRelaunch(){
     if(appVisible)_lastActive=Date.now();
   },30000);
 
+  // Always relaunch to base URL with timestamp cache-bust
+  // This ensures PWA always gets latest version, not the fixed ?v= install URL
+  var _baseUrl='https://pom7220.github.io/Display-Room/';
+  function getRelaunchUrl(){return _baseUrl+'?nocache='+Date.now();}
+
   function handleReturn(){
+    // Ignore during startup grace period
+    if(Date.now()-_launchTime<GRACE_MS){
+      dbg('Relaunch suppressed — within grace period');
+      return;
+    }
     var a=el('app');
     var appVisible=a&&a.style.display!=='none'&&!a.classList.contains('hidden');
-    if(!appVisible)return; // don't relaunch from config/auth screen
+    if(!appVisible)return;
     var away=Date.now()-_lastActive;
     dbg('App returned, was away: '+Math.round(away/1000)+'s');
     if(away>300000){
-      // Away more than 5 min — full reload to re-init
-      dbg('Away >5min, reloading page');
-      location.reload();
+      dbg('Away >5min, reloading fresh');
+      location.href=getRelaunchUrl();
     } else {
-      // Brief switch — just re-enter fullscreen
       setTimeout(function(){doFullscreen();},400);
     }
   }
 
   // window.focus — most reliable on Chrome 42 Android
   window.addEventListener('focus',function(){
-    setTimeout(handleReturn,500);
+    setTimeout(handleReturn,800);
   });
 
   // visibilitychange — fires when returning from home button
   document.addEventListener('visibilitychange',function(){
     if(!document.hidden){
-      setTimeout(handleReturn,500);
+      setTimeout(handleReturn,800);
     }
   });
 
   // pageshow — fires on back navigation / task switcher
+  // Note: do NOT reload on pageshow during grace period — MSAL redirect return triggers this
   window.addEventListener('pageshow',function(e){
-    // e.persisted = true means from bfcache (back button)
-    if(e&&e.persisted){
-      dbg('Pageshow from cache — reloading');
-      location.reload();
+    if(Date.now()-_launchTime<GRACE_MS){
+      dbg('Pageshow suppressed — within grace period');
       return;
     }
-    setTimeout(handleReturn,500);
+    if(e&&e.persisted){
+      dbg('Pageshow from bfcache — reloading fresh');
+      location.href=getRelaunchUrl();
+      return;
+    }
+    setTimeout(handleReturn,800);
   });
 }
 
