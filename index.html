@@ -131,7 +131,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .weather-feels{font-size:13px;color:#7777aa;}
 
 /* Room info */
-.room-name-lg{font-size:60px;font-weight:900;color:#ffffff;letter-spacing:-.03em;line-height:1;margin-bottom:8px;}
+.room-name-lg{font-size:90px;font-weight:900;color:#ffffff;letter-spacing:-.03em;line-height:1;margin-bottom:8px;}
 .status-line{display:table;margin-bottom:0;}
 .sdot{display:inline-block;width:16px;height:16px;-webkit-border-radius:50%;border-radius:50%;vertical-align:middle;margin-right:8px;}
 .sdot.av{background:#00dd66;}
@@ -315,11 +315,15 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .pin-dot{width:18px;height:18px;-webkit-border-radius:50%;border-radius:50%;border:3px solid #333355;background:transparent;}
 .pin-dot.filled{background:#ffffff;border-color:#ffffff;}
 .pin-dot.error{background:#cc1111;border-color:#cc1111;}
-.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
-.pin-key{padding:20px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:14px;border-radius:14px;font-size:24px;font-weight:600;color:#ffffff;cursor:pointer;}
+.pin-grid{width:100%;margin-bottom:14px;}
+.pin-row{display:table;width:100%;margin-bottom:10px;}
+.pin-key{display:table-cell;width:33%;padding:22px 8px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:14px;border-radius:14px;font-size:28px;font-weight:600;color:#ffffff;cursor:pointer;text-align:center;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .pin-key:active{background:#2a2a4a;}
-.pin-key.del{font-size:18px;color:#aabbcc;}
-.pin-key.empty{background:none;border-color:transparent;cursor:default;}
+.pin-key+.pin-key{border-left:none;-webkit-border-radius:0;border-radius:0;}
+.pin-key:first-child{-webkit-border-radius:14px 0 0 14px;border-radius:14px 0 0 14px;}
+.pin-key:last-child{-webkit-border-radius:0 14px 14px 0;border-radius:0 14px 14px 0;}
+.pin-key.del{font-size:22px;color:#aabbcc;}
+.pin-key.empty{background:#0d0d1a;border-color:#111122;cursor:default;color:transparent;}
 .pin-cancel{width:100%;padding:14px;background:none;border:2px solid #2a2a4a;-webkit-border-radius:12px;border-radius:12px;color:#7788aa;font-size:16px;font-weight:600;cursor:pointer;margin-top:6px;}
 .pin-setup-note{font-size:13px;color:#5566aa;margin-top:14px;line-height:1.5;}
 
@@ -547,18 +551,26 @@ if('serviceWorker' in navigator){
       <div class="pin-dot" id="pd3"></div>
     </div>
     <div class="pin-grid">
-      <div class="pin-key" data-pin="1">1</div>
-      <div class="pin-key" data-pin="2">2</div>
-      <div class="pin-key" data-pin="3">3</div>
-      <div class="pin-key" data-pin="4">4</div>
-      <div class="pin-key" data-pin="5">5</div>
-      <div class="pin-key" data-pin="6">6</div>
-      <div class="pin-key" data-pin="7">7</div>
-      <div class="pin-key" data-pin="8">8</div>
-      <div class="pin-key" data-pin="9">9</div>
-      <div class="pin-key empty"></div>
-      <div class="pin-key" data-pin="0">0</div>
-      <div class="pin-key del" data-pin="del">⌫</div>
+      <div class="pin-row">
+        <div class="pin-key" data-pin="1">1</div>
+        <div class="pin-key" data-pin="2">2</div>
+        <div class="pin-key" data-pin="3">3</div>
+      </div>
+      <div class="pin-row">
+        <div class="pin-key" data-pin="4">4</div>
+        <div class="pin-key" data-pin="5">5</div>
+        <div class="pin-key" data-pin="6">6</div>
+      </div>
+      <div class="pin-row">
+        <div class="pin-key" data-pin="7">7</div>
+        <div class="pin-key" data-pin="8">8</div>
+        <div class="pin-key" data-pin="9">9</div>
+      </div>
+      <div class="pin-row">
+        <div class="pin-key empty"></div>
+        <div class="pin-key" data-pin="0">0</div>
+        <div class="pin-key del" data-pin="del">&#9003;</div>
+      </div>
     </div>
     <button class="pin-cancel" id="pin-cancel-btn">Cancel</button>
     <div class="pin-setup-note" id="pin-setup-note"></div>
@@ -617,7 +629,7 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 2,
+  minor: 3,
   date: '2026-06-05',
   label: function(){
     return 'v'+this.major+'.'+this.minor+' ('+this.date+')';
@@ -647,6 +659,7 @@ var APP_VERSION = {
 // v3.0 2026-06-05 - Strong filled status card colors; persistent pending approvals (localStorage); dynamic theme-color meta; kiosk instructions overlay
 // v3.1 2026-06-05 - Remove duplicate book buttons (1 floating only); early check-in 15min before; remove mitem-bar/sep; stronger card/bg colors; brighter action buttons
 // v3.2 2026-06-05 - Hide active meeting from list (shown in card); custom start time picker in booking; pending notice in available card; booking auto-decline note
+// v3.3 2026-06-05 - Fix touch lag: touchstart+up() helper replaces 27x closest() calls; PIN grid table layout (CSS grid not in Chrome 42); room name 90px
 
 // ══════════════════════════════════════
 // STATE
@@ -1701,122 +1714,161 @@ function svgPlus(s){return '<svg width="'+(s||13)+'" height="'+(s||13)+'" fill="
 function svgTeams(s){return '<svg width="'+(s||14)+'" height="'+(s||14)+'" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8-2h4v2h-4V4zm8 14H8V8h12v10z"/><path d="M10 12h4v1.5h-4zm0 2.5h4V16h-4z"/></svg>';}
 
 // ══════════════════════════════════════
-// EVENT DELEGATION — all clicks here
+// EVENT DELEGATION — fast touch handler
 // ══════════════════════════════════════
-document.addEventListener('click', function(e){
+
+// Safe ancestor check — replaces closest() which is slow/unreliable on Chrome 42
+function up(el, check){
+  var node=el;
+  var i=0;
+  while(node&&node!==document.body&&i<8){
+    if(check(node))return node;
+    node=node.parentNode;
+    i++;
+  }
+  return null;
+}
+function upId(el,id){return up(el,function(n){return n.id===id;});}
+function upCls(el,cls){return up(el,function(n){return n.classList&&n.classList.contains(cls);});}
+function upData(el,attr){return up(el,function(n){return n.getAttribute&&n.getAttribute(attr);});}
+
+var _lastTouchTime=0;
+function handleTap(e){
+  // Debounce — ignore if within 300ms of last tap (prevents double-fire on click after touchstart)
+  var now=Date.now();
+  if(now-_lastTouchTime<300)return;
+  _lastTouchTime=now;
+
   var t=e.target;
 
   // Config toggles
-  if(t.id==='cfg-booking'||t.closest('#cfg-booking'))toggleApproval();
-  if(t.id==='cfg-approval'||t.closest('#cfg-approval'))toggleOwner();
-  if(t.id==='btn-add-room'||t.closest('#btn-add-room'))addRoomRow();
-  if(t.closest('[data-action="delroom"]'))t.closest('.room-row').remove();
-  if(t.id==='btn-save-cfg'||t.closest('#btn-save-cfg'))saveConfig();
+  if(upId(t,'cfg-booking'))toggleApproval();
+  if(upId(t,'cfg-approval'))toggleOwner();
+  if(upId(t,'btn-add-room'))addRoomRow();
+  if(upData(t,'data-action')&&upData(t,'data-action').getAttribute('data-action')==='delroom'){
+    var rr=upCls(t,'room-row');if(rr)rr.parentNode.removeChild(rr);
+    return;
+  }
+  if(upId(t,'btn-save-cfg')){saveConfig();return;}
 
   // Auth
-  if(t.id==='btn-signin'||t.closest('#btn-signin')){
-    try{msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read']});}catch(e){el('auth-error').textContent=e.message||String(e);}
+  if(upId(t,'btn-signin')){
+    try{msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read']});}catch(err){el('auth-error').textContent=err.message||String(err);}
+    return;
   }
 
-  // Gear / settings — go through PIN
-  if(t.id==='float-gear'||t.closest('#float-gear'))openPinOverlay();
-  if(t.id==='err-settings-btn'||t.closest('#err-settings-btn'))openPinOverlay();
+  // Gear / settings
+  if(upId(t,'float-gear')){openPinOverlay();return;}
+  if(upId(t,'err-settings-btn')){openPinOverlay();return;}
 
-  // In-app confirm dialog
-  if(t.id==='cdlg-cancel'||t.closest('#cdlg-cancel')){hide('confirm-dialog');return;}
-  if(t===el('confirm-dialog')){hide('confirm-dialog');return;}
+  // Confirm dialog
+  if(upId(t,'cdlg-cancel')||t===el('confirm-dialog')){hide('confirm-dialog');return;}
+  if(upId(t,'cdlg-ok')){
+    var dlg=el('confirm-dialog');
+    if(dlg&&dlg._cb)dlg._cb();
+    hide('confirm-dialog');return;
+  }
 
   // PIN overlay
-  if(t.id==='pin-cancel-btn'||t.closest('#pin-cancel-btn')){hide('pin-overlay');return;}
-  var pk=t.closest('.pin-key');
-  if(pk&&!pk.classList.contains('empty')){pinInput(pk.dataset.pin);return;}
+  if(upId(t,'pin-cancel-btn')){hide('pin-overlay');return;}
+  var pk=upCls(t,'pin-key');
+  if(pk&&!pk.classList.contains('empty')){
+    e.preventDefault();
+    pinInput(pk.getAttribute('data-pin'));
+    return;
+  }
 
   // Room chips
-  var chip=t.closest('.rchip');
-  if(chip){switchRoom(chip.dataset.name,chip.dataset.email);return;}
+  var chip=upCls(t,'rchip');
+  if(chip){switchRoom(chip.getAttribute('data-name'),chip.getAttribute('data-email'));return;}
 
-  // View tabs (today/tomorrow)
-  var vtab=t.closest('.vtab');
-  if(vtab&&vtab.dataset.view){
-    curView=vtab.dataset.view;
+  // View tabs
+  var vtab=upCls(t,'vtab');
+  if(vtab&&vtab.getAttribute('data-view')){
+    curView=vtab.getAttribute('data-view');
     var vtabs=document.querySelectorAll('.vtab');
-    for(var vi=0;vi<vtabs.length;vi++){vtabs[vi].classList.toggle('active',vtabs[vi].dataset.view===curView);}
+    for(var vi=0;vi<vtabs.length;vi++){
+      vtabs[vi].className=vtabs[vi].getAttribute('data-view')===curView?'vtab active':'vtab';
+    }
     renderMeetList();return;
   }
 
-  // More days - slide panel
-  if(t.id==='btn-more-days'||t.closest('#btn-more-days')){
+  // More days
+  if(upId(t,'btn-more-days')){
     if(moreDaysOpen)closeDaysPanel();else openDaysPanel();
     return;
   }
 
-  // Today nav
-  if(t.id==='nav-today-btn'||t.closest('#nav-today-btn')){
+  // Today nav scroll
+  if(upId(t,'nav-today-btn')){
     curView='today';
     var vtabs2=document.querySelectorAll('.vtab');
-    for(var vi2=0;vi2<vtabs2.length;vi2++){vtabs2[vi2].classList.toggle('active',vtabs2[vi2].dataset.view==='today');}
+    for(var vi2=0;vi2<vtabs2.length;vi2++){
+      vtabs2[vi2].className=vtabs2[vi2].getAttribute('data-view')==='today'?'vtab active':'vtab';
+    }
     renderMeetList();
-    var bs=el('body-scroll')||document.querySelector('.body-scroll');
-    if(bs&&bs.scrollTo)bs.scrollTo({top:0,behavior:'smooth'});
+    var bs=el('body-scroll');
+    if(bs)bs.scrollTop=0;
     return;
   }
 
-  // Booking
-  if(t.id==='nav-book-btn'||t.closest('#nav-book-btn'))openModal();
-  if(t.id==='book-big-btn'||t.closest('#book-big-btn'))openModal();
-  if(t.id==='book-btn-card'||t.closest('#book-btn-card'))openModal();
-  if(t.closest('[data-action="book"]'))openModal();
-  if(t.id==='modal-cancel'||t.closest('#modal-cancel'))closeModal();
-  if(t.id==='mconfirm'||t.closest('#mconfirm'))confirmBooking();
-  if(t===el('booking-modal'))closeModal();
+  // Booking modal open
+  if(upId(t,'nav-book-btn')||upId(t,'book-big-btn')||upId(t,'book-btn-card')){openModal();return;}
+  var ba=up(t,function(n){return n.getAttribute&&n.getAttribute('data-action')==='book';});
+  if(ba){openModal();return;}
+
+  // Booking modal actions
+  if(upId(t,'modal-cancel')){closeModal();return;}
+  if(t===el('booking-modal')){closeModal();return;}
+  if(upId(t,'mconfirm')){confirmBooking();return;}
 
   // Duration chips
-  var dc=t.closest('.dchip');
+  var dc=upCls(t,'dchip');
   if(dc){
     var na=cfg.booking&&cfg.approval;
     var dchips=document.querySelectorAll('.dchip');
-    for(var di=0;di<dchips.length;di++){dchips[di].classList.remove('sel','asel');}
-    dc.classList.add('sel');if(na)dc.classList.add('asel');
-    selDurMin=parseInt(dc.dataset.min);
+    for(var di=0;di<dchips.length;di++){dchips[di].className='dchip';}
+    dc.className='dchip sel'+(na?' asel':'');
+    selDurMin=parseInt(dc.getAttribute('data-min'));
     updatePrev();
     return;
   }
 
-  // Current card actions
-  if(t.id==='checkin-btn'||t.closest('#checkin-btn'))doCheckin();
-  if(t.id==='end-btn'||t.closest('#end-btn'))endMeeting();
-  if(t.id==='ext-btn'||t.closest('#ext-btn'))extendMeeting();
-  if(t.id==='teams-btn'||t.closest('#teams-btn')){
-    var cur=getCur();if(cur&&cur.joinUrl)joinTeams(cur.joinUrl);
-  }
-  // Time picker: Now button
+  // Time picker
   if(t.id==='tchip-now'){
     bookStart=nextQuarter(new Date());
     el('tchip-now').className='tchip active';
     el('tchip-custom').className='tchip';
     el('tslots').style.display='none';
-    buildDurChips(bookStart,selDurMin);
-    updatePrev();
+    buildDurChips(bookStart,selDurMin);updatePrev();return;
   }
-  // Time picker: Custom button — toggle slot grid
   if(t.id==='tchip-custom'){
     var ss=el('tslots');
     var showing=ss.style.display!=='none';
-    ss.style.display=showing?'none':'flex';
+    ss.style.display=showing?'none':'-webkit-flex';
+    if(!showing)ss.style.display='flex';
     el('tchip-custom').className=showing?'tchip':'tchip active';
     el('tchip-now').className=showing?'tchip active':'tchip';
+    return;
   }
-  // Time slot tap
-  var slotEl=t.classList&&t.classList.contains('tslot')?t:(t.closest&&t.closest('.tslot'));
+  var slotEl=upCls(t,'tslot');
   if(slotEl){
     var ms=parseInt(slotEl.getAttribute('data-ms'));
-    if(ms){
-      selectTimeSlot(ms);
-      el('tchip-custom').className='tchip active';
-      el('tchip-now').className='tchip';
-    }
+    if(ms){selectTimeSlot(ms);el('tchip-custom').className='tchip active';el('tchip-now').className='tchip';}
+    return;
   }
-});
+
+  // Current card actions
+  if(upId(t,'checkin-btn')){doCheckin();return;}
+  if(upId(t,'end-btn')){endMeeting();return;}
+  if(upId(t,'ext-btn')){extendMeeting();return;}
+  if(upId(t,'teams-btn')){var cur=getCur();if(cur&&cur.joinUrl)joinTeams(cur.joinUrl);return;}
+}
+
+// Use touchstart for instant response on Chrome 42 — no 300ms click delay
+document.addEventListener('touchstart',function(e){handleTap(e);},{passive:false});
+// Fallback for desktop/mouse testing
+document.addEventListener('click',function(e){handleTap(e);});
 
 // ══════════════════════════════════════
 // BOOT
