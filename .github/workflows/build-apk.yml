@@ -1,60 +1,46 @@
 name: Build RIS Boot Launcher APK
 
-# Triggers: manually, or when boot-launcher source changes
 on:
-  workflow_dispatch:       # Manual trigger from GitHub Actions tab
+  workflow_dispatch:
   push:
     paths:
-      - 'boot-launcher/**' # Auto-trigger when source files change
+      - 'boot-launcher/**'
 
 jobs:
   build-apk:
-    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Check out the repo
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Set up Java 11 (required for Android Gradle Plugin 3.6)
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'temurin'
 
-      # 3. Cache Gradle downloads to speed up future builds
-      - name: Cache Gradle packages
+      - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          restore-keys: ${{ runner.os }}-gradle-
 
-      # 4. Make gradlew executable
       - name: Make gradlew executable
         run: chmod +x boot-launcher/gradlew
 
-      # 5. Build debug APK (signed with Android debug keystore — installable on any device with Unknown Sources enabled)
       - name: Build debug APK
         working-directory: boot-launcher
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
-      # 6. Upload APK as downloadable artifact
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: RIS-Boot-Launcher-APK
           path: boot-launcher/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 90
-
-      # 7. Also copy APK to repo root for easy access (optional)
-      - name: Show APK info
-        run: |
-          ls -lh boot-launcher/app/build/outputs/apk/debug/
-          echo "APK built successfully!"
-          echo "Download from the Actions tab → RIS-Boot-Launcher-APK artifact"
