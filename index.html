@@ -635,7 +635,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 5,
-  patch: 1,
+  patch: 2,
   date: '2026-06-08',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -670,6 +670,7 @@ var APP_VERSION = {
 // v3.4 2026-06-08 - Fix auth loop: token cache in localStorage, stale token fallback, no redirect on transient failures; check-in countdown fix; version label bottom-right
 // v3.5 2026-06-08 - Today badge counts only future meetings; gDate timezone fix (no forced UTC); checked-in status bar green; auto-relaunch on home exit with config toggle
 // v3.5.1 2026-06-08 - Hotfix: gDate component parsing (new Date with space separator returns Invalid Date on Chrome desktop/strict browsers)
+// v3.5.2 2026-06-08 - Hotfix: remove showAs filter - room calendar events return showAs:free via delegated access, causing all meetings to be silently dropped
 
 // ══════════════════════════════════════
 // STATE
@@ -1285,7 +1286,9 @@ function fetchCal(){
         isExchangePending:ev.showAs==='tentative'
       };
     });
-    meetings=meetings.filter(function(m){return !m.isCancelled&&(m.showAs==='busy'||m.showAs==='oof'||m.showAs==='workingElsewhere'||m.showAs==='tentative');});
+    // Only exclude cancelled meetings — keep all showAs values including 'free'
+    // Room calendar events viewed via delegated access often return showAs:'free'
+    meetings=meetings.filter(function(m){return !m.isCancelled;});
     pendingLocal.forEach(function(pb){if(!meetings.some(function(m){return Math.abs(m.start-pb.start)<60000&&m.title===pb.title;}))meetings.push(pb);});
     if(locallyEnded.length>0){meetings=meetings.filter(function(m){return locallyEnded.indexOf(m.id)===-1;});}
     meetings.sort(function(a,b){return a.start-b.start;});
