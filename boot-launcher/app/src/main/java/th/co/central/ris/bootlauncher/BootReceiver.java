@@ -7,16 +7,17 @@ import android.net.Uri;
 
 public class BootReceiver extends BroadcastReceiver {
 
-    // Kiosk URL — update this if the URL changes
-    private static final String KIOSK_URL =
-        "https://pom7220.github.io/Display-Room/index.html?v=360608";
+    // Base URL — no version string, always loads latest
+    // Timestamp cache-bust added at runtime so Chrome 42 always fetches fresh
+    private static final String BASE_URL =
+        "https://pom7220.github.io/Display-Room/";
 
     // Chrome package name on Android
     private static final String CHROME_PACKAGE = "com.android.chrome";
 
-    // Delay in milliseconds before launching Chrome after boot
-    // 8 seconds gives Android time to fully initialise WiFi/network
-    private static final long BOOT_DELAY_MS = 8000;
+    // Delay before launching — gives Android time to connect WiFi after boot
+    // 10 seconds is safer than 8 for slower LG tablets
+    private static final long BOOT_DELAY_MS = 10000;
 
     @Override
     public void onReceive(final Context context, Intent intent) {
@@ -26,7 +27,6 @@ public class BootReceiver extends BroadcastReceiver {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
 
-            // Use a thread to delay launch — network needs time to connect
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -35,31 +35,36 @@ public class BootReceiver extends BroadcastReceiver {
                     } catch (InterruptedException e) {
                         // Continue even if interrupted
                     }
-                    launchChrome(context);
+                    launchKiosk(context);
                 }
             }).start();
         }
     }
 
-    private void launchChrome(Context context) {
+    private void launchKiosk(Context context) {
+        // Add timestamp as cache-bust — ensures Chrome 42 always fetches
+        // the latest version, never serves cached old version
+        String url = BASE_URL + "?nocache=" + System.currentTimeMillis();
+
         try {
-            // Try to launch Chrome specifically first
+            // Launch Chrome specifically
             Intent chromeIntent = new Intent(Intent.ACTION_VIEW);
-            chromeIntent.setData(Uri.parse(KIOSK_URL));
+            chromeIntent.setData(Uri.parse(url));
             chromeIntent.setPackage(CHROME_PACKAGE);
             chromeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             chromeIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            chromeIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
             context.startActivity(chromeIntent);
         } catch (Exception e) {
-            // Chrome not found or failed — fall back to default browser
+            // Chrome not found — fall back to default browser
             try {
                 Intent fallbackIntent = new Intent(Intent.ACTION_VIEW);
-                fallbackIntent.setData(Uri.parse(KIOSK_URL));
+                fallbackIntent.setData(Uri.parse(url));
                 fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 context.startActivity(fallbackIntent);
             } catch (Exception e2) {
-                // Both failed — nothing we can do
+                // Nothing we can do
             }
         }
     }
