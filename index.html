@@ -633,7 +633,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 8,
-  patch: 0,
+  patch: 1,
   date: '2026-06-09',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -677,6 +677,7 @@ var APP_VERSION = {
 // v3.7 2026-06-09 - Remove checked-in button (card colour sufficient); vertical left status bar 12px; +30m blocks overlap with next meeting; remove Today nav button; clock 75px (+30%), room name 108px (+20%)
 // v3.7.1 2026-06-09 - Status bar 48px wide; meet-tag positioned outside bar top-left; meeting title 40px
 // v3.8 2026-06-09 - Teams msteams:// deep link; weather moved below clock larger size; status dot 18px, status text 28px; tabs 20px; action buttons 22px padding; PIN keys 26px padding; meeting list 22px; duration chips 20px; Cancel secondary style; remove duplicate book link
+// v3.8.1 2026-06-09 - Hotfix: weather display broken - wx-feels missing, display:flex in table-cell context, all fixed
 
 // ══════════════════════════════════════
 // STATE
@@ -843,10 +844,10 @@ function fetchWeather(){
       el('wx-icon').textContent=icon;
       el('wx-temp').textContent=temp+'°C';
       el('wx-desc').textContent=desc;
-      el('wx-feels').textContent='Feels '+feels+'°';
-      el('weather-strip').style.display='-webkit-box';
-      el('weather-strip').style.display='-webkit-flex';
-      el('weather-strip').style.display='flex';
+      try{var wf=el('wx-feels');if(wf)wf.textContent='Feels '+feels+'°';}catch(e){}
+      //
+      //
+      el('weather-strip').style.display='inline-block';
     }catch(e){}
   })
   .catch(function(){
@@ -862,8 +863,8 @@ function fetchWeather(){
       el('wx-icon').textContent=WX_ICONS[code]||'\uD83C\uDF21';
       el('wx-temp').textContent=temp+'°C';
       el('wx-desc').textContent=WX_CODES[code]||'--';
-      el('wx-feels').textContent='Feels '+feels+'°';
-      el('weather-strip').style.display='flex';
+      try{var wf=el('wx-feels');if(wf)wf.textContent='Feels '+feels+'°';}catch(e){}
+      el('weather-strip').style.display='inline-block';
     })
     .catch(function(){
       // Both failed - show static Bangkok weather estimate
@@ -871,9 +872,9 @@ function fetchWeather(){
       el('wx-icon').textContent='🌤';
       el('wx-temp').textContent='34°C';
       el('wx-desc').textContent='Bangkok';
-      el('wx-feels').textContent='';
-      el('weather-strip').style.display='-webkit-flex';
-      el('weather-strip').style.display='flex';
+      try{var wf=el('wx-feels');if(wf)wf.textContent='';}catch(e){}
+      //
+      el('weather-strip').style.display='inline-block';
     });
   });
 }
