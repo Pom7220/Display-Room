@@ -118,7 +118,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .ris-logo{width:52px;height:52px;background:#1a3a6a;border:2px solid #2979ff;-webkit-border-radius:12px;border-radius:12px;display:inline-block;line-height:52px;text-align:center;font-size:16px;font-weight:900;color:#fff;letter-spacing:.04em;}
 
 /* Clock */
-.clock-time{font-size:58px;font-weight:200;color:#ffffff;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;display:block;}
+.clock-time{font-size:75px;font-weight:200;color:#ffffff;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;display:block;}
 .clock-date{font-size:17px;color:#8899bb;margin-top:4px;font-weight:400;display:block;}
 
 /* Weather */
@@ -131,7 +131,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .weather-feels{font-size:13px;color:#7777aa;}
 
 /* Room info */
-.room-name-lg{font-size:90px;font-weight:900;color:#ffffff;letter-spacing:-.03em;line-height:1;margin-bottom:8px;}
+.room-name-lg{font-size:108px;font-weight:900;color:#ffffff;letter-spacing:-.03em;line-height:1;margin-bottom:8px;}
 .status-line{display:table;margin-bottom:0;}
 .sdot{display:inline-block;width:16px;height:16px;-webkit-border-radius:50%;border-radius:50%;vertical-align:middle;margin-right:8px;}
 .sdot.av{background:#00dd66;}
@@ -145,16 +145,16 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .body-scroll::-webkit-scrollbar{display:none;}
 
 /* ── CURRENT CARD ── */
-.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:24px;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
-.cur-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:#2979ff;-webkit-border-radius:4px 4px 0 0;border-radius:4px 4px 0 0;}
+.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:24px 24px 24px 36px;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
+.cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:12px;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
 .cur-card.st-busy{border-color:#ff3333;background:#4a0000;}
-.cur-card.st-busy::before{background:#ff3333;height:6px;}
+.cur-card.st-busy::before{background:#ff3333;}
 .cur-card.st-soon{border-color:#ff9500;background:#3a1800;}
-.cur-card.st-soon::before{background:#ff9500;height:6px;}
+.cur-card.st-soon::before{background:#ff9500;}
 .cur-card.st-avail{border-color:#2979ff;background:#0a2040;}
-.cur-card.st-avail::before{background:#2979ff;height:6px;}
+.cur-card.st-avail::before{background:#2979ff;}
 .cur-card.st-pend{border-color:#ff9500;background:#3a1800;}
-.cur-card.st-pend::before{background:#ff9500;height:6px;}
+.cur-card.st-pend::before{background:#ff9500;}
 
 /* Available state */
 .av-state{text-align:center;padding:20px 0;}
@@ -522,7 +522,7 @@ if('serviceWorker' in navigator){
 
     <!-- Bottom nav -->
     <div class="nav">
-      <div class="nav-left"><button class="nav-btn" id="nav-today-btn">&#8679; Today</button></div>
+      <div class="nav-left"></div>
       <div class="nav-center"><button class="nav-book-btn" id="nav-book-btn" style="display:none">+ Book Room</button></div>
       <div class="nav-right"></div>
     </div>
@@ -634,9 +634,9 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 6,
-  patch: 3,
-  date: '2026-06-08',
+  minor: 7,
+  patch: 0,
+  date: '2026-06-09',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -676,6 +676,7 @@ var APP_VERSION = {
 // v3.6.1 2026-06-08 - Hotfix: token expiry banner shows Sign In button; doReauth() clears all MSAL+token cache and forces fresh loginRedirect; remove failed prompt:none approach
 // v3.6.2 2026-06-08 - Fix relaunch blank page: 45s grace period prevents MSAL redirect triggering reload; use location.href not reload() to preserve ?v= query string; increase event delay to 800ms
 // v3.6.3 2026-06-08 - PWA relaunch: use base URL + Date.now() cache-bust instead of fixed versioned URL, so PWA always fetches latest version on relaunch
+// v3.7 2026-06-09 - Remove checked-in button (card colour sufficient); vertical left status bar 12px; +30m blocks overlap with next meeting; remove Today nav button; clock 75px (+30%), room name 108px (+20%)
 
 // ══════════════════════════════════════
 // STATE
@@ -1477,9 +1478,10 @@ function updateCurrentCard(){
     if(ip){
       btns='<button class="abtn abtn-pend" disabled>'+svgClock()+' Awaiting approval&#8230;</button>';
     } else {
-      btns += checkedIn
-        ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
-        : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>';
+      // When checked in — remove the checked-in button, card colour is sufficient
+      if(!checkedIn){
+        btns+='<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>';
+      }
       btns+='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
       btns+='<button class="abtn abtn-extend" id="ext-btn">+ +30m</button>';
       if(cfg.teamsBtn!==false&&cur.joinUrl)btns+='<button class="abtn abtn-teams" id="teams-btn">'+svgTeams()+' Teams</button>';
@@ -1673,8 +1675,22 @@ function endMeeting(){
 }
 function extendMeeting(){
   var cur=getCur();if(!cur)return;
-  cur.end=new Date(cur.end.getTime()+30*60000);
-  updateCurrentCard();toast('+30 min extended','success');
+  var nxt=getNext();
+  var proposed=new Date(cur.end.getTime()+30*60000);
+  // Block if extension would overlap next meeting
+  if(nxt&&proposed>nxt.start){
+    var avail=Math.round((nxt.start-cur.end)/60000);
+    if(avail<=0){
+      toast('Cannot extend — next meeting already started','error');
+    } else {
+      toast('Cannot extend — next meeting starts in '+avail+'m','warn');
+    }
+    return;
+  }
+  cur.end=proposed;
+  updateCurrentCard();
+  renderBadges();
+  toast('+30 min extended','success');
 }
 function joinTeams(url){
   window.open(url.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"'),'_blank');
