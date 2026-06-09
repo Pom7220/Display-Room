@@ -112,7 +112,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .hdr-inner{padding:16px 20px 0;}
 .hdr-top{display:table;width:100%;margin-bottom:10px;}
 .hdr-left{display:table-cell;vertical-align:top;}
-.hdr-right{display:table-cell;vertical-align:top;text-align:right;width:120px;}
+.hdr-right{display:table-cell;vertical-align:top;text-align:right;width:160px;}
 
 /* RIS logo */
 .ris-logo{width:52px;height:52px;background:#1a3a6a;border:2px solid #2979ff;-webkit-border-radius:12px;border-radius:12px;display:inline-block;line-height:52px;text-align:center;font-size:16px;font-weight:900;color:#fff;letter-spacing:.04em;}
@@ -121,24 +121,23 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .clock-time{font-size:75px;font-weight:200;color:#ffffff;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;display:block;}
 .clock-date{font-size:17px;color:#8899bb;margin-top:4px;font-weight:400;display:block;}
 
-/* Weather */
-.weather-strip{display:inline-block;padding:8px 16px;background:#1a1a2e;border:1px solid #2a2a4a;-webkit-border-radius:50px;border-radius:50px;margin-bottom:14px;}
+/* Weather — under clock, right-aligned */
+.weather-strip{display:inline-block;padding:6px 12px;background:#1a1a2e;border:1px solid #2a2a4a;-webkit-border-radius:50px;border-radius:50px;}
 .weather-inner{display:table;}
-.weather-cell{display:table-cell;vertical-align:middle;padding-right:8px;}
-.weather-icon{font-size:20px;line-height:1;}
-.weather-temp{font-size:18px;font-weight:700;color:#ffffff;}
-.weather-desc{font-size:14px;color:#aaaacc;}
-.weather-feels{font-size:13px;color:#7777aa;}
+.weather-cell{display:table-cell;vertical-align:middle;padding-right:6px;}
+.weather-icon{font-size:22px;line-height:1;}
+.weather-temp{font-size:22px;font-weight:700;color:#ffffff;}
+.weather-desc{font-size:16px;color:#aaaacc;}
 
 /* Room info */
 .room-name-lg{font-size:108px;font-weight:900;color:#ffffff;letter-spacing:-.03em;line-height:1;margin-bottom:8px;}
 .status-line{display:table;margin-bottom:0;}
-.sdot{display:inline-block;width:16px;height:16px;-webkit-border-radius:50%;border-radius:50%;vertical-align:middle;margin-right:8px;}
+.sdot{display:inline-block;width:18px;height:18px;-webkit-border-radius:50%;border-radius:50%;vertical-align:middle;margin-right:10px;}
 .sdot.av{background:#00dd66;}
 .sdot.busy{background:#f32b2b;}
 .sdot.soon{background:#ff9500;}
 .sdot.pend{background:#ff9500;}
-.status-txt{font-size:22px;font-weight:700;color:#ffffff;vertical-align:middle;display:inline;}
+.status-txt{font-size:28px;font-weight:700;color:#ffffff;vertical-align:middle;display:inline;}
 
 /* ── BODY SCROLL ── */
 .body-scroll{-webkit-box-flex:1;-webkit-flex:1;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 20px 130px;position:relative;z-index:2;}
@@ -175,7 +174,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .prog{height:6px;background:#333344;-webkit-border-radius:3px;border-radius:3px;overflow:hidden;margin-bottom:20px;}
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;}
-.abtn{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:110px;padding:18px 12px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;text-align:center;display:block;}
+.abtn{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:110px;padding:22px 12px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:block;}
 .abtn-checkin{background:#1a4a8a;color:#88ccff;border:2px solid #2266bb;}
 .abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;}
@@ -187,11 +186,11 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 
 /* ── TODAY/TOMORROW TABS ── */
 .view-tabs{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;margin-bottom:16px;-webkit-align-items:center;align-items:center;}
-.vtab{padding:12px 22px;-webkit-border-radius:50px;border-radius:50px;font-size:17px;font-weight:600;color:#7788aa;background:#1a1a2e;border:2px solid #2a2a3a;cursor:pointer;display:inline-block;}
+.vtab{padding:14px 24px;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:600;color:#7788aa;background:#1a1a2e;border:2px solid #2a2a3a;cursor:pointer;display:inline-block;}
 .vtab.active{background:#1a3a6a;border-color:#2979ff;color:#ffffff;}
-.vtab-badge{background:#2a3a5a;-webkit-border-radius:10px;border-radius:10px;padding:2px 9px;font-size:13px;font-weight:700;margin-left:6px;display:inline-block;}
+.vtab-badge{background:#2a3a5a;-webkit-border-radius:10px;border-radius:10px;padding:3px 10px;font-size:15px;font-weight:700;margin-left:6px;display:inline-block;}
 .vtab.active .vtab-badge{background:#2979ff;color:#fff;}
-.vtab-more{margin-left:auto;padding:12px 18px;-webkit-border-radius:50px;border-radius:50px;font-size:15px;font-weight:600;color:#7788aa;background:#1a1a2e;border:2px solid #2a2a3a;cursor:pointer;}
+.vtab-more{margin-left:auto;padding:14px 20px;-webkit-border-radius:50px;border-radius:50px;font-size:17px;font-weight:600;color:#7788aa;background:#1a1a2e;border:2px solid #2a2a3a;cursor:pointer;}
 
 /* ── MEETING LIST ── */
 .meet-list{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;gap:10px;}
@@ -201,11 +200,11 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .mitem.is-pend{border-color:#886600;background:#1a1200;}
 .mitem.is-past{opacity:.35;}
 .mitem-time-col{display:table-cell;width:72px;vertical-align:middle;padding-right:14px;}
-.mitem-t{font-size:18px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums;}
-.mitem-d{font-size:13px;color:#7788aa;margin-top:3px;}
+.mitem-t{font-size:22px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums;}
+.mitem-d{font-size:15px;color:#7788aa;margin-top:3px;}
 .mitem-info{display:table-cell;vertical-align:middle;}
-.mitem-title{font-size:18px;font-weight:600;color:#ffffff;line-height:1.3;}
-.mitem-org{font-size:14px;color:#7788aa;margin-top:4px;}
+.mitem-title{font-size:22px;font-weight:600;color:#ffffff;line-height:1.3;}
+.mitem-org{font-size:16px;color:#7788aa;margin-top:4px;}
 .mitem-badge{position:absolute;top:12px;right:12px;font-size:12px;-webkit-border-radius:20px;border-radius:20px;padding:4px 12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
 .mitem-badge.now{color:#ffaaaa;background:#440000;border:2px solid #aa2222;}
 .mitem-badge.next{color:#ffcc66;background:#2a1a00;border:2px solid #886600;}
@@ -264,7 +263,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .tprev span{color:#ffffff;font-weight:700;}
 .dur-grid{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;margin-bottom:24px;}
 .dchip{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:16px 4px;text-align:center;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:10px;border-radius:10px;cursor:pointer;}
-.dchip-lbl{font-size:18px;font-weight:700;color:#ccddee;}
+.dchip-lbl{font-size:20px;font-weight:700;color:#ccddee;}
 .dchip-end{font-size:13px;color:#7788aa;margin-top:4px;}
 .dchip.sel{background:#1a3a6a;border-color:#2979ff;}
 .dchip.sel .dchip-lbl{color:#60aaff;}
@@ -273,8 +272,8 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .dchip.asel .dchip-lbl{color:#ffaa33;}
 .dchip.asel .dchip-end{color:#cc7700;}
 .mactions{display:-webkit-box;display:-webkit-flex;display:flex;gap:12px;}
-.mcancel{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:18px;background:#1a1a2e;border:2px solid #333355;-webkit-border-radius:12px;border-radius:12px;color:#ccddee;font-size:18px;font-weight:700;cursor:pointer;}
-.mconfirm{-webkit-box-flex:2;-webkit-flex:2;flex:2;padding:18px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;}
+.mcancel{-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:120px;padding:18px;background:#111122;border:2px solid #222233;-webkit-border-radius:12px;border-radius:12px;color:#7788aa;font-size:16px;font-weight:600;cursor:pointer;}
+.mconfirm{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:18px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;}
 .mconfirm.inst{background:#2979ff;color:#ffffff;}
 .mconfirm.appr{background:#ff9500;color:#1a0800;}
 .mconfirm:disabled{opacity:.5;cursor:default;}
@@ -318,7 +317,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .pin-dot.error{background:#cc1111;border-color:#cc1111;}
 .pin-grid{width:100%;margin-bottom:14px;}
 .pin-row{display:table;width:100%;margin-bottom:10px;}
-.pin-key{display:table-cell;width:33%;padding:22px 8px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:14px;border-radius:14px;font-size:28px;font-weight:600;color:#ffffff;cursor:pointer;text-align:center;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.pin-key{display:table-cell;width:33%;padding:26px 8px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:14px;border-radius:14px;font-size:30px;font-weight:600;color:#ffffff;cursor:pointer;text-align:center;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .pin-key:active{background:#2a2a4a;}
 .pin-key+.pin-key{border-left:none;-webkit-border-radius:0;border-radius:0;}
 .pin-key:first-child{-webkit-border-radius:14px 0 0 14px;border-radius:14px 0 0 14px;}
@@ -476,15 +475,13 @@ if('serviceWorker' in navigator){
           <div class="hdr-right">
             <span class="clock-time" id="clock-time">--:--</span>
             <span class="clock-date" id="clock-date">---</span>
-          </div>
-        </div>
-        <!-- Weather -->
-        <div class="weather-strip" id="weather-strip" style="display:none">
-          <div class="weather-inner">
-            <div class="weather-cell"><span class="weather-icon" id="wx-icon">&#127780;</span></div>
-            <div class="weather-cell"><span class="weather-temp" id="wx-temp">--&#176;</span></div>
-            <div class="weather-cell"><span class="weather-desc" id="wx-desc">--</span></div>
-            <div class="weather-cell"><span class="weather-feels" id="wx-feels"></span></div>
+            <div class="weather-strip" id="weather-strip" style="display:none;margin-top:8px;text-align:right;">
+              <div class="weather-inner">
+                <div class="weather-cell"><span class="weather-icon" id="wx-icon">&#127780;</span></div>
+                <div class="weather-cell"><span class="weather-temp" id="wx-temp">--&#176;</span></div>
+                <div class="weather-cell"><span class="weather-desc" id="wx-desc">--</span></div>
+              </div>
+            </div>
           </div>
         </div>
         <!-- Room name + status -->
@@ -635,8 +632,8 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 7,
-  patch: 1,
+  minor: 8,
+  patch: 0,
   date: '2026-06-09',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -679,6 +676,7 @@ var APP_VERSION = {
 // v3.6.3 2026-06-08 - PWA relaunch: use base URL + Date.now() cache-bust instead of fixed versioned URL, so PWA always fetches latest version on relaunch
 // v3.7 2026-06-09 - Remove checked-in button (card colour sufficient); vertical left status bar 12px; +30m blocks overlap with next meeting; remove Today nav button; clock 75px (+30%), room name 108px (+20%)
 // v3.7.1 2026-06-09 - Status bar 48px wide; meet-tag positioned outside bar top-left; meeting title 40px
+// v3.8 2026-06-09 - Teams msteams:// deep link; weather moved below clock larger size; status dot 18px, status text 28px; tabs 20px; action buttons 22px padding; PIN keys 26px padding; meeting list 22px; duration chips 20px; Cancel secondary style; remove duplicate book link
 
 // ══════════════════════════════════════
 // STATE
@@ -1573,7 +1571,7 @@ function renderMeetList(){
   var list=el('meet-list');
   if(!show.length){
     var lbl=curView==='today'?'today':'tomorrow';
-    list.innerHTML='<div class="empty-day"><div class="empty-day-icon">&#128197;</div><div class="empty-day-txt">No meetings '+lbl+'</div>'+(offset===0&&cfg.booking!==false?'<div style="margin-top:12px;font-size:13px;color:rgba(99,179,255,.7);cursor:pointer" data-action="book">+ Book this room</div>':'')+'</div>';
+    list.innerHTML='<div class="empty-day"><div class="empty-day-icon">&#128197;</div><div class="empty-day-txt">No meetings '+lbl+'</div></div>';
     return;
   }
   list.innerHTML=show.slice(0,12).map(function(m,i){
@@ -1695,8 +1693,9 @@ function extendMeeting(){
   toast('+30 min extended','success');
 }
 function joinTeams(url){
-  window.open(url.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"'),'_blank');
-  toast('Opening Teams…','success');
+  var clean=url.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"');
+  window.open(clean,'_blank');
+  toast('Opening Teams&#8230;','success');
 }
 
 // ══════════════════════════════════════
