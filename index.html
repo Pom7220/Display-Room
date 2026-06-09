@@ -145,8 +145,8 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .body-scroll::-webkit-scrollbar{display:none;}
 
 /* ── CURRENT CARD ── */
-.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:24px 24px 24px 36px;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
-.cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:12px;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
+.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:52px 24px 24px 64px;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
+.cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:48px;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
 .cur-card.st-busy{border-color:#ff3333;background:#4a0000;}
 .cur-card.st-busy::before{background:#ff3333;}
 .cur-card.st-soon{border-color:#ff9500;background:#3a1800;}
@@ -156,21 +156,22 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .cur-card.st-pend{border-color:#ff9500;background:#3a1800;}
 .cur-card.st-pend::before{background:#ff9500;}
 
+/* Status tag — positioned top-left outside the colour bar */
+.meet-tag{position:absolute;top:12px;left:60px;font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 14px;-webkit-border-radius:20px;border-radius:20px;}
+.meet-tag.busy{background:#aa1111;color:#ffffff;}
+.meet-tag.soon{background:#aa5500;color:#ffffff;}
+.meet-tag.pend{background:#aa5500;color:#ffffff;}
+
+.meet-title-lg{font-size:40px;font-weight:800;color:#ffffff;line-height:1.2;margin-bottom:10px;}
+.meet-time-lg{font-size:40px;font-weight:300;color:#ffffff;margin-bottom:12px;font-variant-numeric:tabular-nums;display:block;}
+.meet-org{font-size:18px;color:#aaaacc;margin-bottom:18px;}
+
 /* Available state */
 .av-state{text-align:center;padding:20px 0;}
 .av-icon{width:90px;height:90px;-webkit-border-radius:50%;border-radius:50%;background:#0d2a1a;border:3px dashed #00aa55;display:block;margin:0 auto 18px;line-height:90px;font-size:40px;}
 .av-title{font-size:36px;font-weight:800;color:#ffffff;margin-bottom:8px;}
 .av-sub{font-size:18px;color:#aaaacc;margin-bottom:20px;line-height:1.5;}
 .book-big{width:100%;padding:20px;background:#2979ff;border:none;-webkit-border-radius:14px;border-radius:14px;color:#ffffff;font-size:22px;font-weight:700;cursor:pointer;display:block;text-align:center;}
-
-/* Busy state */
-.meet-tag{display:inline-block;font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:6px 16px;-webkit-border-radius:20px;border-radius:20px;margin-bottom:14px;}
-.meet-tag.busy{background:#aa1111;color:#ffffff;}
-.meet-tag.soon{background:#aa5500;color:#ffffff;}
-.meet-tag.pend{background:#aa5500;color:#ffffff;}
-.meet-title-lg{font-size:32px;font-weight:800;color:#ffffff;line-height:1.2;margin-bottom:10px;}
-.meet-time-lg{font-size:40px;font-weight:300;color:#ffffff;margin-bottom:12px;font-variant-numeric:tabular-nums;display:block;}
-.meet-org{font-size:18px;color:#aaaacc;margin-bottom:18px;}
 .prog{height:6px;background:#333344;-webkit-border-radius:3px;border-radius:3px;overflow:hidden;margin-bottom:20px;}
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;}
@@ -635,7 +636,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 7,
-  patch: 0,
+  patch: 1,
   date: '2026-06-09',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -677,6 +678,7 @@ var APP_VERSION = {
 // v3.6.2 2026-06-08 - Fix relaunch blank page: 45s grace period prevents MSAL redirect triggering reload; use location.href not reload() to preserve ?v= query string; increase event delay to 800ms
 // v3.6.3 2026-06-08 - PWA relaunch: use base URL + Date.now() cache-bust instead of fixed versioned URL, so PWA always fetches latest version on relaunch
 // v3.7 2026-06-09 - Remove checked-in button (card colour sufficient); vertical left status bar 12px; +30m blocks overlap with next meeting; remove Today nav button; clock 75px (+30%), room name 108px (+20%)
+// v3.7.1 2026-06-09 - Status bar 48px wide; meet-tag positioned outside bar top-left; meeting title 40px
 
 // ══════════════════════════════════════
 // STATE
