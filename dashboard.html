@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>RIS Rooms</title>
+<script src="msal-v1.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:#0a0a12;color:#e8f0ff;font-family:'Arial',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+
+/* HEADER */
+.hdr{background:#0d1526;padding:14px 16px 12px;border-bottom:1px solid #1a2a4a;}
+.hdr-top{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;margin-bottom:8px;}
+.ris-logo{background:#1a3a6a;border:2px solid #2979ff;border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;color:#fff;letter-spacing:.08em;}
+.hdr-right{text-align:right;}
+.clock-time{font-size:28px;font-weight:200;color:#fff;display:block;font-variant-numeric:tabular-nums;line-height:1;}
+.clock-date{font-size:12px;color:#8899bb;margin-top:2px;display:block;}
+.hdr-title{font-size:20px;font-weight:900;color:#fff;margin-bottom:2px;}
+.hdr-sub{font-size:12px;color:#7788aa;}
+
+/* SUMMARY */
+.sum-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;padding:10px 14px 6px;}
+.sum-card{-webkit-box-flex:1;-webkit-flex:1;flex:1;background:#111122;border:1px solid #222233;border-radius:10px;padding:8px 6px;text-align:center;}
+.sum-n{font-size:22px;font-weight:700;}
+.sum-l{font-size:10px;color:#7788aa;margin-top:2px;}
+
+/* HINT BAR */
+.hint-bar{background:#0d1f0d;border-top:1px solid #1a3a1a;border-bottom:1px solid #1a3a1a;padding:6px 14px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;gap:8px;}
+.hint-txt{font-size:11px;color:#44aa66;}
+
+/* ZONES */
+.zone-wrap{padding:10px 14px 4px;}
+.zone-hdr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;gap:8px;margin-bottom:8px;}
+.zone-icon{font-size:16px;}
+.zone-name{font-size:13px;font-weight:700;color:#ccd8ee;letter-spacing:.03em;}
+.zone-sub{font-size:10px;color:#5566aa;margin-left:auto;}
+.zone-grid{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;}
+.room-tile{-webkit-box-flex:1;-webkit-flex:1;flex:1;border-radius:12px;border:2px solid;overflow:hidden;cursor:pointer;position:relative;-webkit-transition:border-color .2s;transition:border-color .2s;}
+.room-tile:active{opacity:.85;}
+.rt-bar{height:8px;width:100%;}
+.rt-body{padding:8px 8px 10px;}
+.rt-num{font-size:11px;font-weight:700;color:#7788aa;margin-bottom:2px;}
+.rt-name{font-size:13px;font-weight:800;color:#fff;margin-bottom:4px;line-height:1.2;}
+.rt-status{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;display:inline-block;margin-bottom:4px;}
+.rt-info{font-size:10px;color:#aaaacc;line-height:1.4;}
+.rt-seats{font-size:10px;color:#5566aa;margin-top:3px;}
+
+/* Selected state */
+.room-tile.selected{border-width:3px;}
+.room-tile.selected .rt-name{color:#60aaff;}
+.sel-arrow{position:absolute;top:-8px;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid #60aaff;}
+.next-badge{display:block;background:#1a3a6a;border-radius:4px;padding:3px 4px;font-size:9px;font-weight:700;color:#60aaff;text-align:center;margin-top:4px;}
+
+/* Colours per status */
+.rt-avail{border-color:#1155cc;background:#0a2040;}
+.rt-avail .rt-bar{background:#2979ff;}
+.rt-avail.selected{border-color:#60aaff;}
+.rt-busy{border-color:#661111;background:#4a0000;}
+.rt-busy .rt-bar{background:#ff3333;}
+.rt-soon{border-color:#664400;background:#3a1800;}
+.rt-soon .rt-bar{background:#ff9500;}
+
+/* ZONE DIVIDER */
+.zone-divider{height:1px;background:#1a2a4a;margin:6px 14px;}
+
+/* DETAIL CARD */
+.detail-wrap{padding:6px 14px 14px;}
+.detail-card{border-radius:14px;overflow:hidden;border:2px solid #2979ff;}
+.dc-top{background:#0a2040;padding:12px 14px 10px;}
+.dc-row1{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;margin-bottom:4px;}
+.dc-name{font-size:18px;font-weight:800;color:#fff;}
+.dc-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:8px;}
+.dc-meta{font-size:12px;color:#7799bb;margin-bottom:3px;}
+.dc-time{font-size:14px;font-weight:700;color:#60aaff;margin-bottom:6px;}
+.appr-note{background:#2a1a00;border:1px solid #664400;border-radius:8px;padding:7px 10px;font-size:11px;color:#ffaa33;margin-bottom:2px;}
+.dc-btns{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;padding:10px 14px 12px;background:#071428;}
+.dc-btn{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:700;text-align:center;border:none;cursor:pointer;}
+.dc-btn:active{opacity:.8;}
+
+/* LEGEND */
+.legend{display:-webkit-box;display:-webkit-flex;display:flex;gap:14px;padding:4px 14px 6px;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
+.leg{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;gap:5px;font-size:10px;color:#7788aa;}
+.leg-dot{width:9px;height:9px;border-radius:50%;}
+
+/* BOOKING MODAL */
+#book-modal{position:fixed;inset:0;background:rgba(4,8,16,.88);z-index:200;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:flex-end;-webkit-align-items:flex-end;align-items:flex-end;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
+#book-modal.hidden{display:none;}
+.msheet{background:#0d1526;border:2px solid #2a2a5a;border-radius:20px 20px 0 0;padding:22px 18px 40px;width:100%;max-width:480px;}
+.mdrag{width:36px;height:4px;background:#2a2a4a;border-radius:2px;margin:0 auto 18px;}
+.mtitle{font-size:20px;font-weight:800;color:#fff;margin-bottom:3px;}
+.msub{font-size:12px;color:#7788aa;margin-bottom:16px;}
+.appr-banner{background:rgba(255,179,64,.09);border:1px solid rgba(255,179,64,.3);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#ffaa33;line-height:1.6;}
+.appr-banner strong{display:block;font-size:13px;margin-bottom:2px;}
+.mfield{margin-bottom:12px;}
+.mfield label{display:block;font-size:11px;color:#7788aa;margin-bottom:5px;letter-spacing:.05em;text-transform:uppercase;}
+.mfield input{width:100%;padding:12px 14px;background:#111122;border:2px solid #2a2a4a;border-radius:10px;color:#fff;font-size:14px;outline:none;}
+.mfield input:focus{border-color:#2979ff;}
+.tprev{font-size:12px;color:#7788aa;margin-bottom:12px;padding:9px 12px;background:#111122;border-radius:10px;}
+.tprev span{color:#fff;font-weight:600;}
+.dur-grid{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;margin-bottom:16px;}
+.dchip{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:12px 4px;text-align:center;background:#111122;border:2px solid #2a2a4a;border-radius:10px;cursor:pointer;}
+.dchip.sel{background:#1a3a6a;border-color:#2979ff;}
+.dchip.asel{background:#2a1500;border-color:#ff9500;}
+.dchip-lbl{font-size:14px;font-weight:700;color:#ccddee;}
+.dchip.sel .dchip-lbl{color:#60aaff;}
+.dchip.asel .dchip-lbl{color:#ffaa33;}
+.dchip-end{font-size:10px;color:#7788aa;margin-top:3px;}
+.macts{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;margin-top:4px;}
+.mcancel{-webkit-flex:0 0 auto;flex:0 0 auto;width:110px;padding:14px;background:#111122;border:2px solid #222233;border-radius:10px;color:#7788aa;font-size:14px;font-weight:600;cursor:pointer;text-align:center;}
+.mconfirm{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:14px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;}
+.mconfirm.inst{background:#2979ff;color:#fff;}
+.mconfirm.appr{background:#ff9500;color:#1a0800;}
+.mconfirm:disabled{opacity:.5;cursor:default;}
+
+/* AUTH OVERLAY */
+#auth-overlay{position:fixed;inset:0;background:#0a0a12;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;gap:14px;z-index:500;padding:24px;}
+#auth-overlay.hidden{display:none;}
+.auth-icon{font-size:48px;}
+.auth-title{font-size:22px;font-weight:800;color:#fff;text-align:center;}
+.auth-sub{font-size:13px;color:#7788aa;text-align:center;line-height:1.6;}
+.auth-btn{padding:14px 36px;background:#2979ff;border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;}
+
+/* TOAST */
+#toast{position:fixed;bottom:80px;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#111122;border:2px solid #2a2a4a;border-radius:50px;padding:10px 22px;font-size:13px;color:#fff;z-index:400;white-space:nowrap;pointer-events:none;-webkit-transition:opacity .3s;transition:opacity .3s;}
+#toast.hidden{opacity:0;}
+#toast.success{border-color:rgba(0,214,143,.45);color:#00d68f;}
+#toast.error{border-color:rgba(255,77,106,.45);color:#ff4d6a;}
+#toast.warn{border-color:rgba(255,179,64,.45);color:#ffaa33;}
+
+.spinner{width:20px;height:20px;border:3px solid #1a2a4a;border-top-color:#2979ff;border-radius:50%;display:inline-block;vertical-align:middle;-webkit-animation:spin .8s linear infinite;animation:spin .8s linear infinite;}
+@-webkit-keyframes spin{to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- AUTH OVERLAY (for booking only) -->
+<div id="auth-overlay" class="hidden">
+  <div class="auth-icon">🔐</div>
+  <div class="auth-title">Sign in to book</div>
+  <div class="auth-sub">Sign in with your Microsoft 365 account<br>to complete this booking.</div>
+  <button class="auth-btn" onclick="doSignIn()">Sign in with Microsoft</button>
+  <div style="font-size:11px;color:#3a4d6b;margin-top:8px;" id="auth-error"></div>
+</div>
+
+<!-- MAIN -->
+<div id="main-app">
+  <div class="hdr">
+    <div class="hdr-top">
+      <div class="ris-logo">RIS</div>
+      <div class="hdr-right">
+        <span class="clock-time" id="clock-time">--:--</span>
+        <span class="clock-date" id="clock-date">---</span>
+      </div>
+    </div>
+    <div class="hdr-title">Meeting Rooms</div>
+    <div class="hdr-sub">Central Silom Tower · RIS Floor</div>
+  </div>
+
+  <div class="sum-row">
+    <div class="sum-card"><div class="sum-n" id="sum-avail" style="color:#2979ff">--</div><div class="sum-l">Available</div></div>
+    <div class="sum-card"><div class="sum-n" id="sum-busy" style="color:#ff4444">--</div><div class="sum-l">In Use</div></div>
+    <div class="sum-card"><div class="sum-n" id="sum-soon" style="color:#ff9500">--</div><div class="sum-l">Soon</div></div>
+  </div>
+
+  <div class="hint-bar">
+    <span style="font-size:14px;">👆</span>
+    <span class="hint-txt">Tap any room to select &amp; book · auto-selected: next available</span>
+  </div>
+
+  <!-- LOBBY AREA -->
+  <div class="zone-wrap">
+    <div class="zone-hdr">
+      <span class="zone-icon">🪟</span>
+      <span class="zone-name">Lobby area</span>
+      <span class="zone-sub">rooms 1–6 · window side</span>
+    </div>
+    <div class="zone-grid" id="zone-lobby"></div>
+  </div>
+
+  <div class="zone-divider"></div>
+
+  <!-- IN-OFFICE AREA -->
+  <div class="zone-wrap">
+    <div class="zone-hdr">
+      <span class="zone-icon">🏢</span>
+      <span class="zone-name">In-office area</span>
+      <span class="zone-sub">rooms 7–12 · interior</span>
+    </div>
+    <div class="zone-grid" id="zone-office"></div>
+  </div>
+
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:#2979ff"></div>Available</div>
+    <div class="leg"><div class="leg-dot" style="background:#ff9500"></div>Soon</div>
+    <div class="leg"><div class="leg-dot" style="background:#ff3333"></div>In Use</div>
+  </div>
+
+  <!-- DETAIL CARD -->
+  <div class="detail-wrap">
+    <div class="detail-card" id="detail-card">
+      <div class="dc-top" id="dc-top">
+        <div class="dc-row1">
+          <div class="dc-name" id="dc-name">Select a room</div>
+          <div class="dc-badge" id="dc-badge"></div>
+        </div>
+        <div class="dc-meta" id="dc-meta"></div>
+        <div class="dc-time" id="dc-time"></div>
+        <div class="appr-note hidden" id="dc-appr">⚠ This room requires owner approval before confirming</div>
+      </div>
+      <div class="dc-btns" id="dc-btns">
+        <div class="dc-btn" style="background:#1a1a2e;color:#7788aa;border:1px solid #2a2a3a;" onclick="showSchedule()">View schedule</div>
+        <div class="dc-btn" id="dc-book-btn" style="background:#2979ff;color:#fff;" onclick="openBookModal()">+ Book this room</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOOKING MODAL -->
+<div id="book-modal" class="hidden">
+  <div class="msheet">
+    <div class="mdrag"></div>
+    <div class="mtitle" id="modal-room-name">Book Room</div>
+    <div class="msub" id="modal-room-email"></div>
+    <div class="appr-banner hidden" id="modal-appr-banner">
+      <strong>✉ Approval required</strong>
+      A request will be sent to the room owner. The booking is pending until approved.
+    </div>
+    <div class="mfield">
+      <label>Your Name</label>
+      <input type="text" id="book-name" placeholder="Enter your name" autocomplete="off">
+    </div>
+    <div class="mfield">
+      <label>Meeting Title</label>
+      <input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off">
+    </div>
+    <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
+    <label style="font-size:11px;color:#7788aa;letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:8px;">Duration</label>
+    <div class="dur-grid">
+      <div class="dchip" data-min="30" onclick="selDur(this)"><div class="dchip-lbl">30m</div><div class="dchip-end" id="chip-end-30"></div></div>
+      <div class="dchip sel" data-min="60" onclick="selDur(this)"><div class="dchip-lbl">1h</div><div class="dchip-end" id="chip-end-60"></div></div>
+      <div class="dchip" data-min="90" onclick="selDur(this)"><div class="dchip-lbl">1h 30m</div><div class="dchip-end" id="chip-end-90"></div></div>
+      <div class="dchip" data-min="120" onclick="selDur(this)"><div class="dchip-lbl">2h</div><div class="dchip-end" id="chip-end-120"></div></div>
+    </div>
+    <div class="macts">
+      <button class="mcancel" onclick="closeBookModal()">Cancel</button>
+      <button class="mconfirm inst" id="mconfirm" onclick="confirmBooking()"><span id="mconfirm-lbl">Confirm booking</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="hidden"></div>
+
+<script>
+// ── CONFIG ──
+var TENANT_ID='817e531d-191b-4cf5-8812-f0061d89b53d';
+var CLIENT_ID='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
+var SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
+
+// Room definitions
+var ROOMS=[
+  // Lobby area (window side)
+  {num:1,name:'Espresso',email:'risespresso@central.co.th',seats:8,zone:'lobby',approval:false},
+  {num:2,name:'Doppio',email:'risdoppio@central.co.th',seats:6,zone:'lobby',approval:false},
+  {num:3,name:'Cappuccino',email:'riscappuccino@central.co.th',seats:6,zone:'lobby',approval:false},
+  {num:4,name:'Americano',email:'risamericano@central.co.th',seats:6,zone:'lobby',approval:false},
+  {num:5,name:'Lungo',email:'rislungo@central.co.th',seats:4,zone:'lobby',approval:false},
+  {num:6,name:'Ristretto',email:'risristretto@central.co.th',seats:4,zone:'lobby',approval:false},
+  // In-office area (interior)
+  {num:7,name:'Macchiato',email:'rismacchiato@central.co.th',seats:6,zone:'office',approval:true},
+  {num:8,name:'Viennese',email:'risviennese@central.co.th',seats:8,zone:'office',approval:false},
+  {num:9,name:'Decaffinato',email:'risdecaffeinato@central.co.th',seats:4,zone:'office',approval:false},
+  {num:10,name:'Latte',email:'rislatte@central.co.th',seats:6,zone:'office',approval:false},
+  {num:11,name:'Mocha',email:'rismocha@central.co.th',seats:6,zone:'office',approval:false},
+  {num:12,name:'Affogato',email:'risaffogato@central.co.th',seats:8,zone:'office',approval:false}
+];
+
+// ── STATE ──
+var msalInst=null, account=null;
+var _cachedToken=null, _tokenExpiry=0;
+var roomData={}; // email -> {status, meetings, freeUntil}
+var selectedRoom=null;
+var selDurMin=60;
+
+// ── HELPERS ──
+function el(id){return document.getElementById(id);}
+function show(id){var e=el(id);if(e)e.classList.remove('hidden');}
+function hide(id){var e=el(id);if(e)e.classList.add('hidden');}
+function pad(n){return String(n).padStart(2,'0');}
+function ft(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
+function toast(msg,type){
+  var t=el('toast');t.textContent=msg;t.className=type||'';
+  t.classList.remove('hidden');clearTimeout(t._t);
+  t._t=setTimeout(function(){t.classList.add('hidden');},3500);
+}
+function gDate(o){
+  var s=o.dateTime,tz=o.timeZone||'';
+  if(!s)return new Date();
+  var t=s.replace(/\.\d+$/,'');
+  if(tz==='UTC'||tz==='utc'){if(t.charAt(t.length-1)!=='Z')t=t+'Z';return new Date(t);}
+  if(t.charAt(t.length-1)==='Z'||t.indexOf('+')>10){return new Date(t);}
+  var parts=t.split('T');if(parts.length<2)return new Date(t);
+  var dp=parts[0].split('-'),tp=parts[1].split(':');
+  return new Date(parseInt(dp[0],10),parseInt(dp[1],10)-1,parseInt(dp[2],10),parseInt(tp[0],10),parseInt(tp[1],10),tp[2]?parseInt(tp[2],10):0);
+}
+function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';}
+
+// ── CLOCK ──
+function startClock(){
+  function tick(){
+    var n=new Date();
+    el('clock-time').textContent=pad(n.getHours())+':'+pad(n.getMinutes());
+    el('clock-date').textContent=n.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short'});
+  }
+  tick();setInterval(tick,15000);
+}
+
+// ── MSAL AUTH (for booking only) ──
+function initMsal(){
+  if(msalInst)return;
+  try{
+    msalInst=new Msal.UserAgentApplication({
+      auth:{
+        clientId:CLIENT_ID,
+        authority:'https://login.microsoftonline.com/'+TENANT_ID,
+        redirectUri:location.href.split('?')[0].split('#')[0]
+      },
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+    // Handle redirect response
+    var resp=msalInst.getAccount();
+    if(resp){account=resp;}
+    // Check for redirect response
+    try{
+      var hash=window.location.hash;
+      if(hash&&hash.indexOf('access_token')>-1){
+        var acts=msalInst.getAllAccounts?msalInst.getAllAccounts():[];
+        if(acts&&acts.length)account=acts[0];
+      }
+    }catch(e){}
+  }catch(e){console.log('MSAL init error:',e);}
+}
+
+function doSignIn(){
+  if(!msalInst)initMsal();
+  try{
+    msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});
+  }catch(e){el('auth-error').textContent=e.message||String(e);}
+}
+
+function getToken(){
+  if(!msalInst)initMsal();
+  if(_cachedToken&&_tokenExpiry>Date.now()+120000)return Promise.resolve(_cachedToken);
+  if(!account)return Promise.resolve(null);
+  return msalInst.acquireTokenSilent({scopes:SCOPES,account:account}).then(function(r){
+    _cachedToken=r.accessToken;
+    _tokenExpiry=r.expiresOn?r.expiresOn.getTime():(Date.now()+3600000);
+    return r.accessToken;
+  }).catch(function(){return null;});
+}
+
+// ── READ-ONLY CALENDAR FETCH (no auth needed — uses app token) ──
+// For read-only, we try to fetch using a shared read token
+// Falls back to MSAL interactive if needed
+function fetchAllRooms(){
+  var n=new Date();
+  var s=new Date(n);s.setHours(0,0,0,0);
+  var e=new Date(n);e.setHours(23,59,59,999);
+  var pending=ROOMS.length;
+  var newData={};
+
+  function done(){
+    roomData=newData;
+    renderRooms();
+    updateSummary();
+    selectDefaultRoom();
+  }
+
+  // Try to get token — if no account, fetch anonymously via Graph (will fail gracefully)
+  getToken().then(function(tok){
+    ROOMS.forEach(function(room){
+      if(!tok){
+        // No token — show loading state, prompt sign-in for booking only
+        newData[room.email]={status:'unknown',meetings:[],freeUntil:null};
+        pending--;
+        if(pending===0)done();
+        return;
+      }
+      var url='https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(room.email)+'/calendarView'
+        +'?startDateTime='+s.toISOString()+'&endDateTime='+e.toISOString()
+        +'&$select=subject,organizer,start,end,isCancelled&$orderby=start/dateTime&$top=20';
+      fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(function(r){
+        if(!r.ok){
+          newData[room.email]={status:'unknown',meetings:[],freeUntil:null};
+          pending--;if(pending===0)done();
+          return;
+        }
+        return r.json();
+      }).then(function(d){
+        if(!d){return;}
+        var now=new Date();
+        var meetings=(d.value||[]).filter(function(m){return !m.isCancelled;}).map(function(ev){
+          return {title:ev.subject||'(No title)',start:gDate(ev.start),end:gDate(ev.end),organizer:ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name||''};
+        });
+        var cur=null,nxt=null;
+        for(var i=0;i<meetings.length;i++){
+          if(meetings[i].start<=now&&meetings[i].end>=now){cur=meetings[i];break;}
+        }
+        for(var j=0;j<meetings.length;j++){
+          if(meetings[j].start>now){nxt=meetings[j];break;}
+        }
+        var status,freeUntil=null;
+        if(cur){
+          status='busy';
+          freeUntil=cur.end;
+        } else if(nxt){
+          var minsUntil=Math.round((nxt.start-now)/60000);
+          status=minsUntil<=30?'soon':'avail';
+          freeUntil=nxt.start;
+        } else {
+          status='avail';
+        }
+        newData[room.email]={status:status,meetings:meetings,cur:cur,nxt:nxt,freeUntil:freeUntil};
+        pending--;if(pending===0)done();
+      }).catch(function(){
+        newData[room.email]={status:'unknown',meetings:[],freeUntil:null};
+        pending--;if(pending===0)done();
+      });
+    });
+  });
+}
+
+// ── RENDER ──
+function getRoomStatus(room){
+  var d=roomData[room.email];
+  if(!d)return {status:'loading',label:'Loading',cls:'rt-avail'};
+  if(d.status==='busy')return {status:'busy',label:'In Use',cls:'rt-busy',info:d.cur?'Until '+ft(d.cur.end):'Occupied'};
+  if(d.status==='soon'){
+    var m=d.freeUntil?Math.round((d.freeUntil-new Date())/60000):0;
+    return {status:'soon',label:'Soon',cls:'rt-soon',info:'In '+m+'m'};
+  }
+  if(d.status==='avail'){
+    var info=d.freeUntil?'Free until '+ft(d.freeUntil):'Free all day';
+    return {status:'avail',label:'Available',cls:'rt-avail',info:info};
+  }
+  return {status:'unknown',label:'—',cls:'rt-avail',info:''};
+}
+
+function renderRooms(){
+  renderZone('zone-lobby',ROOMS.filter(function(r){return r.zone==='lobby';}));
+  renderZone('zone-office',ROOMS.filter(function(r){return r.zone==='office';}));
+}
+
+function renderZone(containerId,rooms){
+  var c=el(containerId);
+  if(!c)return;
+  c.innerHTML='';
+  for(var i=0;i<rooms.length;i++){
+    var room=rooms[i];
+    var rs=getRoomStatus(room);
+    var isSelected=selectedRoom&&selectedRoom.email===room.email;
+    var div=document.createElement('div');
+    div.className='room-tile '+rs.cls+(isSelected?' selected':'');
+    div.setAttribute('data-email',room.email);
+    var inner='';
+    if(isSelected)inner+='<div class="sel-arrow"></div>';
+    inner+='<div class="rt-bar"></div>';
+    inner+='<div class="rt-body">';
+    inner+='<div class="rt-num">'+room.num+'</div>';
+    inner+='<div class="rt-name">'+room.name+'</div>';
+    inner+='<div class="rt-status" style="'+statusBadgeStyle(rs.status)+'">'+rs.label+'</div>';
+    inner+='<div class="rt-info">'+rs.info+'</div>';
+    inner+='<div class="rt-seats">'+room.seats+' seats</div>';
+    if(isSelected)inner+='<span class="next-badge" id="next-badge-'+room.num+'" style="display:none">NEXT AVAIL.</span>';
+    inner+='</div>';
+    div.innerHTML=inner;
+    // Touch handler
+    (function(r){
+      div.addEventListener('click',function(){selectRoom(r);});
+    })(room);
+    c.appendChild(div);
+  }
+}
+
+function statusBadgeStyle(status){
+  if(status==='busy')return 'background:#2a0808;color:#ff8888;border:1px solid #661111';
+  if(status==='soon')return 'background:#2a1500;color:#ffaa33;border:1px solid #664400';
+  return 'background:#0d1f3a;color:#60aaff;border:1px solid #1a3a6a';
+}
+
+function updateSummary(){
+  var avail=0,busy=0,soon=0;
+  ROOMS.forEach(function(r){
+    var d=roomData[r.email];
+    if(!d)return;
+    if(d.status==='avail')avail++;
+    else if(d.status==='busy')busy++;
+    else if(d.status==='soon')soon++;
+  });
+  el('sum-avail').textContent=avail;
+  el('sum-busy').textContent=busy;
+  el('sum-soon').textContent=soon;
+}
+
+function selectDefaultRoom(){
+  // Find next available — exclude Macchiato (approval required) from default
+  var best=null;
+  for(var i=0;i<ROOMS.length;i++){
+    var r=ROOMS[i];
+    if(r.approval)continue; // skip Macchiato
+    var d=roomData[r.email];
+    if(d&&d.status==='avail'){best=r;break;}
+  }
+  if(best){
+    selectRoom(best);
+    // Show NEXT AVAIL badge
+    var badge=el('next-badge-'+best.num);
+    if(badge)badge.style.display='block';
+  } else if(ROOMS.length){
+    selectRoom(ROOMS[0]);
+  }
+}
+
+function selectRoom(room){
+  selectedRoom=room;
+  renderRooms();
+  updateDetailCard();
+}
+
+function updateDetailCard(){
+  if(!selectedRoom)return;
+  var rs=getRoomStatus(selectedRoom);
+  var d=roomData[selectedRoom.email];
+  el('dc-name').textContent=selectedRoom.name+' — Room '+selectedRoom.num;
+  // Badge
+  var badge=el('dc-badge');
+  badge.textContent=rs.label;
+  badge.style.cssText=statusBadgeStyle(rs.status)+';font-size:11px;font-weight:700;padding:4px 12px;border-radius:8px;';
+  // Meta
+  var zone=selectedRoom.zone==='lobby'?'Lobby area':'In-office area';
+  el('dc-meta').textContent=zone+' · '+selectedRoom.seats+' seats';
+  // Time
+  if(rs.status==='busy'){
+    el('dc-time').textContent='Occupied · '+rs.info;
+    el('dc-time').style.color='#ff8888';
+  } else if(rs.status==='soon'){
+    el('dc-time').textContent='Available soon · '+rs.info;
+    el('dc-time').style.color='#ffaa33';
+  } else {
+    el('dc-time').textContent=rs.info||'Free all day';
+    el('dc-time').style.color='#60aaff';
+  }
+  // Approval note
+  if(selectedRoom.approval){show('dc-appr');}else{hide('dc-appr');}
+  // Book button
+  var bookBtn=el('dc-book-btn');
+  if(rs.status==='busy'){
+    bookBtn.style.cssText='background:#1a1a2e;color:#7788aa;border:1px solid #2a2a3a;';
+    bookBtn.textContent='Occupied until '+ft(d.cur.end);
+    bookBtn.onclick=null;
+  } else {
+    if(selectedRoom.approval){
+      bookBtn.style.cssText='background:#ff9500;color:#1a0800;';
+      bookBtn.textContent='Request booking';
+    } else {
+      bookBtn.style.cssText='background:#2979ff;color:#fff;';
+      bookBtn.textContent='+ Book this room';
+    }
+    bookBtn.onclick=openBookModal;
+  }
+}
+
+function showSchedule(){
+  if(!selectedRoom)return;
+  var d=roomData[selectedRoom.email];
+  if(!d||!d.meetings||!d.meetings.length){toast('No meetings scheduled today','warn');return;}
+  var lines=d.meetings.map(function(m){return ft(m.start)+' – '+ft(m.end)+' '+m.title;}).join('\n');
+  alert(selectedRoom.name+' schedule:\n\n'+lines);
+}
+
+// ── BOOKING MODAL ──
+function openBookModal(){
+  if(!selectedRoom)return;
+  // Require sign-in for booking
+  initMsal();
+  if(!account){
+    show('auth-overlay');
+    return;
+  }
+  selDurMin=60;
+  el('book-name').value='';el('book-title').value='';
+  el('modal-room-name').textContent='Book '+selectedRoom.name;
+  el('modal-room-email').textContent=selectedRoom.email;
+  if(selectedRoom.approval){
+    show('modal-appr-banner');
+    el('mconfirm').className='mconfirm appr';
+    el('mconfirm-lbl').textContent='Send approval request';
+  } else {
+    hide('modal-appr-banner');
+    el('mconfirm').className='mconfirm inst';
+    el('mconfirm-lbl').textContent='Confirm booking';
+  }
+  var chips=document.querySelectorAll('.dchip');
+  for(var i=0;i<chips.length;i++){
+    chips[i].className='dchip'+(chips[i].getAttribute('data-min')==='60'?' sel':'');
+    if(selectedRoom.approval&&chips[i].getAttribute('data-min')==='60')chips[i].className='dchip sel asel';
+  }
+  updatePrev();
+  show('book-modal');
+  setTimeout(function(){el('book-name').focus();},350);
+}
+
+function closeBookModal(){hide('book-modal');}
+
+function selDur(chip){
+  var chips=document.querySelectorAll('.dchip');
+  for(var i=0;i<chips.length;i++)chips[i].className='dchip';
+  chip.className='dchip sel'+(selectedRoom&&selectedRoom.approval?' asel':'');
+  selDurMin=parseInt(chip.getAttribute('data-min'),10);
+  updatePrev();
+}
+
+function updatePrev(){
+  var s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  el('prev-s').textContent=ft(s);el('prev-e').textContent=ft(e);
+  var ends=[30,60,90,120];
+  for(var i=0;i<ends.length;i++){
+    var endEl=el('chip-end-'+ends[i]);
+    if(endEl){var et=new Date(s.getTime()+ends[i]*60000);endEl.textContent=ft(et);}
+  }
+}
+
+function confirmBooking(){
+  var name=el('book-name').value.trim(),title=el('book-title').value.trim();
+  if(!name){toast('Please enter your name','warn');return;}
+  if(!title){toast('Please enter a meeting title','warn');return;}
+  var btn=el('mconfirm');btn.disabled=true;
+  el('mconfirm-lbl').innerHTML='<span class="spinner"></span>';
+  var s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  getToken().then(function(tok){
+    if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
+    var tz='Asia/Bangkok';
+    try{var t=Intl.DateTimeFormat().resolvedOptions().timeZone;if(t)tz=t;}catch(ex){}
+    var body={
+      subject:title,
+      body:{contentType:'text',content:'Booked by '+name+' via RIS Room Dashboard.'},
+      start:{dateTime:localISO(s),timeZone:tz},
+      end:{dateTime:localISO(e),timeZone:tz},
+      attendees:[{emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'required'}],
+      isOnlineMeeting:false
+    };
+    var url='https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(selectedRoom.email)+'/events';
+    fetch(url,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){
+      btn.disabled=false;
+      if(!r.ok){r.json().then(function(er){toast('Booking failed: '+(er.error&&er.error.message||r.status),'error');});}
+      else{closeBookModal();toast('✓ Room booked!','success');setTimeout(fetchAllRooms,3000);}
+      el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
+    }).catch(function(err){
+      btn.disabled=false;
+      el('mconfirm-lbl').textContent='Confirm booking';
+      toast('Error: '+err.message,'error');
+    });
+  });
+}
+
+// Close modal on overlay tap
+el('book-modal').addEventListener('click',function(ev){if(ev.target===el('book-modal'))closeBookModal();});
+
+// ── BOOT ──
+startClock();
+initMsal();
+
+// Check if returning from auth redirect
+if(msalInst){
+  try{
+    var acts=msalInst.getAllAccounts?msalInst.getAllAccounts():[];
+    if(acts&&acts.length){account=acts[0];}
+  }catch(e){}
+}
+
+// Load initial room data
+fetchAllRooms();
+
+// Auto-refresh every 60 seconds
+setInterval(fetchAllRooms,60000);
+</script>
+</body>
+</html>

@@ -633,7 +633,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 9,
-  patch: 0,
+  patch: 1,
   date: '2026-06-09',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -679,6 +679,7 @@ var APP_VERSION = {
 // v3.8 2026-06-09 - Teams msteams:// deep link; weather moved below clock larger size; status dot 18px, status text 28px; tabs 20px; action buttons 22px padding; PIN keys 26px padding; meeting list 22px; duration chips 20px; Cancel secondary style; remove duplicate book link
 // v3.8.1 2026-06-09 - Hotfix: weather display broken - wx-feels missing, display:flex in table-cell context, all fixed
 // v3.9 2026-06-09 - Status bar 20% width (proportional); remove Teams Join button (badge only); booking POST to room calendar /users/{email}/events; token refresh every 5min, cache 2min, reauth if critical
+// v3.9.1 2026-06-10 - Spark/wave burn-in replaces slide drift; MFA fix: login_hint+prompt:none for silent reauth; save login hint on first auth
 
 // ══════════════════════════════════════
 // STATE
@@ -885,32 +886,65 @@ function fetchWeather(){
 // ══════════════════════════════════════
 var driftX=0,driftY=0;
 function startBurnIn(){
-  // Soft moving radial glow
   var canvas=document.createElement('canvas');
-  canvas.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;transition:opacity 3s;';
+  canvas.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;';
   document.body.appendChild(canvas);
   var ctx=canvas.getContext('2d');
-  var wx=0.5,wy=0.5,tx=0.5,ty=0.5;
-  function draw(){
-    canvas.width=window.innerWidth;canvas.height=window.innerHeight;
-    wx+=(tx-wx)*0.015;wy+=(ty-wy)*0.015;
-    var cx=wx*canvas.width,cy=wy*canvas.height;
-    var gr=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(canvas.width,canvas.height)*0.65);
-    gr.addColorStop(0,'rgba(255,255,255,0.014)');
-    gr.addColorStop(0.5,'rgba(255,255,255,0.006)');
-    gr.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle=gr;ctx.fillRect(0,0,canvas.width,canvas.height);
-    requestAnimationFrame(draw);
+  var sparks=[];
+  var W=window.innerWidth,H=window.innerHeight;
+
+  function Spark(){
+    this.reset=function(){
+      this.x=Math.random()*W;
+      this.y=Math.random()*H;
+      this.r=Math.random()*80+40;
+      this.life=0;
+      this.maxLife=60+Math.random()*80;
+      this.speed=0.012+Math.random()*0.008;
+    };
+    this.reset();
+    this.life=Math.random()*this.maxLife; // stagger start
   }
-  draw();
-  setTimeout(function(){canvas.style.opacity='1';},3000);
-  setInterval(function(){tx=0.1+Math.random()*0.8;ty=0.1+Math.random()*0.8;},7000);
-  // Pixel drift ±3px every 12s
-  setInterval(function(){
-    driftX=(Math.random()*6-3);driftY=(Math.random()*6-3);
-    el('pixel-drift').style.transform='translate('+driftX+'px,'+driftY+'px)';
-  },12000);
+
+  for(var i=0;i<6;i++){sparks.push(new Spark());}
+
+  function draw(){
+    W=window.innerWidth;H=window.innerHeight;
+    canvas.width=W;canvas.height=H;
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<sparks.length;i++){
+      var s=sparks[i];
+      s.life+=1;
+      if(s.life>s.maxLife){s.reset();continue;}
+      var progress=s.life/s.maxLife;
+      // Grow then fade — like a gentle glow pulse
+      var alpha=progress<0.4?(progress/0.4)*0.018:(1-((progress-0.4)/0.6))*0.018;
+      var radius=s.r*(0.3+progress*0.7);
+      var grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,radius);
+      grd.addColorStop(0,'rgba(255,255,255,'+alpha+')');
+      grd.addColorStop(0.4,'rgba(200,220,255,'+(alpha*0.5)+')');
+      grd.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grd;
+      ctx.beginPath();
+      ctx.arc(s.x,s.y,radius,0,Math.PI*2);
+      ctx.fill();
+    }
+    // Slow wave sweep — horizontal shimmer
+    var waveX=((Date.now()/8000)%1)*W;
+    var wg=ctx.createLinearGradient(waveX-120,0,waveX+120,0);
+    wg.addColorStop(0,'rgba(255,255,255,0)');
+    wg.addColorStop(0.5,'rgba(255,255,255,0.007)');
+    wg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=wg;
+    ctx.fillRect(0,0,W,H);
+    setTimeout(function(){requestAnimationFrame(draw);},33); // ~30fps
+  }
+
+  setTimeout(function(){
+    canvas.style.transition='opacity 4s';
+    canvas.style.opacity='1';
+    draw();
+  },5000);
 }
 
 // ══════════════════════════════════════
@@ -1056,6 +1090,8 @@ function initMsal(){
         dbg('Redirect OK - got account');
         account=resp.account;
         _tokenRefreshPending=false;
+        // Save login hint for future silent re-auth (avoids MFA prompts)
+        try{if(account.username)localStorage.setItem('roomdisplay_loginhint',account.username);}catch(e){}
         if(resp.accessToken){
           var exp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
           saveToken(resp.accessToken,exp);
@@ -1085,12 +1121,17 @@ function initMsal(){
 
 function doReauth(){
   dbg('doReauth called — clearing all token cache');
-  // Clear our token cache
   _cachedToken=null;
   _tokenExpiry=0;
   _tokenRefreshPending=false;
+  // Save login hint before clearing — used to skip MFA/account picker
+  var loginHint='';
+  try{
+    if(account&&account.username)loginHint=account.username;
+    if(loginHint)localStorage.setItem('roomdisplay_loginhint',loginHint);
+    else{var h=localStorage.getItem('roomdisplay_loginhint');if(h)loginHint=h;}
+  }catch(e){}
   try{localStorage.removeItem('roomdisplay_token');}catch(e){}
-  // Clear MSAL cache
   try{
     var keys=[];
     for(var i=0;i<localStorage.length;i++){
@@ -1100,14 +1141,19 @@ function doReauth(){
     for(var j=0;j<keys.length;j++){localStorage.removeItem(keys[j]);}
     dbg('Cleared '+keys.length+' MSAL cache keys');
   }catch(e){}
-  // Clear MSAL instance account
-  try{if(msalInst)msalInst.clearCache();}catch(e){}
+  try{if(msalInst&&msalInst.clearCache)msalInst.clearCache();}catch(e){}
   account=null;
   clearErr();
-  // Force full login redirect
   var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
   try{
-    msalInst.loginRedirect({scopes:scopes,prompt:'select_account'});
+    if(loginHint){
+      // Use login_hint + prompt:none — attempts completely silent re-auth
+      // This avoids MFA prompt if the session is still valid in Azure AD
+      dbg('Attempting silent reauth with hint: '+loginHint);
+      msalInst.loginRedirect({scopes:scopes,loginHint:loginHint,prompt:'none'});
+    } else {
+      msalInst.loginRedirect({scopes:scopes,prompt:'select_account'});
+    }
   }catch(err){
     dbg('loginRedirect failed: '+String(err));
     showAuth();
