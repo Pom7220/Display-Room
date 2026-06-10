@@ -64,7 +64,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .rt.sel{border:1.5px solid rgba(255,255,255,0.55);padding:7px 6px 5px;}
 .rt.sel .rt-bar{left:0;right:0;bottom:0;height:4px;border-radius:0 0 var(--radius-sm) var(--radius-sm);}
 .rt.sel .rt-name{color:#fff;}
-.sel-arrow{position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:7px solid rgba(255,255,255,0.55);}
+.sel-arrow{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:7px solid rgba(255,255,255,0.55);z-index:2;}
 .next-pill{display:inline-block;background:rgba(41,121,255,.2);border:1px solid rgba(41,121,255,.4);border-radius:4px;padding:2px 5px;font-size:8px;font-weight:700;color:var(--blue-l);margin-top:1px;}
 
 /* Zone divider */
@@ -170,7 +170,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="sum-card" style="border-color:var(--amber)"><div class="sum-n" id="sum-soon" style="color:var(--amber)">--</div><div class="sum-l">Soon</div></div>
   </div>
 
-  <div class="hint-bar"><span style="font-size:14px">👆</span><span>Tap any room to select &amp; book</span></div>
+  <div class="hint-bar"><span style="font-size:14px">👇</span><span>Tap any room to select &amp; book</span></div>
 
   <div class="ref-bar">
     <span class="ref-txt" id="ref-txt">Loading…</span>
@@ -308,6 +308,18 @@ function initMsal(){
       auth:{clientId:CLIENT,authority:`https://login.microsoftonline.com/${TENANT}`,
         redirectUri:location.href.split('?')[0].split('#')[0]},
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+    // Handle redirect response (returning from Microsoft login)
+    msalInst.handleRedirectCallback(function(err,resp){
+      if(err){console.warn('Redirect error:',err);return;}
+      if(resp&&resp.account){
+        account=resp.account;
+        if(resp.accessToken){
+          _token=resp.accessToken;
+          _tokenExp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
+        }
+        fetchAllRooms();
+      }
     });
     // MSAL v1 uses getAccount() not getAllAccounts()
     account=msalInst.getAccount();
@@ -531,7 +543,30 @@ el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))clo
 
 startClock();
 initMsal();
-fetchAllRooms();
+
+// If no account found, show sign-in prompt inline
+if(!account){
+  el('ref-txt').textContent='Sign in to load room status';
+  // Replace refresh button with sign-in button
+  const refBtn=document.querySelector('.ref-btn');
+  if(refBtn){
+    refBtn.textContent='Sign in';
+    refBtn.style.color='#60aaff';
+    refBtn.style.fontWeight='700';
+    refBtn.onclick=function(){
+      initMsal();
+      if(msalInst){
+        try{msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});}
+        catch(e){console.warn(e);}
+      }
+    };
+  }
+  // Still render empty rooms so layout shows
+  renderRooms();
+  selectDefaultRoom();
+} else {
+  fetchAllRooms();
+}
 setInterval(fetchAllRooms,60000);
 </script>
 </body>
