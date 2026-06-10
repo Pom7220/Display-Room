@@ -144,8 +144,8 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .body-scroll::-webkit-scrollbar{display:none;}
 
 /* ── CURRENT CARD ── */
-.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:52px 24px 24px 64px;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
-.cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:48px;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
+.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:52px 24px 24px 26%;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
+.cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:20%;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
 .cur-card.st-busy{border-color:#ff3333;background:#4a0000;}
 .cur-card.st-busy::before{background:#ff3333;}
 .cur-card.st-soon{border-color:#ff9500;background:#3a1800;}
@@ -155,8 +155,8 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .cur-card.st-pend{border-color:#ff9500;background:#3a1800;}
 .cur-card.st-pend::before{background:#ff9500;}
 
-/* Status tag — positioned top-left outside the colour bar */
-.meet-tag{position:absolute;top:12px;left:60px;font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 14px;-webkit-border-radius:20px;border-radius:20px;}
+/* Status tag — positioned top-left just outside the colour bar */
+.meet-tag{position:absolute;top:12px;left:22%;font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 14px;-webkit-border-radius:20px;border-radius:20px;}
 .meet-tag.busy{background:#aa1111;color:#ffffff;}
 .meet-tag.soon{background:#aa5500;color:#ffffff;}
 .meet-tag.pend{background:#aa5500;color:#ffffff;}
@@ -632,8 +632,8 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 8,
-  patch: 1,
+  minor: 9,
+  patch: 0,
   date: '2026-06-09',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -678,6 +678,7 @@ var APP_VERSION = {
 // v3.7.1 2026-06-09 - Status bar 48px wide; meet-tag positioned outside bar top-left; meeting title 40px
 // v3.8 2026-06-09 - Teams msteams:// deep link; weather moved below clock larger size; status dot 18px, status text 28px; tabs 20px; action buttons 22px padding; PIN keys 26px padding; meeting list 22px; duration chips 20px; Cancel secondary style; remove duplicate book link
 // v3.8.1 2026-06-09 - Hotfix: weather display broken - wx-feels missing, display:flex in table-cell context, all fixed
+// v3.9 2026-06-09 - Status bar 20% width (proportional); remove Teams Join button (badge only); booking POST to room calendar /users/{email}/events; token refresh every 5min, cache 2min, reauth if critical
 
 // ══════════════════════════════════════
 // STATE
@@ -1141,8 +1142,8 @@ function saveToken(tok,expiresOn){
 
 function getToken(){
   var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
-  // Return cached token if still valid for at least 5 min
-  if(_cachedToken&&_tokenExpiry>Date.now()+300000){
+  // Use cached token only if valid for 2+ minutes (reduced from 5 to refresh more often on Chrome 42)
+  if(_cachedToken&&_tokenExpiry>Date.now()+120000){
     return Promise.resolve(_cachedToken);
   }
   // Try silent refresh
@@ -1150,13 +1151,12 @@ function getToken(){
     var expiry=r.expiresOn?r.expiresOn.getTime():(Date.now()+3600000);
     saveToken(r.accessToken,expiry);
     _tokenRefreshPending=false;
-    dbg('Token refreshed OK, expires: '+new Date(expiry).toLocaleTimeString());
+    dbg('Token refreshed OK, expires in '+Math.round((expiry-Date.now())/60000)+'m');
     return r.accessToken;
   }).catch(function(err){
     dbg('Silent token fail: '+(err&&err.errorCode||String(err)));
     var code=err&&err.errorCode||'';
     var msg=err&&err.errorMessage||'';
-    // Check for lifetime/expiry errors specifically
     var isExpired=msg.indexOf('lifetime')!==-1||msg.indexOf('expired')!==-1||
       msg.indexOf('AADSTS70011')!==-1||msg.indexOf('AADSTS50058')!==-1;
     var needsLogin=isExpired||code==='login_required'||code==='interaction_required'||
@@ -1173,23 +1173,28 @@ function getToken(){
   });
 }
 
-// Proactive token refresh — check every 10 min, refresh if expiring within 15 min
+// Proactive token refresh — check every 5 min (was 10), refresh if expiring within 20 min
 function startTokenRefreshTimer(){
   setInterval(function(){
     if(!account||!msalInst)return;
     var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
     var expiresIn=_tokenExpiry-Date.now();
-    if(expiresIn<900000){ // less than 15 min remaining
-      dbg('Proactive token refresh (expires in '+ Math.round(expiresIn/60000)+'m)');
+    if(expiresIn<1200000){ // less than 20 min remaining (was 15)
+      dbg('Proactive token refresh (expires in '+Math.round(expiresIn/60000)+'m)');
       msalInst.acquireTokenSilent({scopes:scopes,account:account}).then(function(r){
         var expiry=r.expiresOn?r.expiresOn.getTime():(Date.now()+3600000);
         saveToken(r.accessToken,expiry);
-        dbg('Proactive refresh OK');
+        dbg('Proactive refresh OK, new expiry in '+Math.round((expiry-Date.now())/60000)+'m');
       }).catch(function(e){
         dbg('Proactive refresh failed: '+(e&&e.errorCode||String(e)));
+        // If proactive refresh fails and token is nearly expired, trigger reauth
+        if(_tokenExpiry-Date.now()<300000){
+          dbg('Token critical — triggering reauth');
+          doReauth();
+        }
       });
     }
-  },600000); // every 10 minutes
+  },300000); // every 5 minutes
 }
 
 // ══════════════════════════════════════
@@ -1485,7 +1490,8 @@ function updateCurrentCard(){
       }
       btns+='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
       btns+='<button class="abtn abtn-extend" id="ext-btn">+ +30m</button>';
-      if(cfg.teamsBtn!==false&&cur.joinUrl)btns+='<button class="abtn abtn-teams" id="teams-btn">'+svgTeams()+' Teams</button>';
+      // Teams join button removed — kiosk tablets don't have Teams installed
+      // TEAMS badge in meeting list is sufficient indicator
     }
     var warn='';
     if(!ip&&!checkedIn&&cfg.release>0){
@@ -1813,12 +1819,15 @@ function createDirect(name,title,s,e,done){
     var tz='Asia/Bangkok';
     try{var t=Intl.DateTimeFormat().resolvedOptions().timeZone;if(t)tz=t;}catch(e){}
     var body={subject:title,
-      body:{contentType:'text',content:'Booked by '+name+' from the room display.'},
+      body:{contentType:'text',content:'Booked by '+name+' from the RIS Room Display.'},
       start:{dateTime:localISO(s),timeZone:tz},
       end:{dateTime:localISO(e),timeZone:tz},
-      attendees:[{emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'resource'}],
+      attendees:[{emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'required'}],
       isOnlineMeeting:false};
-    return fetch('https://graph.microsoft.com/v1.0/me/events',
+    // Post directly to room calendar — avoids personal email notifications
+    // Requires signed-in account to have Full Access to room mailbox
+    var bookUrl='https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(activeRoom.email)+'/events';
+    return fetch(bookUrl,
       {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)});
   }).then(function(r){
     if(!r)return;
