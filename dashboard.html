@@ -306,7 +306,7 @@ function initMsal(){
   try{
     msalInst=new Lib.UserAgentApplication({
       auth:{clientId:CLIENT,authority:`https://login.microsoftonline.com/${TENANT}`,
-        redirectUri:location.href.split('?')[0].split('#')[0]},
+        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
     // Handle redirect response (returning from Microsoft login)
