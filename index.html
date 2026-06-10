@@ -22,6 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<script src="ris-shared.js"></script>
 <script src="msal-v1.min.js"></script>
 <!-- Polyfills for Chrome 42 / Android 4.4 -->
 <script>
@@ -144,7 +145,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:va
 .body-scroll::-webkit-scrollbar{display:none;}
 
 /* ── CURRENT CARD ── */
-.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:52px 24px 24px 26%;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
+.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:36px 24px 24px 26%;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
 .cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:20%;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
 .cur-card.st-busy{border-color:#ff3333;background:#4a0000;}
 .cur-card.st-busy::before{background:#ff3333;}
@@ -632,9 +633,9 @@ if('serviceWorker' in navigator){
 // ══════════════════════════════════════
 var APP_VERSION = {
   major: 3,
-  minor: 9,
-  patch: 1,
-  date: '2026-06-09',
+  minor: 10,
+  patch: 0,
+  date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -680,6 +681,7 @@ var APP_VERSION = {
 // v3.8.1 2026-06-09 - Hotfix: weather display broken - wx-feels missing, display:flex in table-cell context, all fixed
 // v3.9 2026-06-09 - Status bar 20% width (proportional); remove Teams Join button (badge only); booking POST to room calendar /users/{email}/events; token refresh every 5min, cache 2min, reauth if critical
 // v3.9.1 2026-06-10 - Spark/wave burn-in replaces slide drift; MFA fix: login_hint+prompt:none for silent reauth; save login hint on first auth
+// v3.10 2026-06-10 - Shared code refactor: gDate+isAllDay+filterMeetings+fetchCalendarForRoom moved to ris-shared.js; card padding-top 52px->36px; check-in countdown shows hours e.g. 3h 45m
 
 // ══════════════════════════════════════
 // STATE
@@ -736,30 +738,8 @@ function ft(d){return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-dig
 function fd(s,e){var m=Math.round((e-s)/60000);return m<60?m+'m':Math.floor(m/60)+'h'+(m%60?' '+(m%60)+'m':'');}
 function mu(d){return Math.max(0,Math.round((d-new Date())/60000));}
 function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';}
-function gDate(o){
-  var s=o.dateTime;
-  var tz=o.timeZone||'';
-  if(!s)return new Date();
-  // Strip sub-seconds
-  var t=s.replace(/\.\d+$/,'');
-  // If Graph says UTC, append Z so JS treats as UTC
-  if(tz==='UTC'||tz==='utc'){
-    if(t.charAt(t.length-1)!=='Z')t=t+'Z';
-    return new Date(t);
-  }
-  // Already has Z or +offset suffix
-  if(t.charAt(t.length-1)==='Z'||t.indexOf('+')>10){
-    return new Date(t);
-  }
-  // No timezone info — parse as local time using components
-  var parts=t.split('T');
-  if(parts.length<2)return new Date(t);
-  var dp=parts[0].split('-');
-  var tp=parts[1].split(':');
-  return new Date(parseInt(dp[0],10),parseInt(dp[1],10)-1,parseInt(dp[2],10),
-    parseInt(tp[0],10),parseInt(tp[1],10),tp[2]?parseInt(tp[2],10):0);
-}
-function isAllDay(m){return (m.end-m.start)>=86399000;}
+// gDate() and isAllDay() loaded from ris-shared.js
+
 function show(id){
   var e=el(id);if(!e)return;
   e.classList.remove('hidden');
@@ -1430,35 +1410,21 @@ function fetchCal(){
     if(!tok)return;
     var s=new Date();s.setHours(0,0,0,0);
     var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
-    var url='https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(activeRoom.email)+'/calendarView'
-      +'?startDateTime='+s.toISOString()+'&endDateTime='+e.toISOString()
-      +'&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled&$orderby=start/dateTime&$top=60';
-    return fetch(url,{headers:{Authorization:'Bearer '+tok}});
-  }).then(function(r){
-    if(!r)return null;
-    if(!r.ok){return r.json().then(function(er){setErr((er.error&&er.error.message)||'Calendar error');return null;});}
-    return r.json();
-  }).then(function(d){
-    if(!d)return;
-    meetings=(d.value||[]).map(function(ev){
-      return {
-        id:ev.id,title:ev.subject||'(No title)',
-        organizer:(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name)||(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.address)||'',
-        start:gDate(ev.start),end:gDate(ev.end),
-        attendees:(ev.attendees||[]).length,isPending:false,
-        joinUrl:(ev.onlineMeeting&&ev.onlineMeeting.joinUrl)||(ev.onlineMeeting&&ev.onlineMeeting.joinWebUrl)||null,
-        isOnline:!!ev.isOnlineMeeting,
-        showAs:ev.showAs||'busy',
-        isCancelled:!!ev.isCancelled,
-        isPending:ev.showAs==='tentative',
-        isExchangePending:ev.showAs==='tentative'
-      };
+    // Use shared fetchCalendarForRoom — identical fields and filtering
+    return fetchCalendarForRoom(activeRoom.email,tok,s.toISOString(),e.toISOString());
+  }).then(function(filtered){
+    if(!filtered)return;
+    // filterMeetings returns sorted, mapped, isCancelled-filtered array
+    meetings=filtered;
+    // Re-apply local pending bookings (not in Graph yet)
+    pendingLocal.forEach(function(pb){
+      if(!meetings.some(function(m){return Math.abs(m.start-pb.start)<60000&&m.title===pb.title;}))
+        meetings.push(pb);
     });
-    // Only exclude cancelled meetings — keep all showAs values including 'free'
-    // Room calendar events viewed via delegated access often return showAs:'free'
-    meetings=meetings.filter(function(m){return !m.isCancelled;});
-    pendingLocal.forEach(function(pb){if(!meetings.some(function(m){return Math.abs(m.start-pb.start)<60000&&m.title===pb.title;}))meetings.push(pb);});
-    if(locallyEnded.length>0){meetings=meetings.filter(function(m){return locallyEnded.indexOf(m.id)===-1;});}
+    // Re-apply locally ended meetings
+    if(locallyEnded.length>0){
+      meetings=meetings.filter(function(m){return locallyEnded.indexOf(m.id)===-1;});
+    }
     meetings.sort(function(a,b){return a.start-b.start;});
     clearErr();
     updateCurrentCard();renderBadges();renderMeetList();renderMoreDays();
@@ -1564,7 +1530,7 @@ function updateCurrentCard(){
       ? (checkedIn
           ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
           : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Early Check In</button>')
-      : '<button class="abtn abtn-checkin off" disabled>Check In opens in '+(m-15)+'m</button>';
+      : '<button class="abtn abtn-checkin off" disabled>Check In opens in '+sharedFmtDur(m-15)+'</button>';
     var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
     cont.innerHTML=
       '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
@@ -2207,6 +2173,19 @@ document.addEventListener('click',function(e){handleTap(e);});
 })();
 
 loadCfg();
+// Handle dashboard auth redirect — if index.html was used as redirect URI for dashboard
+(function(){
+  try{
+    var params=location.search||'';
+    if(params.indexOf('redirect=dashboard')>-1){
+      // We're here because dashboard auth redirected through index.html
+      // Token is now in localStorage — redirect back to dashboard
+      dbg('Dashboard auth redirect detected — bouncing to dashboard.html');
+      location.href='https://pom7220.github.io/Display-Room/dashboard.html';
+      return;
+    }
+  }catch(e){}
+})();
 // Restore debug state
 try{dbgEnabled=localStorage.getItem('roomdisplay_debug')==='1';}catch(e){}
 if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail)initMsal();

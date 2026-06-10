@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#0a0a12">
 <title>RIS Rooms</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="ris-shared.js"></script>
 <script src="msal-v1.min.js"></script>
 <style>
 :root{
@@ -196,6 +197,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.1 (2026-06-10)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -247,20 +249,8 @@ const TENANT='817e531d-191b-4cf5-8812-f0061d89b53d';
 const CLIENT='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
 const SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
 
-const ROOMS=[
-  {num:1,name:'Espresso',   email:'risespresso@central.co.th',   zone:'lobby', approval:false},
-  {num:2,name:'Doppio',     email:'risdoppio@central.co.th',      zone:'lobby', approval:false},
-  {num:3,name:'Cappuccino', email:'riscappuccino@central.co.th',  zone:'lobby', approval:false},
-  {num:4,name:'Americano',  email:'risamericano@central.co.th',   zone:'lobby', approval:false},
-  {num:5,name:'Lungo',      email:'rislungo@central.co.th',       zone:'lobby', approval:false},
-  {num:6,name:'Ristretto',  email:'risristretto@central.co.th',   zone:'lobby', approval:false},
-  {num:7,name:'Macchiato',  email:'rismacchiato@central.co.th',   zone:'office',approval:true },
-  {num:8,name:'Viennese',   email:'risviennese@central.co.th',    zone:'office',approval:false},
-  {num:9,name:'Decaffinato',email:'risdecaffeinato@central.co.th',zone:'office',approval:false},
-  {num:10,name:'Latte',     email:'rislatte@central.co.th',       zone:'office',approval:false},
-  {num:11,name:'Mocha',     email:'rismocha@central.co.th',       zone:'office',approval:false},
-  {num:12,name:'Affogato',  email:'risaffogato@central.co.th',    zone:'office',approval:false},
-];
+// ROOMS loaded from ris-shared.js as RIS_ROOMS
+const ROOMS = RIS_ROOMS;
 
 let msalInst=null, account=null, _token=null, _tokenExp=0;
 let roomData={}, selectedRoom=null, selDurMin=60;
@@ -278,17 +268,7 @@ function toast(msg,type){
   t._t=setTimeout(()=>t.classList.add('hidden'),3500);
 }
 
-function gDate(o){
-  const s=o.dateTime,tz=o.timeZone||'';
-  if(!s)return new Date();
-  let t=s.replace(/\.\d+$/,'');
-  if(tz==='UTC'||tz==='utc'){if(!t.endsWith('Z'))t+='Z';return new Date(t);}
-  if(t.endsWith('Z')||t.includes('+'))return new Date(t);
-  const[dp,tp]=t.split('T');
-  const[yr,mo,dy]=dp.split('-').map(Number);
-  const[hr,mn,sc=0]=tp.split(':').map(Number);
-  return new Date(yr,mo-1,dy,hr,mn,sc);
-}
+// gDate() loaded from ris-shared.js
 
 function startClock(){
   const tick=()=>{
@@ -344,44 +324,38 @@ async function getToken(){
   }catch{return null;}
 }
 
-async function fetchRoom(room,tok,s,e){
-  if(!tok)return{status:'unknown',meetings:[],cur:null,nxt:null,freeUntil:null};
-  const url=`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(room.email)}/calendarView`
-    +`?startDateTime=${s}&endDateTime=${e}`
-    +`&$select=subject,organizer,start,end,isCancelled&$orderby=start/dateTime&$top=20`;
+// ES6 wrapper around shared fetchCalendarForRoom + deriveRoomStatus
+async function fetchRoom(room, tok){
+  if(!tok) return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
+  const now = new Date();
+  const s = new Date(now); s.setHours(0,0,0,0);
+  const e = new Date(now); e.setHours(23,59,59,999);
   try{
-    const r=await fetch(url,{headers:{Authorization:`Bearer ${tok}`}});
-    if(!r.ok)return{status:'unknown',meetings:[],cur:null,nxt:null,freeUntil:null};
-    const d=await r.json();
-    const now=new Date();
-    const meetings=(d.value||[]).filter(m=>!m.isCancelled).map(ev=>({
-      title:ev.subject||'(No title)',
-      start:gDate(ev.start),end:gDate(ev.end),
-      organizer:ev.organizer?.emailAddress?.name||''
-    }));
-    const cur=meetings.find(m=>m.start<=now&&m.end>=now)||null;
-    const nxt=meetings.find(m=>m.start>now)||null;
-    let status,freeUntil=null;
-    if(cur){status='busy';freeUntil=cur.end;}
-    else if(nxt){
-      const mins=Math.round((nxt.start-now)/60000);
-      status=mins<=30?'soon':'avail';freeUntil=nxt.start;
-    }else{status='avail';}
-    return{status,meetings,cur,nxt,freeUntil};
-  }catch{return{status:'unknown',meetings:[],cur:null,nxt:null,freeUntil:null};}
+    // fetchCalendarForRoom from ris-shared.js — returns filtered, sorted meetings array
+    const meetings = await fetchCalendarForRoom(room.email, tok, s.toISOString(), e.toISOString());
+    // deriveRoomStatus from ris-shared.js — same logic as kiosk getCur/getNext
+    const derived = deriveRoomStatus(meetings);
+    return {
+      status: derived.status,
+      meetings: meetings,
+      cur: derived.cur,
+      nxt: derived.nxt,
+      freeUntil: derived.freeUntil
+    };
+  }catch(err){
+    return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
+  }
 }
 
 async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
-  const tok=await getToken();
-  const now=new Date();
-  const s=new Date(now);s.setHours(0,0,0,0);
-  const e=new Date(now);e.setHours(23,59,59,999);
-  const results=await Promise.all(ROOMS.map(r=>fetchRoom(r,tok,s.toISOString(),e.toISOString())));
-  ROOMS.forEach((r,i)=>{roomData[r.email]=results[i];});
-  el('ref-txt').textContent=`Updated ${ft(new Date())}`;
-  renderRooms();updateSummary();
-  if(!selectedRoom)selectDefaultRoom();
+  const tok = await getToken();
+  // fetchRoom now handles its own date range internally via shared functions
+  const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
+  ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
+  el('ref-txt').textContent = `Updated ${ft(new Date())}`;
+  renderRooms(); updateSummary();
+  if(!selectedRoom) selectDefaultRoom();
   else updateDetailCard();
 }
 
