@@ -197,7 +197,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.2 (2026-06-10)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.3 (2026-06-10)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -226,6 +226,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
       A request will be sent to the room owner. Booking is pending until approved.
     </div>
     <div class="mfield"><label>Your Name</label><input type="text" id="book-name" placeholder="Enter your name" autocomplete="off"></div>
+    <div class="mfield"><label>Your Email</label><input type="text" id="book-email" placeholder="yourname@central.co.th" autocomplete="off"></div>
     <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
     <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
     <label style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:8px">Duration</label>
@@ -441,7 +442,7 @@ function updateDetailCard(){
   badge.textContent=sp.badgeTxt;
   badge.setAttribute('style',sp.badgeStyle+';font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;');
   const zone=selectedRoom.zone==='lobby'?'Lobby area':'In-office area';
-  el('dc-meta').textContent=`${zone} · ${selectedRoom.seats||''}`;
+  el('dc-meta').textContent=`${zone} · 👤 ${selectedRoom.seats} seats`;
   el('dc-time').textContent=sp.status==='busy'?`Occupied · ${sp.info}`:sp.status==='pending'?sp.info:sp.status==='soon'?`Free now · ${sp.info}`:sp.info||'Free all day';
   el('dc-time').style.color=sp.status==='busy'?'var(--red)':sp.status==='pending'||sp.status==='soon'?'var(--amber)':'var(--blue-l)';
   selectedRoom.approval?show('dc-appr'):hide('dc-appr');
@@ -473,7 +474,7 @@ function openBookModal(){
   initMsal();
   if(!account){show('auth-overlay');return;}
   selDurMin=60;
-  el('book-name').value='';el('book-title').value='';
+  el('book-name').value='';el('book-email').value='';el('book-title').value='';
   el('modal-room-name').textContent=`Book ${selectedRoom.name}`;
   el('modal-room-email').textContent=selectedRoom.email;
   selectedRoom.approval?show('modal-appr-banner'):hide('modal-appr-banner');
@@ -501,8 +502,11 @@ function updatePrev(){
 }
 
 async function confirmBooking(){
-  const name=el('book-name').value.trim(),title=el('book-title').value.trim();
+  const name=el('book-name').value.trim();
+  const email=el('book-email').value.trim();
+  const title=el('book-title').value.trim();
   if(!name){toast('Please enter your name','warn');return;}
+  if(!email||email.indexOf('@')<0){toast('Please enter a valid email address','warn');return;}
   if(!title){toast('Please enter a meeting title','warn');return;}
   const btn=el('mconfirm');btn.disabled=true;
   el('mconfirm-lbl').innerHTML='<span class="spinner"></span>';
@@ -512,15 +516,29 @@ async function confirmBooking(){
   let tz='Asia/Bangkok';
   try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch{}
   try{
-    const r=await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(selectedRoom.email)}/events`,{
+    // Resource booking — POST to /me/events, room as resource, requester as required
+    // Exchange handles conflict detection — auto-accepts if free, auto-declines if busy
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{
       method:'POST',
       headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},
-      body:JSON.stringify({subject:title,body:{contentType:'text',content:`Booked by ${name} via RIS Dashboard.`},start:{dateTime:localISO(s),timeZone:tz},end:{dateTime:localISO(e),timeZone:tz},attendees:[{emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'required'}],isOnlineMeeting:false})
+      body:JSON.stringify({
+        subject:title,
+        body:{contentType:'text',content:`Booked by ${name} (${email}) via RIS Room Dashboard.`},
+        start:{dateTime:localISO(s),timeZone:tz},
+        end:{dateTime:localISO(e),timeZone:tz},
+        attendees:[
+          // Room as resource — Exchange auto-accepts/declines
+          {emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'resource'},
+          // Requester receives meeting invitation
+          {emailAddress:{address:email,name:name},type:'required'}
+        ],
+        isOnlineMeeting:false
+      })
     });
     btn.disabled=false;
     el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
     if(!r.ok){const er=await r.json();toast('Booking failed: '+(er.error?.message||r.status),'error');}
-    else{closeBookModal();toast('✓ Room booked!','success');setTimeout(fetchAllRooms,3000);}
+    else{closeBookModal();toast(`✓ Booked! Invitation sent to ${email}`,'success');setTimeout(fetchAllRooms,3000);}
   }catch(err){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Error: '+err.message,'error');}
 }
 
