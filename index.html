@@ -634,7 +634,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 0,
+  patch: 1,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -682,6 +682,7 @@ var APP_VERSION = {
 // v3.9 2026-06-09 - Status bar 20% width (proportional); remove Teams Join button (badge only); booking POST to room calendar /users/{email}/events; token refresh every 5min, cache 2min, reauth if critical
 // v3.9.1 2026-06-10 - Spark/wave burn-in replaces slide drift; MFA fix: login_hint+prompt:none for silent reauth; save login hint on first auth
 // v3.10 2026-06-10 - Shared code refactor: gDate+isAllDay+filterMeetings+fetchCalendarForRoom moved to ris-shared.js; card padding-top 52px->36px; check-in countdown shows hours e.g. 3h 45m
+// v3.10.1 2026-06-10 - Fix soon status wording: "Available - meeting at 15:30" not "Available soon in 14m"; dashboard: "Free now · Meeting at 15:30 (in 14m)"
 
 // ══════════════════════════════════════
 // STATE
@@ -1524,7 +1525,7 @@ function updateCurrentCard(){
     var m=mu(nxt.start);
     var isSoon=m<=30;
     setTheme(isSoon?'soon':'available');
-    el('status-txt').textContent=isSoon?('Available - next in '+m+'m'):('Available - free until '+ft(nxt.start));
+    el('status-txt').textContent=isSoon?('Available - meeting at '+ft(nxt.start)):('Available - free until '+ft(nxt.start));
     var earlyCheckin=m<=15;
     var checkinBtn=earlyCheckin
       ? (checkedIn

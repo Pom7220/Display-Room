@@ -84,11 +84,14 @@ function filterMeetings(evArr) {
 }
 
 // Derive room status from a list of filtered meetings
-// Returns: {status, cur, nxt, freeUntil}
-// status: 'avail' | 'busy' | 'soon' | 'unknown'
+// Returns: {status, cur, nxt, pendingCur, freeUntil}
+// status: 'avail' | 'busy' | 'soon' | 'pending' | 'unknown'
+// 'pending' = tentative meeting now or upcoming soon — not confirmed but not available either
 function deriveRoomStatus(meetings) {
   var now = new Date();
-  // Current meeting: non-pending, non-all-day, happening now
+  var endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+
+  // Current confirmed meeting: non-pending, non-all-day, happening now
   var cur = null;
   for (var i = 0; i < meetings.length; i++) {
     var m = meetings[i];
@@ -96,8 +99,8 @@ function deriveRoomStatus(meetings) {
       cur = m; break;
     }
   }
-  // Next meeting: non-pending, non-all-day, in future today
-  var endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+
+  // Next confirmed meeting: non-pending, non-all-day, in future today
   var nxt = null;
   for (var j = 0; j < meetings.length; j++) {
     var n = meetings[j];
@@ -105,17 +108,38 @@ function deriveRoomStatus(meetings) {
       nxt = n; break;
     }
   }
+
+  // Pending meeting happening now or upcoming today
+  var pendingCur = null;
+  for (var k = 0; k < meetings.length; k++) {
+    var p = meetings[k];
+    if (p.isPending && !isAllDay(p) && p.end >= now && p.start <= endOfToday) {
+      pendingCur = p; break;
+    }
+  }
+
   var status, freeUntil = null;
+
   if (cur) {
+    // Confirmed meeting in progress — busy
     status = 'busy'; freeUntil = cur.end;
+  } else if (pendingCur && pendingCur.start <= now) {
+    // Pending meeting in progress now — show as pending
+    status = 'pending'; freeUntil = pendingCur.end;
   } else if (nxt) {
     var minsUntil = Math.round((nxt.start - now) / 60000);
     status = minsUntil <= 30 ? 'soon' : 'avail';
     freeUntil = nxt.start;
+  } else if (pendingCur) {
+    // Pending upcoming meeting — show as pending instead of available
+    var minsPending = Math.round((pendingCur.start - now) / 60000);
+    status = minsPending <= 60 ? 'pending' : 'avail';
+    freeUntil = pendingCur.start;
   } else {
     status = 'avail';
   }
-  return { status: status, cur: cur, nxt: nxt, freeUntil: freeUntil };
+
+  return { status: status, cur: cur, nxt: nxt, pendingCur: pendingCur, freeUntil: freeUntil };
 }
 
 // Fetch calendar for a single room — returns Promise

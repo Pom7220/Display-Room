@@ -197,7 +197,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.1 (2026-06-10)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.2 (2026-06-10)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -366,9 +366,14 @@ function getStatusProps(room){
   const now=new Date();
   if(!d||d.status==='unknown')return{status:'unknown',dot:'#3a4d6b',info:'—',dcCls:'',badgeTxt:'—',badgeStyle:'background:#1a1a2e;color:#7788aa'};
   if(d.status==='busy')return{status:'busy',dot:'#ff3333',info:d.cur?`Until ${ft(d.cur.end)}`:'Occupied',dcCls:'dc-busy',badgeTxt:'IN USE',badgeStyle:'background:rgba(255,51,51,.15);color:#ff8888;border:1px solid rgba(255,51,51,.3)'};
+  if(d.status==='pending'){
+    const p=d.pendingCur;
+    const info=p?(p.start<=now?`Pending until ${ft(p.end)}`:`Pending at ${ft(p.start)}`):'Pending approval';
+    return{status:'pending',dot:'#ff9500',info:info,dcCls:'dc-soon',badgeTxt:'PENDING',badgeStyle:'background:rgba(255,149,0,.15);color:#ffcc44;border:1px solid rgba(255,149,0,.3)'};
+  }
   if(d.status==='soon'){
     const m=d.freeUntil?Math.round((d.freeUntil-now)/60000):0;
-    return{status:'soon',dot:'#ff9500',info:`In ${m}m`,dcCls:'dc-soon',badgeTxt:'SOON',badgeStyle:'background:rgba(255,149,0,.15);color:#ffcc44;border:1px solid rgba(255,149,0,.3)'};
+    return{status:'soon',dot:'#ff9500',info:`Meeting at ${ft(d.freeUntil)} (in ${m}m)`,dcCls:'dc-soon',badgeTxt:'SOON',badgeStyle:'background:rgba(255,149,0,.15);color:#ffcc44;border:1px solid rgba(255,149,0,.3)'};
   }
   return{status:'avail',dot:'#2979ff',info:d.freeUntil?`Free until ${ft(d.freeUntil)}`:'Free all day',dcCls:'',badgeTxt:'FREE',badgeStyle:'background:rgba(41,121,255,.15);color:#60aaff;border:1px solid rgba(41,121,255,.3)'};
 }
@@ -401,7 +406,9 @@ function updateSummary(){
   let a=0,b=0,s=0;
   ROOMS.forEach(r=>{
     const d=roomData[r.email];if(!d)return;
-    if(d.status==='avail')a++;else if(d.status==='busy')b++;else if(d.status==='soon')s++;
+    if(d.status==='avail')a++;
+    else if(d.status==='busy')b++;
+    else if(d.status==='soon'||d.status==='pending')s++;
   });
   el('sum-avail').textContent=a;el('sum-busy').textContent=b;el('sum-soon').textContent=s;
 }
@@ -435,13 +442,17 @@ function updateDetailCard(){
   badge.setAttribute('style',sp.badgeStyle+';font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;');
   const zone=selectedRoom.zone==='lobby'?'Lobby area':'In-office area';
   el('dc-meta').textContent=`${zone} · ${selectedRoom.seats||''}`;
-  el('dc-time').textContent=sp.status==='busy'?`Occupied · ${sp.info}`:sp.status==='soon'?`Available soon · ${sp.info}`:sp.info||'Free all day';
-  el('dc-time').style.color=sp.status==='busy'?'var(--red)':sp.status==='soon'?'var(--amber)':'var(--blue-l)';
+  el('dc-time').textContent=sp.status==='busy'?`Occupied · ${sp.info}`:sp.status==='pending'?sp.info:sp.status==='soon'?`Free now · ${sp.info}`:sp.info||'Free all day';
+  el('dc-time').style.color=sp.status==='busy'?'var(--red)':sp.status==='pending'||sp.status==='soon'?'var(--amber)':'var(--blue-l)';
   selectedRoom.approval?show('dc-appr'):hide('dc-appr');
   const btn=el('dc-book-btn');
   if(sp.status==='busy'){
     btn.className='dc-btn dc-btn-busy';
     btn.textContent=d?.cur?`Occupied until ${ft(d.cur.end)}`:'Currently occupied';
+    btn.onclick=null;
+  }else if(sp.status==='pending'){
+    btn.className='dc-btn dc-btn-busy';
+    btn.textContent='Pending approval — not bookable';
     btn.onclick=null;
   }else if(selectedRoom.approval){
     btn.className='dc-btn dc-btn-appr';btn.textContent='Request booking';btn.onclick=openBookModal;
