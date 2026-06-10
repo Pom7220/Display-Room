@@ -7,353 +7,150 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0a12">
 <title>RIS Rooms</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="msal-v1.min.js"></script>
 <style>
-:root {
-  --bg: #040810;
-  --panel: #0d1526;
-  --panel2: #111d35;
-  --border: rgba(99,179,255,0.12);
-  --border2: rgba(99,179,255,0.25);
-  --blue: #2979ff;
-  --blue-light: #60aaff;
-  --cyan: #00e5c8;
-  --red: #ff3333;
-  --amber: #ff9500;
-  --green: #00d68f;
-  --text: #e8f0ff;
-  --muted: #7788aa;
-  --hint: #3a4d6b;
-  --font: 'Inter', sans-serif;
-  --radius: 16px;
-  --radius-sm: 10px;
+:root{
+  --bg:#040810;--panel:#0d1526;--panel2:#111d35;
+  --border:rgba(99,179,255,0.12);--border2:rgba(99,179,255,0.25);
+  --blue:#2979ff;--blue-l:#60aaff;--red:#ff3333;--amber:#ff9500;--green:#00d68f;
+  --text:#e8f0ff;--muted:#7788aa;--hint:#3a4d6b;
+  --font:'Inter',sans-serif;--radius:14px;--radius-sm:8px;
 }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+.hidden{display:none!important;}
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { background: var(--bg); color: var(--text); font-family: var(--font); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
-.hidden { display: none !important; }
+/* HEADER */
+.hdr{background:var(--panel);padding:14px 16px 12px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.ris-logo{background:#1a3a6a;border:2px solid var(--blue);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:800;color:#fff;letter-spacing:.1em;}
+.clock-wrap{text-align:right;}
+.clock-time{font-size:30px;font-weight:200;color:#fff;line-height:1;font-variant-numeric:tabular-nums;}
+.clock-date{font-size:11px;color:var(--muted);margin-top:2px;}
+.hdr-title{font-size:20px;font-weight:900;color:#fff;margin-bottom:1px;}
+.hdr-sub{font-size:11px;color:var(--muted);}
 
-/* ── HEADER ── */
-.hdr {
-  background: var(--panel);
-  padding: 16px 18px 14px;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-.hdr-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.ris-logo {
-  background: #1a3a6a;
-  border: 2px solid var(--blue);
-  border-radius: 10px;
-  padding: 6px 14px;
-  font-size: 14px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: .1em;
-}
-.clock-wrap { text-align: right; }
-.clock-time { font-size: 32px; font-weight: 200; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; }
-.clock-date { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.hdr-title { font-size: 22px; font-weight: 900; color: #fff; margin-bottom: 2px; }
-.hdr-sub { font-size: 12px; color: var(--muted); }
+/* SUMMARY — thin underline style */
+.sum-row{display:flex;gap:0;padding:8px 16px 0;}
+.sum-card{flex:1;text-align:center;padding:6px 4px 8px;border-bottom:3px solid;}
+.sum-n{font-size:22px;font-weight:800;line-height:1;}
+.sum-l{font-size:10px;color:var(--muted);margin-top:2px;}
 
-/* ── SUMMARY ── */
-.sum-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 12px 16px 8px; }
-.sum-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 8px;
-  text-align: center;
-}
-.sum-n { font-size: 28px; font-weight: 800; }
-.sum-l { font-size: 11px; color: var(--muted); margin-top: 3px; }
+/* HINT */
+.hint-bar{background:#0a1a0a;border-top:1px solid #1a3a1a;border-bottom:1px solid #1a3a1a;padding:6px 16px;display:flex;align-items:center;gap:8px;font-size:11px;color:#44bb66;}
 
-/* ── HINT BAR ── */
-.hint-bar {
-  background: #0a1a0a;
-  border-top: 1px solid #1a3a1a;
-  border-bottom: 1px solid #1a3a1a;
-  padding: 8px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #44bb66;
-}
+/* REFRESH */
+.ref-bar{display:flex;align-items:center;justify-content:space-between;padding:5px 16px;border-bottom:1px solid var(--border);}
+.ref-txt{font-size:10px;color:var(--hint);}
+.ref-btn{font-size:11px;color:var(--blue-l);background:none;border:none;cursor:pointer;padding:3px 6px;font-family:var(--font);}
 
-/* ── REFRESH BAR ── */
-.refresh-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 16px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-}
-.refresh-txt { font-size: 11px; color: var(--hint); }
-.refresh-btn {
-  font-size: 11px;
-  color: var(--blue-light);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 8px;
-}
+/* ZONES */
+.zone-wrap{padding:10px 14px 6px;}
+.zone-hdr{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.zone-name{font-size:13px;font-weight:700;color:var(--text);}
+.zone-sub{font-size:10px;color:var(--hint);margin-left:auto;}
 
-/* ── ZONES ── */
-.zone-wrap { padding: 14px 16px 8px; }
-.zone-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.zone-icon { font-size: 18px; }
-.zone-name { font-size: 14px; font-weight: 700; color: var(--text); }
-.zone-sub { font-size: 11px; color: var(--hint); margin-left: auto; }
-.zone-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+/* GRID — 3 column underline style */
+.zone-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
+.rt{padding:8px 7px 6px;position:relative;border-radius:var(--radius-sm);cursor:pointer;transition:background .15s;}
+.rt:active{opacity:.8;}
+.rt-name{font-size:13px;font-weight:800;color:var(--text);line-height:1.2;margin-bottom:3px;}
+.rt-info{font-size:10px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:3px;}
+.rt-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.rt-bar{position:absolute;bottom:0;left:5px;right:5px;height:3px;border-radius:2px;}
 
-/* ── ROOM TILE ── */
-.room-tile {
-  border-radius: var(--radius);
-  border: 2px solid var(--border);
-  overflow: hidden;
-  cursor: pointer;
-  position: relative;
-  transition: transform .15s, border-color .2s;
-  background: var(--panel);
-}
-.room-tile:active { transform: scale(.97); }
-.rt-bar { height: 6px; }
-.rt-body { padding: 10px 10px 12px; }
-.rt-num { font-size: 11px; font-weight: 600; color: var(--hint); margin-bottom: 2px; }
-.rt-name { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 5px; line-height: 1.2; }
-.rt-badge {
-  font-size: 9px; font-weight: 700;
-  padding: 2px 7px; border-radius: 6px;
-  display: inline-block; margin-bottom: 5px;
-  letter-spacing: .05em; text-transform: uppercase;
-}
-.rt-info { font-size: 10px; color: var(--muted); line-height: 1.4; min-height: 14px; }
-.rt-seats { font-size: 10px; color: var(--hint); margin-top: 4px; }
+/* Selected state — white outline box, bar contained inside */
+.rt.sel{border:1.5px solid rgba(255,255,255,0.55);padding:7px 6px 5px;}
+.rt.sel .rt-bar{left:0;right:0;bottom:0;height:4px;border-radius:0 0 var(--radius-sm) var(--radius-sm);}
+.rt.sel .rt-name{color:#fff;}
+.sel-arrow{position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:7px solid rgba(255,255,255,0.55);}
+.next-pill{display:inline-block;background:rgba(41,121,255,.2);border:1px solid rgba(41,121,255,.4);border-radius:4px;padding:2px 5px;font-size:8px;font-weight:700;color:var(--blue-l);margin-top:1px;}
 
-/* Status variants */
-.rt-avail { border-color: rgba(41,121,255,.35); background: #071428; }
-.rt-avail .rt-bar { background: var(--blue); }
-.rt-avail .rt-name { color: #fff; }
-.rt-busy { border-color: rgba(255,51,51,.35); background: #2a0808; }
-.rt-busy .rt-bar { background: var(--red); }
-.rt-soon { border-color: rgba(255,149,0,.35); background: #1e1000; }
-.rt-soon .rt-bar { background: var(--amber); }
-.rt-unknown { border-color: var(--border); background: var(--panel); }
-.rt-unknown .rt-bar { background: var(--hint); }
+/* Zone divider */
+.zone-div{height:1px;background:var(--border);margin:4px 14px 2px;}
 
-/* Selected */
-.room-tile.sel {
-  border-width: 2.5px;
-  box-shadow: 0 0 0 3px rgba(96,170,255,.2);
-}
-.rt-avail.sel { border-color: var(--blue-light); }
-.rt-busy.sel { border-color: #ff8888; }
-.rt-soon.sel { border-color: #ffcc44; }
-.sel-arrow {
-  position: absolute; top: -9px; left: 50%;
-  transform: translateX(-50%);
-  width: 0; height: 0;
-  border-left: 9px solid transparent;
-  border-right: 9px solid transparent;
-  border-bottom: 9px solid var(--blue-light);
-}
-.next-badge {
-  display: block;
-  background: rgba(41,121,255,.15);
-  border: 1px solid rgba(41,121,255,.3);
-  border-radius: 5px;
-  padding: 3px 5px;
-  font-size: 9px; font-weight: 700;
-  color: var(--blue-light);
-  text-align: center; margin-top: 5px;
-  letter-spacing: .05em;
-}
+/* LEGEND */
+.legend{display:flex;gap:14px;padding:4px 14px 8px;justify-content:center;}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);}
+.leg-dot{width:7px;height:7px;border-radius:50%;}
 
-/* ── DIVIDER ── */
-.zone-divider { height: 1px; background: var(--border); margin: 4px 16px 8px; }
+/* DETAIL CARD */
+.dc-wrap{padding:0 14px 48px;}
+.dc{border-radius:var(--radius);overflow:hidden;border:2px solid var(--blue);transition:border-color .2s;}
+.dc.dc-busy{border-color:var(--red);}
+.dc.dc-soon{border-color:var(--amber);}
+.dc-top{background:var(--panel2);padding:12px 14px 10px;}
+.dc-row1{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.dc-name{font-size:18px;font-weight:800;color:#fff;line-height:1.2;}
+.dc-badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;white-space:nowrap;flex-shrink:0;}
+.dc-meta{font-size:11px;color:var(--muted);margin-bottom:3px;}
+.dc-time{font-size:14px;font-weight:700;margin-bottom:4px;}
+.appr-note{background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:6px;padding:7px 10px;font-size:11px;color:var(--amber);line-height:1.5;margin-top:4px;}
+.dc-btns{display:flex;gap:10px;padding:10px 14px 12px;background:rgba(7,20,40,.8);}
+.dc-btn{flex:1;padding:12px 8px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;text-align:center;border:none;cursor:pointer;font-family:var(--font);transition:opacity .15s;}
+.dc-btn:active{opacity:.8;}
+.dc-btn-sec{background:var(--panel);color:var(--muted);border:1px solid var(--border2)!important;}
+.dc-btn-book{background:var(--blue);color:#fff;}
+.dc-btn-appr{background:var(--amber);color:#1a0800;}
+.dc-btn-busy{background:var(--panel);color:var(--hint);border:1px solid var(--border)!important;cursor:default;}
 
-/* ── LEGEND ── */
-.legend {
-  display: flex; gap: 16px;
-  padding: 6px 16px 10px;
-  justify-content: center;
-}
-.leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
-.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+/* BOOKING MODAL */
+#book-modal{position:fixed;inset:0;background:rgba(4,8,16,.9);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+#book-modal.hidden{display:none;}
+.msheet{background:var(--panel);border:2px solid var(--border2);border-radius:22px 22px 0 0;padding:20px 18px 44px;width:100%;max-width:480px;animation:sUp .3s ease;}
+@keyframes sUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mdrag{width:36px;height:4px;background:var(--hint);border-radius:2px;margin:0 auto 18px;}
+.mtitle{font-size:19px;font-weight:800;color:#fff;margin-bottom:3px;}
+.msub{font-size:11px;color:var(--muted);margin-bottom:16px;}
+.appr-banner{background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--amber);line-height:1.6;}
+.appr-banner strong{display:block;font-size:12px;margin-bottom:2px;}
+.mfield{margin-bottom:12px;}
+.mfield label{display:block;font-size:10px;color:var(--muted);margin-bottom:5px;letter-spacing:.06em;text-transform:uppercase;}
+.mfield input{width:100%;padding:12px 14px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-family:var(--font);font-size:14px;outline:none;transition:border-color .2s;}
+.mfield input:focus{border-color:var(--blue);}
+.tprev{font-size:11px;color:var(--muted);padding:8px 12px;background:var(--panel2);border-radius:var(--radius-sm);margin-bottom:12px;}
+.tprev span{color:var(--text);font-weight:600;}
+.dur-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px;}
+.dchip{padding:11px 4px;text-align:center;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;}
+.dchip.sel{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);}
+.dchip.asel{background:rgba(255,149,0,.12);border-color:rgba(255,149,0,.4);}
+.dchip-lbl{font-size:13px;font-weight:700;color:var(--muted);}
+.dchip.sel .dchip-lbl{color:var(--blue-l);}
+.dchip.asel .dchip-lbl{color:var(--amber);}
+.dchip-end{font-size:9px;color:var(--hint);margin-top:2px;}
+.macts{display:flex;gap:10px;}
+.mcancel{flex:0 0 auto;width:100px;padding:13px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.mconfirm{flex:1;padding:13px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.mconfirm:disabled{opacity:.5;cursor:default;}
+.mconfirm.inst{background:var(--blue);color:#fff;}
+.mconfirm.appr{background:var(--amber);color:#1a0800;}
 
-/* ── DETAIL CARD ── */
-.detail-wrap { padding: 6px 16px 48px; }
-.detail-card {
-  border-radius: var(--radius);
-  overflow: hidden;
-  border: 2px solid var(--blue);
-  transition: border-color .2s;
-}
-.detail-card.dc-busy { border-color: var(--red); }
-.detail-card.dc-soon { border-color: var(--amber); }
-.dc-top { background: var(--panel2); padding: 14px 16px 12px; }
-.dc-row1 { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
-.dc-name { font-size: 20px; font-weight: 800; color: #fff; line-height: 1.2; }
-.dc-badge {
-  font-size: 11px; font-weight: 700;
-  padding: 4px 12px; border-radius: 8px;
-  white-space: nowrap; flex-shrink: 0;
-}
-.dc-meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.dc-time { font-size: 15px; font-weight: 700; color: var(--blue-light); margin-bottom: 6px; }
-.appr-note {
-  background: rgba(255,149,0,.08);
-  border: 1px solid rgba(255,149,0,.3);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 11px; color: var(--amber);
-  line-height: 1.6; margin-top: 4px;
-}
-.dc-btns { display: flex; gap: 10px; padding: 12px 16px 14px; background: rgba(7,20,40,.8); }
-.dc-btn {
-  flex: 1; padding: 13px 8px;
-  border-radius: var(--radius-sm);
-  font-size: 14px; font-weight: 700;
-  text-align: center; border: none; cursor: pointer;
-  transition: opacity .15s;
-}
-.dc-btn:active { opacity: .8; }
-.dc-btn-sec { background: var(--panel); color: var(--muted); border: 1px solid var(--border2) !important; }
-.dc-btn-book { background: var(--blue); color: #fff; }
-.dc-btn-appr { background: var(--amber); color: #1a0800; }
-.dc-btn-busy { background: var(--panel); color: var(--hint); border: 1px solid var(--border) !important; cursor: default; }
+/* AUTH */
+#auth-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:500;padding:32px;}
+#auth-overlay.hidden{display:none;}
+.auth-btn{padding:14px 36px;background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);}
 
-/* ── BOOKING MODAL ── */
-#book-modal {
-  position: fixed; inset: 0;
-  background: rgba(4,8,16,.9);
-  z-index: 200;
-  display: flex; align-items: flex-end; justify-content: center;
-}
-#book-modal.hidden { display: none; }
-.msheet {
-  background: var(--panel);
-  border: 2px solid var(--border2);
-  border-radius: 24px 24px 0 0;
-  padding: 22px 20px 44px;
-  width: 100%; max-width: 480px;
-  animation: slideUp .3s ease;
-}
-@keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-.mdrag { width: 36px; height: 4px; background: var(--hint); border-radius: 2px; margin: 0 auto 20px; }
-.mtitle { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 3px; }
-.msub { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
-.appr-banner {
-  background: rgba(255,149,0,.08);
-  border: 1px solid rgba(255,149,0,.3);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px; margin-bottom: 16px;
-  font-size: 12px; color: var(--amber); line-height: 1.6;
-}
-.appr-banner strong { display: block; font-size: 13px; margin-bottom: 2px; }
-.mfield { margin-bottom: 14px; }
-.mfield label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: .06em; text-transform: uppercase; }
-.mfield input {
-  width: 100%; padding: 13px 14px;
-  background: var(--panel2); border: 2px solid var(--border);
-  border-radius: var(--radius-sm); color: #fff;
-  font-family: var(--font); font-size: 15px; outline: none;
-  transition: border-color .2s;
-}
-.mfield input:focus { border-color: var(--blue); }
-.tprev {
-  font-size: 12px; color: var(--muted);
-  padding: 10px 14px; background: var(--panel2);
-  border-radius: var(--radius-sm); margin-bottom: 14px;
-}
-.tprev span { color: var(--text); font-weight: 600; }
-.dur-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 18px; }
-.dchip {
-  padding: 12px 4px; text-align: center;
-  background: var(--panel2); border: 2px solid var(--border);
-  border-radius: var(--radius-sm); cursor: pointer;
-  transition: all .15s;
-}
-.dchip.sel { background: rgba(41,121,255,.15); border-color: rgba(41,121,255,.4); }
-.dchip.asel { background: rgba(255,149,0,.12); border-color: rgba(255,149,0,.4); }
-.dchip-lbl { font-size: 14px; font-weight: 700; color: var(--muted); }
-.dchip.sel .dchip-lbl { color: var(--blue-light); }
-.dchip.asel .dchip-lbl { color: var(--amber); }
-.dchip-end { font-size: 10px; color: var(--hint); margin-top: 3px; }
-.macts { display: flex; gap: 10px; }
-.mcancel {
-  flex: 0 0 auto; width: 100px; padding: 14px;
-  background: var(--panel2); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); color: var(--muted);
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  font-family: var(--font);
-}
-.mconfirm {
-  flex: 1; padding: 14px; border: none;
-  border-radius: var(--radius-sm);
-  font-size: 15px; font-weight: 700; cursor: pointer;
-  font-family: var(--font); transition: opacity .2s;
-}
-.mconfirm:disabled { opacity: .5; cursor: default; }
-.mconfirm.inst { background: var(--blue); color: #fff; }
-.mconfirm.appr { background: var(--amber); color: #1a0800; }
-
-/* ── AUTH OVERLAY ── */
-#auth-overlay {
-  position: fixed; inset: 0; background: var(--bg);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 14px; z-index: 500; padding: 32px;
-}
-#auth-overlay.hidden { display: none; }
-.auth-icon { font-size: 52px; }
-.auth-title { font-size: 24px; font-weight: 800; color: #fff; text-align: center; }
-.auth-sub { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.7; }
-.auth-btn {
-  padding: 15px 40px; background: var(--blue);
-  border: none; border-radius: var(--radius-sm);
-  color: #fff; font-size: 16px; font-weight: 700;
-  cursor: pointer; font-family: var(--font);
-}
-
-/* ── TOAST ── */
-#toast {
-  position: fixed; bottom: 90px; left: 50%;
-  transform: translateX(-50%);
-  background: var(--panel); border: 2px solid var(--border2);
-  border-radius: 50px; padding: 10px 22px;
-  font-size: 13px; color: var(--text);
-  z-index: 400; white-space: nowrap;
-  pointer-events: none; transition: opacity .3s;
-}
-#toast.hidden { opacity: 0; }
-#toast.success { border-color: rgba(0,214,143,.45); color: var(--green); }
-#toast.error { border-color: rgba(255,51,51,.45); color: var(--red); }
-#toast.warn { border-color: rgba(255,149,0,.45); color: var(--amber); }
-
-.spinner { width: 18px; height: 18px; border: 2.5px solid var(--border); border-top-color: var(--blue); border-radius: 50%; display: inline-block; vertical-align: middle; animation: spin .7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* TOAST */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--panel);border:2px solid var(--border2);border-radius:50px;padding:10px 22px;font-size:13px;color:var(--text);z-index:400;white-space:nowrap;pointer-events:none;transition:opacity .3s;}
+#toast.hidden{opacity:0;}
+#toast.success{border-color:rgba(0,214,143,.45);color:var(--green);}
+#toast.error{border-color:rgba(255,51,51,.45);color:var(--red);}
+#toast.warn{border-color:rgba(255,149,0,.45);color:var(--amber);}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;display:inline-block;vertical-align:middle;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 
-<!-- AUTH OVERLAY -->
 <div id="auth-overlay" class="hidden">
-  <div class="auth-icon">🔐</div>
-  <div class="auth-title">Sign in to book</div>
-  <div class="auth-sub">Sign in with your Microsoft 365 account to complete this booking.</div>
+  <div style="font-size:48px">🔐</div>
+  <div style="font-size:22px;font-weight:800;color:#fff">Sign in to book</div>
+  <div style="font-size:13px;color:var(--muted);text-align:center;line-height:1.7">Sign in with your Microsoft 365 account<br>to complete this booking.</div>
   <button class="auth-btn" onclick="doSignIn()">Sign in with Microsoft</button>
-  <div style="font-size:11px;color:var(--hint);margin-top:8px" id="auth-error"></div>
+  <div style="font-size:11px;color:var(--hint);margin-top:4px" id="auth-error"></div>
 </div>
 
-<!-- MAIN -->
 <div id="main-app">
   <div class="hdr">
     <div class="hdr-top">
@@ -368,40 +165,27 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font)
   </div>
 
   <div class="sum-row">
-    <div class="sum-card"><div class="sum-n" id="sum-avail" style="color:var(--blue)">--</div><div class="sum-l">Available</div></div>
-    <div class="sum-card"><div class="sum-n" id="sum-busy" style="color:var(--red)">--</div><div class="sum-l">In Use</div></div>
-    <div class="sum-card"><div class="sum-n" id="sum-soon" style="color:var(--amber)">--</div><div class="sum-l">Soon</div></div>
+    <div class="sum-card" style="border-color:var(--blue)"><div class="sum-n" id="sum-avail" style="color:var(--blue)">--</div><div class="sum-l">Available</div></div>
+    <div class="sum-card" style="border-color:var(--red)"><div class="sum-n" id="sum-busy" style="color:var(--red)">--</div><div class="sum-l">In Use</div></div>
+    <div class="sum-card" style="border-color:var(--amber)"><div class="sum-n" id="sum-soon" style="color:var(--amber)">--</div><div class="sum-l">Soon</div></div>
   </div>
 
-  <div class="hint-bar">
-    <span style="font-size:15px">👆</span>
-    <span>Tap any room to select &amp; book · auto-selected: next available</span>
+  <div class="hint-bar"><span style="font-size:14px">👆</span><span>Tap any room to select &amp; book</span></div>
+
+  <div class="ref-bar">
+    <span class="ref-txt" id="ref-txt">Loading…</span>
+    <button class="ref-btn" onclick="refreshAll()">↻ Refresh</button>
   </div>
 
-  <div class="refresh-bar">
-    <span class="refresh-txt" id="refresh-txt">Loading…</span>
-    <button class="refresh-btn" onclick="refreshAll()">↻ Refresh</button>
-  </div>
-
-  <!-- LOBBY AREA -->
   <div class="zone-wrap">
-    <div class="zone-hdr">
-      <span class="zone-icon">🪟</span>
-      <span class="zone-name">Lobby area</span>
-      <span class="zone-sub">rooms 1–6 · window side</span>
-    </div>
+    <div class="zone-hdr"><span style="font-size:16px">🪟</span><span class="zone-name">Lobby area</span><span class="zone-sub">rooms 1–6 · window side</span></div>
     <div class="zone-grid" id="zone-lobby"></div>
   </div>
 
-  <div class="zone-divider"></div>
+  <div class="zone-div"></div>
 
-  <!-- IN-OFFICE AREA -->
   <div class="zone-wrap">
-    <div class="zone-hdr">
-      <span class="zone-icon">🏢</span>
-      <span class="zone-name">In-office area</span>
-      <span class="zone-sub">rooms 7–12 · interior</span>
-    </div>
+    <div class="zone-hdr"><span style="font-size:16px">🏢</span><span class="zone-name">In-office area</span><span class="zone-sub">rooms 7–12 · interior</span></div>
     <div class="zone-grid" id="zone-office"></div>
   </div>
 
@@ -411,9 +195,8 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font)
     <div class="leg"><div class="leg-dot" style="background:var(--red)"></div>In Use</div>
   </div>
 
-  <!-- DETAIL CARD -->
-  <div class="detail-wrap">
-    <div class="detail-card" id="detail-card">
+  <div class="dc-wrap">
+    <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
           <div class="dc-name" id="dc-name">Tap a room</div>
@@ -421,9 +204,9 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font)
         </div>
         <div class="dc-meta" id="dc-meta">Select any room above to see details</div>
         <div class="dc-time" id="dc-time"></div>
-        <div class="appr-note hidden" id="dc-appr">⚠ This room requires owner approval before confirming. A request will be sent to the room owner.</div>
+        <div class="appr-note hidden" id="dc-appr">⚠ This room requires owner approval before confirming.</div>
       </div>
-      <div class="dc-btns" id="dc-btns">
+      <div class="dc-btns">
         <button class="dc-btn dc-btn-sec" onclick="showSchedule()">View schedule</button>
         <button class="dc-btn dc-btn-book" id="dc-book-btn" onclick="openBookModal()">+ Book this room</button>
       </div>
@@ -431,7 +214,6 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font)
   </div>
 </div>
 
-<!-- BOOKING MODAL -->
 <div id="book-modal" class="hidden">
   <div class="msheet">
     <div class="mdrag"></div>
@@ -441,21 +223,15 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font)
       <strong>✉ Approval required</strong>
       A request will be sent to the room owner. Booking is pending until approved.
     </div>
-    <div class="mfield">
-      <label>Your Name</label>
-      <input type="text" id="book-name" placeholder="Enter your name" autocomplete="off">
-    </div>
-    <div class="mfield">
-      <label>Meeting Title</label>
-      <input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off">
-    </div>
+    <div class="mfield"><label>Your Name</label><input type="text" id="book-name" placeholder="Enter your name" autocomplete="off"></div>
+    <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
     <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
-    <label style="font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:10px">Duration</label>
+    <label style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:8px">Duration</label>
     <div class="dur-grid">
-      <div class="dchip" data-min="30"><div class="dchip-lbl">30m</div><div class="dchip-end" id="chip-end-30"></div></div>
-      <div class="dchip sel" data-min="60"><div class="dchip-lbl">1h</div><div class="dchip-end" id="chip-end-60"></div></div>
-      <div class="dchip" data-min="90"><div class="dchip-lbl">1h 30m</div><div class="dchip-end" id="chip-end-90"></div></div>
-      <div class="dchip" data-min="120"><div class="dchip-lbl">2h</div><div class="dchip-end" id="chip-end-120"></div></div>
+      <div class="dchip" data-min="30"><div class="dchip-lbl">30m</div><div class="dchip-end" id="ce30"></div></div>
+      <div class="dchip sel" data-min="60"><div class="dchip-lbl">1h</div><div class="dchip-end" id="ce60"></div></div>
+      <div class="dchip" data-min="90"><div class="dchip-lbl">1h 30</div><div class="dchip-end" id="ce90"></div></div>
+      <div class="dchip" data-min="120"><div class="dchip-lbl">2h</div><div class="dchip-end" id="ce120"></div></div>
     </div>
     <div class="macts">
       <button class="mcancel" onclick="closeBookModal()">Cancel</button>
@@ -467,410 +243,296 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font)
 <div id="toast" class="hidden"></div>
 
 <script>
-// ── CONFIG ──
-const TENANT_ID = '817e531d-191b-4cf5-8812-f0061d89b53d';
-const CLIENT_ID = '80648895-4acf-4ac5-b4a3-c5bf6bc98983';
-const SCOPES = ['Calendars.ReadWrite', 'Calendars.ReadWrite.Shared', 'Mail.Send', 'User.Read'];
+const TENANT='817e531d-191b-4cf5-8812-f0061d89b53d';
+const CLIENT='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
+const SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
 
-const ROOMS = [
-  { num:1,  name:'Espresso',    email:'risespresso@central.co.th',    seats:8, zone:'lobby',  approval:false },
-  { num:2,  name:'Doppio',      email:'risdoppio@central.co.th',      seats:6, zone:'lobby',  approval:false },
-  { num:3,  name:'Cappuccino',  email:'riscappuccino@central.co.th',  seats:6, zone:'lobby',  approval:false },
-  { num:4,  name:'Americano',   email:'risamericano@central.co.th',   seats:6, zone:'lobby',  approval:false },
-  { num:5,  name:'Lungo',       email:'rislungo@central.co.th',       seats:4, zone:'lobby',  approval:false },
-  { num:6,  name:'Ristretto',   email:'risristretto@central.co.th',   seats:4, zone:'lobby',  approval:false },
-  { num:7,  name:'Macchiato',   email:'rismacchiato@central.co.th',   seats:6, zone:'office', approval:true  },
-  { num:8,  name:'Viennese',    email:'risviennese@central.co.th',    seats:8, zone:'office', approval:false },
-  { num:9,  name:'Decaffinato', email:'risdecaffeinato@central.co.th',seats:4, zone:'office', approval:false },
-  { num:10, name:'Latte',       email:'rislatte@central.co.th',       seats:6, zone:'office', approval:false },
-  { num:11, name:'Mocha',       email:'rismocha@central.co.th',       seats:6, zone:'office', approval:false },
-  { num:12, name:'Affogato',    email:'risaffogato@central.co.th',    seats:8, zone:'office', approval:false },
+const ROOMS=[
+  {num:1,name:'Espresso',   email:'risespresso@central.co.th',   zone:'lobby', approval:false},
+  {num:2,name:'Doppio',     email:'risdoppio@central.co.th',      zone:'lobby', approval:false},
+  {num:3,name:'Cappuccino', email:'riscappuccino@central.co.th',  zone:'lobby', approval:false},
+  {num:4,name:'Americano',  email:'risamericano@central.co.th',   zone:'lobby', approval:false},
+  {num:5,name:'Lungo',      email:'rislungo@central.co.th',       zone:'lobby', approval:false},
+  {num:6,name:'Ristretto',  email:'risristretto@central.co.th',   zone:'lobby', approval:false},
+  {num:7,name:'Macchiato',  email:'rismacchiato@central.co.th',   zone:'office',approval:true },
+  {num:8,name:'Viennese',   email:'risviennese@central.co.th',    zone:'office',approval:false},
+  {num:9,name:'Decaffinato',email:'risdecaffeinato@central.co.th',zone:'office',approval:false},
+  {num:10,name:'Latte',     email:'rislatte@central.co.th',       zone:'office',approval:false},
+  {num:11,name:'Mocha',     email:'rismocha@central.co.th',       zone:'office',approval:false},
+  {num:12,name:'Affogato',  email:'risaffogato@central.co.th',    zone:'office',approval:false},
 ];
 
-// ── STATE ──
-let msalInst = null, account = null;
-let _token = null, _tokenExpiry = 0;
-let roomData = {};
-let selectedRoom = null;
-let selDurMin = 60;
-let lastRefresh = null;
+let msalInst=null, account=null, _token=null, _tokenExp=0;
+let roomData={}, selectedRoom=null, selDurMin=60;
 
-// ── UTILS ──
-const el = id => document.getElementById(id);
-const show = id => el(id)?.classList.remove('hidden');
-const hide = id => el(id)?.classList.add('hidden');
-const pad = n => String(n).padStart(2, '0');
-const ft = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-const localISO = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+const el=id=>document.getElementById(id);
+const show=id=>el(id)?.classList.remove('hidden');
+const hide=id=>el(id)?.classList.add('hidden');
+const pad=n=>String(n).padStart(2,'0');
+const ft=d=>`${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const localISO=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 
-function toast(msg, type) {
-  const t = el('toast');
-  t.textContent = msg;
-  t.className = type || '';
-  t.classList.remove('hidden');
-  clearTimeout(t._t);
-  t._t = setTimeout(() => t.classList.add('hidden'), 3500);
+function toast(msg,type){
+  const t=el('toast');t.textContent=msg;t.className=type||'';
+  t.classList.remove('hidden');clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.add('hidden'),3500);
 }
 
-function gDate(o) {
-  const s = o.dateTime, tz = o.timeZone || '';
-  if (!s) return new Date();
-  let t = s.replace(/\.\d+$/, '');
-  if (tz === 'UTC' || tz === 'utc') {
-    if (!t.endsWith('Z')) t += 'Z';
-    return new Date(t);
-  }
-  if (t.endsWith('Z') || t.includes('+')) return new Date(t);
-  const [datePart, timePart] = t.split('T');
-  const [yr, mo, dy] = datePart.split('-').map(Number);
-  const [hr, mn, sc = 0] = timePart.split(':').map(Number);
-  return new Date(yr, mo - 1, dy, hr, mn, sc);
+function gDate(o){
+  const s=o.dateTime,tz=o.timeZone||'';
+  if(!s)return new Date();
+  let t=s.replace(/\.\d+$/,'');
+  if(tz==='UTC'||tz==='utc'){if(!t.endsWith('Z'))t+='Z';return new Date(t);}
+  if(t.endsWith('Z')||t.includes('+'))return new Date(t);
+  const[dp,tp]=t.split('T');
+  const[yr,mo,dy]=dp.split('-').map(Number);
+  const[hr,mn,sc=0]=tp.split(':').map(Number);
+  return new Date(yr,mo-1,dy,hr,mn,sc);
 }
 
-// ── CLOCK ──
-function startClock() {
-  const tick = () => {
-    const n = new Date();
-    el('clock-time').textContent = `${pad(n.getHours())}:${pad(n.getMinutes())}`;
-    el('clock-date').textContent = n.toLocaleDateString('en-US', { weekday:'short', day:'numeric', month:'short' });
+function startClock(){
+  const tick=()=>{
+    const n=new Date();
+    el('clock-time').textContent=`${pad(n.getHours())}:${pad(n.getMinutes())}`;
+    el('clock-date').textContent=n.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short'});
   };
-  tick();
-  setInterval(tick, 15000);
+  tick();setInterval(tick,15000);
 }
 
-// ── MSAL ──
-function initMsal() {
-  if (msalInst) return;
-  const MsalLib = typeof Msal !== 'undefined' ? Msal : (typeof msal !== 'undefined' ? msal : null);
-  if (!MsalLib) { console.warn('MSAL not loaded'); return; }
-  try {
-    msalInst = new MsalLib.UserAgentApplication({
-      auth: {
-        clientId: CLIENT_ID,
-        authority: `https://login.microsoftonline.com/${TENANT_ID}`,
-        redirectUri: location.href.split('?')[0].split('#')[0]
-      },
-      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+function initMsal(){
+  if(msalInst)return;
+  const Lib=typeof Msal!=='undefined'?Msal:(typeof msal!=='undefined'?msal:null);
+  if(!Lib){console.warn('MSAL not loaded');return;}
+  try{
+    msalInst=new Lib.UserAgentApplication({
+      auth:{clientId:CLIENT,authority:`https://login.microsoftonline.com/${TENANT}`,
+        redirectUri:location.href.split('?')[0].split('#')[0]},
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
-    const acts = msalInst.getAllAccounts?.() || [];
-    if (acts.length) account = acts[0];
-  } catch(e) { console.warn('MSAL init error:', e); }
+    // MSAL v1 uses getAccount() not getAllAccounts()
+    account=msalInst.getAccount();
+  }catch(e){console.warn('MSAL init:',e);}
 }
 
-function doSignIn() {
+function doSignIn(){
   initMsal();
-  try { msalInst.loginRedirect({ scopes: SCOPES, prompt: 'select_account' }); }
-  catch(e) { el('auth-error').textContent = e.message; }
+  try{msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});}
+  catch(e){el('auth-error').textContent=e.message;}
 }
 
-async function getToken() {
-  if (_token && _tokenExpiry > Date.now() + 120000) return _token;
+async function getToken(){
+  if(_token&&_tokenExp>Date.now()+120000)return _token;
   initMsal();
-  if (!account || !msalInst) return null;
-  try {
-    const r = await msalInst.acquireTokenSilent({ scopes: SCOPES, account });
-    _token = r.accessToken;
-    _tokenExpiry = r.expiresOn?.getTime() || (Date.now() + 3600000);
+  if(!account||!msalInst)return null;
+  try{
+    const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
+    _token=r.accessToken;
+    _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
     return _token;
-  } catch { return null; }
+  }catch{return null;}
 }
 
-// ── CALENDAR FETCH ──
-async function fetchRoom(room, tok, start, end) {
-  if (!tok) return { status: 'unknown', meetings: [], cur: null, nxt: null, freeUntil: null };
-  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(room.email)}/calendarView`
-    + `?startDateTime=${start}&endDateTime=${end}`
-    + `&$select=subject,organizer,start,end,isCancelled&$orderby=start/dateTime&$top=20`;
-  try {
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } });
-    if (!r.ok) return { status: 'unknown', meetings: [], cur: null, nxt: null, freeUntil: null };
-    const d = await r.json();
-    const now = new Date();
-    const meetings = (d.value || [])
-      .filter(m => !m.isCancelled)
-      .map(ev => ({
-        title: ev.subject || '(No title)',
-        start: gDate(ev.start),
-        end: gDate(ev.end),
-        organizer: ev.organizer?.emailAddress?.name || ''
-      }));
-    const cur = meetings.find(m => m.start <= now && m.end >= now) || null;
-    const nxt = meetings.find(m => m.start > now) || null;
-    let status, freeUntil = null;
-    if (cur) {
-      status = 'busy'; freeUntil = cur.end;
-    } else if (nxt) {
-      const mins = Math.round((nxt.start - now) / 60000);
-      status = mins <= 30 ? 'soon' : 'avail';
-      freeUntil = nxt.start;
-    } else {
-      status = 'avail';
-    }
-    return { status, meetings, cur, nxt, freeUntil };
-  } catch { return { status: 'unknown', meetings: [], cur: null, nxt: null, freeUntil: null }; }
+async function fetchRoom(room,tok,s,e){
+  if(!tok)return{status:'unknown',meetings:[],cur:null,nxt:null,freeUntil:null};
+  const url=`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(room.email)}/calendarView`
+    +`?startDateTime=${s}&endDateTime=${e}`
+    +`&$select=subject,organizer,start,end,isCancelled&$orderby=start/dateTime&$top=20`;
+  try{
+    const r=await fetch(url,{headers:{Authorization:`Bearer ${tok}`}});
+    if(!r.ok)return{status:'unknown',meetings:[],cur:null,nxt:null,freeUntil:null};
+    const d=await r.json();
+    const now=new Date();
+    const meetings=(d.value||[]).filter(m=>!m.isCancelled).map(ev=>({
+      title:ev.subject||'(No title)',
+      start:gDate(ev.start),end:gDate(ev.end),
+      organizer:ev.organizer?.emailAddress?.name||''
+    }));
+    const cur=meetings.find(m=>m.start<=now&&m.end>=now)||null;
+    const nxt=meetings.find(m=>m.start>now)||null;
+    let status,freeUntil=null;
+    if(cur){status='busy';freeUntil=cur.end;}
+    else if(nxt){
+      const mins=Math.round((nxt.start-now)/60000);
+      status=mins<=30?'soon':'avail';freeUntil=nxt.start;
+    }else{status='avail';}
+    return{status,meetings,cur,nxt,freeUntil};
+  }catch{return{status:'unknown',meetings:[],cur:null,nxt:null,freeUntil:null};}
 }
 
-async function fetchAllRooms() {
-  el('refresh-txt').textContent = 'Refreshing…';
-  const tok = await getToken();
-  const now = new Date();
-  const dayStart = new Date(now); dayStart.setHours(0,0,0,0);
-  const dayEnd = new Date(now); dayEnd.setHours(23,59,59,999);
-  const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok, dayStart.toISOString(), dayEnd.toISOString())));
-  ROOMS.forEach((r, i) => { roomData[r.email] = results[i]; });
-  lastRefresh = new Date();
-  el('refresh-txt').textContent = `Updated ${ft(lastRefresh)}`;
-  renderRooms();
-  updateSummary();
-  if (!selectedRoom) selectDefaultRoom();
+async function fetchAllRooms(){
+  el('ref-txt').textContent='Refreshing…';
+  const tok=await getToken();
+  const now=new Date();
+  const s=new Date(now);s.setHours(0,0,0,0);
+  const e=new Date(now);e.setHours(23,59,59,999);
+  const results=await Promise.all(ROOMS.map(r=>fetchRoom(r,tok,s.toISOString(),e.toISOString())));
+  ROOMS.forEach((r,i)=>{roomData[r.email]=results[i];});
+  el('ref-txt').textContent=`Updated ${ft(new Date())}`;
+  renderRooms();updateSummary();
+  if(!selectedRoom)selectDefaultRoom();
   else updateDetailCard();
 }
 
-function refreshAll() { fetchAllRooms(); }
+function refreshAll(){fetchAllRooms();}
 
-// ── RENDER ──
-function getStatusProps(room) {
-  const d = roomData[room.email];
-  if (!d) return { status:'unknown', cls:'rt-unknown', badge:'—', badgeStyle:'background:#1a1a2e;color:#7788aa;border:1px solid #2a2a3a', info:'', dcCls:'' };
-  const now = new Date();
-  if (d.status === 'busy') return {
-    status:'busy', cls:'rt-busy',
-    badge:'IN USE',
-    badgeStyle:'background:#2a0808;color:#ff8888;border:1px solid rgba(255,51,51,.4)',
-    info: d.cur ? `Until ${ft(d.cur.end)}` : 'Occupied',
-    dcCls: 'dc-busy'
-  };
-  if (d.status === 'soon') {
-    const m = d.freeUntil ? Math.round((d.freeUntil - now) / 60000) : 0;
-    return {
-      status:'soon', cls:'rt-soon',
-      badge:'SOON',
-      badgeStyle:'background:#1e1000;color:#ffcc44;border:1px solid rgba(255,149,0,.4)',
-      info: `In ${m}m`,
-      dcCls: 'dc-soon'
-    };
+function getStatusProps(room){
+  const d=roomData[room.email];
+  const now=new Date();
+  if(!d||d.status==='unknown')return{status:'unknown',dot:'#3a4d6b',info:'—',dcCls:'',badgeTxt:'—',badgeStyle:'background:#1a1a2e;color:#7788aa'};
+  if(d.status==='busy')return{status:'busy',dot:'#ff3333',info:d.cur?`Until ${ft(d.cur.end)}`:'Occupied',dcCls:'dc-busy',badgeTxt:'IN USE',badgeStyle:'background:rgba(255,51,51,.15);color:#ff8888;border:1px solid rgba(255,51,51,.3)'};
+  if(d.status==='soon'){
+    const m=d.freeUntil?Math.round((d.freeUntil-now)/60000):0;
+    return{status:'soon',dot:'#ff9500',info:`In ${m}m`,dcCls:'dc-soon',badgeTxt:'SOON',badgeStyle:'background:rgba(255,149,0,.15);color:#ffcc44;border:1px solid rgba(255,149,0,.3)'};
   }
-  if (d.status === 'avail') return {
-    status:'avail', cls:'rt-avail',
-    badge:'FREE',
-    badgeStyle:'background:#071428;color:#60aaff;border:1px solid rgba(41,121,255,.35)',
-    info: d.freeUntil ? `Free until ${ft(d.freeUntil)}` : 'Free all day',
-    dcCls: ''
-  };
-  return { status:'unknown', cls:'rt-unknown', badge:'—', badgeStyle:'background:#1a1a2e;color:#7788aa;border:1px solid #2a2a3a', info:'Loading…', dcCls:'' };
+  return{status:'avail',dot:'#2979ff',info:d.freeUntil?`Free until ${ft(d.freeUntil)}`:'Free all day',dcCls:'',badgeTxt:'FREE',badgeStyle:'background:rgba(41,121,255,.15);color:#60aaff;border:1px solid rgba(41,121,255,.3)'};
 }
 
-function renderZone(containerId, rooms) {
-  const c = el(containerId);
-  if (!c) return;
-  c.innerHTML = '';
-  rooms.forEach(room => {
-    const sp = getStatusProps(room);
-    const isSel = selectedRoom?.email === room.email;
-    const div = document.createElement('div');
-    div.className = `room-tile ${sp.cls}${isSel ? ' sel' : ''}`;
-    div.innerHTML = `
-      ${isSel ? '<div class="sel-arrow"></div>' : ''}
-      <div class="rt-bar"></div>
-      <div class="rt-body">
-        <div class="rt-num">${room.num}</div>
-        <div class="rt-name">${room.name}</div>
-        <div class="rt-badge" style="${sp.badgeStyle}">${sp.badge}</div>
-        <div class="rt-info">${sp.info}</div>
-        <div class="rt-seats">👤 ${room.seats}</div>
-        ${isSel ? `<span class="next-badge" id="nbadge-${room.num}" style="display:none">NEXT AVAIL.</span>` : ''}
-      </div>`;
-    div.addEventListener('click', () => selectRoom(room));
+function renderZone(cid,rooms){
+  const c=el(cid);if(!c)return;c.innerHTML='';
+  rooms.forEach(room=>{
+    const sp=getStatusProps(room);
+    const isSel=selectedRoom?.email===room.email;
+    const isDefault=isSel&&room._isDefault;
+    const div=document.createElement('div');
+    div.className='rt'+(isSel?' sel':'');
+    div.innerHTML=`
+      ${isSel?'<div class="sel-arrow"></div>':''}
+      <div class="rt-name">${room.name}</div>
+      <div class="rt-info"><span class="rt-dot" style="background:${sp.dot}"></span>${sp.info}</div>
+      ${room._isDefault&&isSel?'<div class="next-pill">NEXT AVAIL.</div>':''}
+      <div class="rt-bar" style="background:${sp.dot}"></div>`;
+    div.addEventListener('click',()=>selectRoom(room));
     c.appendChild(div);
   });
 }
 
-function renderRooms() {
-  renderZone('zone-lobby', ROOMS.filter(r => r.zone === 'lobby'));
-  renderZone('zone-office', ROOMS.filter(r => r.zone === 'office'));
+function renderRooms(){
+  renderZone('zone-lobby',ROOMS.filter(r=>r.zone==='lobby'));
+  renderZone('zone-office',ROOMS.filter(r=>r.zone==='office'));
 }
 
-function updateSummary() {
-  let avail = 0, busy = 0, soon = 0;
-  ROOMS.forEach(r => {
-    const d = roomData[r.email];
-    if (!d) return;
-    if (d.status === 'avail') avail++;
-    else if (d.status === 'busy') busy++;
-    else if (d.status === 'soon') soon++;
+function updateSummary(){
+  let a=0,b=0,s=0;
+  ROOMS.forEach(r=>{
+    const d=roomData[r.email];if(!d)return;
+    if(d.status==='avail')a++;else if(d.status==='busy')b++;else if(d.status==='soon')s++;
   });
-  el('sum-avail').textContent = avail;
-  el('sum-busy').textContent = busy;
-  el('sum-soon').textContent = soon;
+  el('sum-avail').textContent=a;el('sum-busy').textContent=b;el('sum-soon').textContent=s;
 }
 
-function selectDefaultRoom() {
-  // Skip Macchiato (approval) — find first available
-  const best = ROOMS.find(r => !r.approval && roomData[r.email]?.status === 'avail');
-  const fallback = ROOMS.find(r => roomData[r.email]?.status === 'avail') || ROOMS[0];
-  selectRoom(best || fallback, true);
+function selectDefaultRoom(){
+  // Exclude Macchiato (approval) from default selection
+  const best=ROOMS.find(r=>!r.approval&&roomData[r.email]?.status==='avail')
+    ||ROOMS.find(r=>roomData[r.email]?.status==='avail')
+    ||ROOMS[0];
+  ROOMS.forEach(r=>r._isDefault=false);
+  if(best)best._isDefault=true;
+  selectRoom(best||ROOMS[0]);
 }
 
-function selectRoom(room, isDefault = false) {
-  selectedRoom = room;
+function selectRoom(room){
+  selectedRoom=room;
   renderRooms();
-  if (isDefault) {
-    const badge = el(`nbadge-${room.num}`);
-    if (badge) badge.style.display = 'block';
-  }
   updateDetailCard();
-  // Smooth scroll to detail card
-  el('detail-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  el('detail-card')?.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-function updateDetailCard() {
-  if (!selectedRoom) return;
-  const sp = getStatusProps(selectedRoom);
-  const d = roomData[selectedRoom.email];
-  const card = el('detail-card');
-  card.className = `detail-card ${sp.dcCls}`;
-  el('dc-name').textContent = `${selectedRoom.name} — Room ${selectedRoom.num}`;
-  const badge = el('dc-badge');
-  badge.textContent = sp.badge;
-  badge.style.cssText = sp.badgeStyle + ';font-size:11px;font-weight:700;padding:4px 12px;border-radius:8px;';
-  const zone = selectedRoom.zone === 'lobby' ? 'Lobby area' : 'In-office area';
-  el('dc-meta').textContent = `${zone} · 👤 ${selectedRoom.seats} seats`;
-  if (sp.status === 'busy') {
-    el('dc-time').textContent = `Occupied · ${sp.info}`;
-    el('dc-time').style.color = 'var(--red)';
-  } else if (sp.status === 'soon') {
-    el('dc-time').textContent = `Available soon · ${sp.info}`;
-    el('dc-time').style.color = 'var(--amber)';
-  } else {
-    el('dc-time').textContent = sp.info || 'Free all day';
-    el('dc-time').style.color = 'var(--blue-light)';
-  }
-  selectedRoom.approval ? show('dc-appr') : hide('dc-appr');
-  // Book button
-  const btn = el('dc-book-btn');
-  if (sp.status === 'busy') {
-    btn.className = 'dc-btn dc-btn-busy';
-    btn.textContent = d?.cur ? `Occupied until ${ft(d.cur.end)}` : 'Currently occupied';
-    btn.onclick = null;
-  } else if (selectedRoom.approval) {
-    btn.className = 'dc-btn dc-btn-appr';
-    btn.textContent = 'Request booking';
-    btn.onclick = openBookModal;
-  } else {
-    btn.className = 'dc-btn dc-btn-book';
-    btn.textContent = '+ Book this room';
-    btn.onclick = openBookModal;
+function updateDetailCard(){
+  if(!selectedRoom)return;
+  const sp=getStatusProps(selectedRoom);
+  const d=roomData[selectedRoom.email];
+  const card=el('detail-card');
+  card.className=`dc ${sp.dcCls}`;
+  el('dc-name').textContent=`${selectedRoom.name} — Room ${selectedRoom.num}`;
+  const badge=el('dc-badge');
+  badge.textContent=sp.badgeTxt;
+  badge.setAttribute('style',sp.badgeStyle+';font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;');
+  const zone=selectedRoom.zone==='lobby'?'Lobby area':'In-office area';
+  el('dc-meta').textContent=`${zone} · ${selectedRoom.seats||''}`;
+  el('dc-time').textContent=sp.status==='busy'?`Occupied · ${sp.info}`:sp.status==='soon'?`Available soon · ${sp.info}`:sp.info||'Free all day';
+  el('dc-time').style.color=sp.status==='busy'?'var(--red)':sp.status==='soon'?'var(--amber)':'var(--blue-l)';
+  selectedRoom.approval?show('dc-appr'):hide('dc-appr');
+  const btn=el('dc-book-btn');
+  if(sp.status==='busy'){
+    btn.className='dc-btn dc-btn-busy';
+    btn.textContent=d?.cur?`Occupied until ${ft(d.cur.end)}`:'Currently occupied';
+    btn.onclick=null;
+  }else if(selectedRoom.approval){
+    btn.className='dc-btn dc-btn-appr';btn.textContent='Request booking';btn.onclick=openBookModal;
+  }else{
+    btn.className='dc-btn dc-btn-book';btn.textContent='+ Book this room';btn.onclick=openBookModal;
   }
 }
 
-function showSchedule() {
-  if (!selectedRoom) return;
-  const d = roomData[selectedRoom.email];
-  if (!d?.meetings?.length) { toast('No meetings scheduled today', 'warn'); return; }
-  const lines = d.meetings.map(m => `${ft(m.start)} – ${ft(m.end)}  ${m.title}`).join('\n');
-  alert(`${selectedRoom.name} — Today's schedule:\n\n${lines}`);
+function showSchedule(){
+  if(!selectedRoom)return;
+  const d=roomData[selectedRoom.email];
+  if(!d?.meetings?.length){toast('No meetings scheduled today','warn');return;}
+  alert(`${selectedRoom.name} — Today:\n\n`+d.meetings.map(m=>`${ft(m.start)}–${ft(m.end)}  ${m.title}`).join('\n'));
 }
 
-// ── BOOKING MODAL ──
-function openBookModal() {
-  if (!selectedRoom) return;
+function openBookModal(){
+  if(!selectedRoom)return;
   initMsal();
-  if (!account) { show('auth-overlay'); return; }
-  selDurMin = 60;
-  el('book-name').value = '';
-  el('book-title').value = '';
-  el('modal-room-name').textContent = `Book ${selectedRoom.name}`;
-  el('modal-room-email').textContent = selectedRoom.email;
-  selectedRoom.approval ? show('modal-appr-banner') : hide('modal-appr-banner');
-  el('mconfirm').className = `mconfirm ${selectedRoom.approval ? 'appr' : 'inst'}`;
-  el('mconfirm-lbl').textContent = selectedRoom.approval ? 'Send approval request' : 'Confirm booking';
-  document.querySelectorAll('.dchip').forEach(c => {
-    c.className = 'dchip' + (c.dataset.min === '60' ? (selectedRoom.approval ? ' sel asel' : ' sel') : '');
+  if(!account){show('auth-overlay');return;}
+  selDurMin=60;
+  el('book-name').value='';el('book-title').value='';
+  el('modal-room-name').textContent=`Book ${selectedRoom.name}`;
+  el('modal-room-email').textContent=selectedRoom.email;
+  selectedRoom.approval?show('modal-appr-banner'):hide('modal-appr-banner');
+  el('mconfirm').className=`mconfirm ${selectedRoom.approval?'appr':'inst'}`;
+  el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
+  document.querySelectorAll('.dchip').forEach(c=>{
+    c.className='dchip'+(c.dataset.min==='60'?(selectedRoom.approval?' sel asel':' sel'):'');
   });
-  updatePrev();
-  show('book-modal');
-  setTimeout(() => el('book-name').focus(), 350);
+  updatePrev();show('book-modal');
+  setTimeout(()=>el('book-name').focus(),350);
 }
 
-function closeBookModal() { hide('book-modal'); }
+function closeBookModal(){hide('book-modal');}
 
-function selDur(chip) {
-  document.querySelectorAll('.dchip').forEach(c => c.className = 'dchip');
-  chip.className = `dchip sel${selectedRoom?.approval ? ' asel' : ''}`;
-  selDurMin = parseInt(chip.dataset.min);
-  updatePrev();
+document.querySelectorAll('.dchip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('.dchip').forEach(x=>x.className='dchip');
+  c.className=`dchip sel${selectedRoom?.approval?' asel':''}`;
+  selDurMin=parseInt(c.dataset.min);updatePrev();
+}));
+
+function updatePrev(){
+  const s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  el('prev-s').textContent=ft(s);el('prev-e').textContent=ft(e);
+  [30,60,90,120].forEach(m=>{const x=el(`ce${m}`);if(x)x.textContent=ft(new Date(s.getTime()+m*60000));});
 }
 
-// Attach duration chip click handlers
-document.querySelectorAll('.dchip').forEach(c => c.addEventListener('click', () => selDur(c)));
-
-function updatePrev() {
-  const s = new Date(), e = new Date(s.getTime() + selDurMin * 60000);
-  el('prev-s').textContent = ft(s);
-  el('prev-e').textContent = ft(e);
-  [30, 60, 90, 120].forEach(m => {
-    const el2 = el(`chip-end-${m}`);
-    if (el2) el2.textContent = ft(new Date(s.getTime() + m * 60000));
-  });
-}
-
-async function confirmBooking() {
-  const name = el('book-name').value.trim();
-  const title = el('book-title').value.trim();
-  if (!name) { toast('Please enter your name', 'warn'); return; }
-  if (!title) { toast('Please enter a meeting title', 'warn'); return; }
-  const btn = el('mconfirm');
-  btn.disabled = true;
-  el('mconfirm-lbl').innerHTML = '<span class="spinner"></span>';
-  const tok = await getToken();
-  if (!tok) {
-    btn.disabled = false;
-    el('mconfirm-lbl').textContent = 'Confirm booking';
-    toast('Please sign in first', 'warn');
-    show('auth-overlay');
-    return;
-  }
-  const s = new Date(), e = new Date(s.getTime() + selDurMin * 60000);
-  let tz = 'Asia/Bangkok';
-  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch {}
-  const body = {
-    subject: title,
-    body: { contentType: 'text', content: `Booked by ${name} via RIS Room Dashboard.` },
-    start: { dateTime: localISO(s), timeZone: tz },
-    end: { dateTime: localISO(e), timeZone: tz },
-    attendees: [{ emailAddress: { address: selectedRoom.email, name: selectedRoom.name }, type: 'required' }],
-    isOnlineMeeting: false
-  };
-  try {
-    const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(selectedRoom.email)}/events`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+async function confirmBooking(){
+  const name=el('book-name').value.trim(),title=el('book-title').value.trim();
+  if(!name){toast('Please enter your name','warn');return;}
+  if(!title){toast('Please enter a meeting title','warn');return;}
+  const btn=el('mconfirm');btn.disabled=true;
+  el('mconfirm-lbl').innerHTML='<span class="spinner"></span>';
+  const tok=await getToken();
+  if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
+  const s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  let tz='Asia/Bangkok';
+  try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch{}
+  try{
+    const r=await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(selectedRoom.email)}/events`,{
+      method:'POST',
+      headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},
+      body:JSON.stringify({subject:title,body:{contentType:'text',content:`Booked by ${name} via RIS Dashboard.`},start:{dateTime:localISO(s),timeZone:tz},end:{dateTime:localISO(e),timeZone:tz},attendees:[{emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'required'}],isOnlineMeeting:false})
     });
-    btn.disabled = false;
-    el('mconfirm-lbl').textContent = selectedRoom.approval ? 'Send approval request' : 'Confirm booking';
-    if (!r.ok) {
-      const er = await r.json();
-      toast('Booking failed: ' + (er.error?.message || r.status), 'error');
-    } else {
-      closeBookModal();
-      toast('✓ Room booked!', 'success');
-      setTimeout(fetchAllRooms, 3000);
-    }
-  } catch(err) {
-    btn.disabled = false;
-    el('mconfirm-lbl').textContent = 'Confirm booking';
-    toast('Error: ' + err.message, 'error');
-  }
+    btn.disabled=false;
+    el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
+    if(!r.ok){const er=await r.json();toast('Booking failed: '+(er.error?.message||r.status),'error');}
+    else{closeBookModal();toast('✓ Room booked!','success');setTimeout(fetchAllRooms,3000);}
+  }catch(err){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Error: '+err.message,'error');}
 }
 
-el('book-modal').addEventListener('click', e => { if (e.target === el('book-modal')) closeBookModal(); });
+el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))closeBookModal();});
 
-// ── BOOT ──
 startClock();
 initMsal();
 fetchAllRooms();
-setInterval(fetchAllRooms, 60000);
+setInterval(fetchAllRooms,60000);
 </script>
 </body>
 </html>
