@@ -22,15 +22,14 @@
 html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflow-x:hidden;-webkit-font-smoothing:antialiased;}
 .hidden{display:none!important;}
 
-/* HEADER */
-.hdr{background:var(--panel);padding:14px 16px 12px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
-.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.ris-logo{background:#1a3a6a;border:2px solid var(--blue);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:800;color:#fff;letter-spacing:.1em;}
-.clock-wrap{text-align:right;}
-.clock-time{font-size:30px;font-weight:200;color:#fff;line-height:1;font-variant-numeric:tabular-nums;}
-.clock-date{font-size:11px;color:var(--muted);margin-top:2px;}
-.hdr-title{font-size:20px;font-weight:900;color:#fff;margin-bottom:1px;}
-.hdr-sub{font-size:11px;color:var(--muted);}
+/* HEADER — compact single row */
+.hdr{background:var(--panel);padding:10px 14px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.hdr-row{display:flex;align-items:center;gap:8px;}
+.ris-logo{background:#1a3a6a;border:2px solid var(--blue);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800;color:#fff;letter-spacing:.1em;flex-shrink:0;}
+.hdr-title{font-size:15px;font-weight:900;color:#fff;flex:1;}
+.clock-wrap{text-align:right;flex-shrink:0;}
+.clock-time{font-size:22px;font-weight:200;color:#fff;line-height:1;font-variant-numeric:tabular-nums;display:block;}
+.clock-date{font-size:10px;color:var(--muted);margin-top:1px;display:block;}
 
 /* SUMMARY — thin underline style */
 .sum-row{display:flex;gap:0;padding:8px 16px 0;}
@@ -67,10 +66,9 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .sched-close-btn{width:100%;margin-top:14px;padding:11px;background:#f0f2f5;border:none;border-radius:8px;font-size:14px;font-weight:600;color:#333;cursor:pointer;font-family:var(--font);}
 
 /* IMPROVED REFRESH BAR */
-.ref-bar{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;border-bottom:1px solid var(--border);background:var(--panel);}
-.ref-txt{font-size:11px;color:var(--muted);}
-.ref-btn{font-size:12px;font-weight:700;color:var(--blue-l);background:rgba(41,121,255,.12);border:1px solid rgba(41,121,255,.25);border-radius:6px;cursor:pointer;padding:5px 12px;font-family:var(--font);}
-.ref-btn:active{opacity:.8;}
+.ref-bar{display:none;} /* merged into hint-bar */
+.ref-btn{font-size:14px;font-weight:700;color:#44bb66;background:none;border:none;cursor:pointer;padding:0 0 0 4px;font-family:var(--font);line-height:1;}
+.ref-btn:active{opacity:.7;}
 
 /* ZONES */
 .zone-wrap{padding:10px 14px 6px;}
@@ -180,15 +178,14 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 
 <div id="main-app">
   <div class="hdr">
-    <div class="hdr-top">
+    <div class="hdr-row">
       <div class="ris-logo">RIS</div>
+      <div class="hdr-title">Meeting Rooms</div>
       <div class="clock-wrap">
-        <div class="clock-time" id="clock-time">--:--</div>
-        <div class="clock-date" id="clock-date">---</div>
+        <span class="clock-time" id="clock-time">--:--</span>
+        <span class="clock-date" id="clock-date">---</span>
       </div>
     </div>
-    <div class="hdr-title">Meeting Rooms</div>
-    <div class="hdr-sub">Central Silom Tower · RIS Floor</div>
   </div>
 
   <div class="sum-row">
@@ -197,11 +194,12 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="sum-card" style="border-color:var(--amber)"><div class="sum-n" id="sum-soon" style="color:var(--amber)">--</div><div class="sum-l">Soon</div></div>
   </div>
 
-  <div class="hint-bar"><span style="font-size:14px">👇</span><span>Tap any room to select &amp; book</span></div>
-
-  <div class="ref-bar">
-    <span class="ref-txt" id="ref-txt">Loading…</span>
-    <button class="ref-btn" onclick="refreshAll()">↻ Refresh</button>
+  <!-- Hint + refresh merged into one bar -->
+  <div class="hint-bar">
+    <span style="font-size:13px">👇</span>
+    <span style="flex:1">Tap any room to select &amp; book</span>
+    <span class="ref-txt" id="ref-txt" style="font-size:10px;color:#2a6a3a;margin-right:6px">Loading…</span>
+    <button class="ref-btn" onclick="refreshAll()">↻</button>
   </div>
 
   <div class="zone-wrap">
@@ -223,7 +221,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.7 (2026-06-11)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.8 (2026-06-11)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -511,14 +509,12 @@ function renderZone(cid,rooms){
   rooms.forEach(room=>{
     const sp=getStatusProps(room);
     const isSel=selectedRoom?.email===room.email;
-    const isDefault=isSel&&room._isDefault;
     const div=document.createElement('div');
     div.className='rt'+(isSel?' sel':'');
     div.innerHTML=`
       ${isSel?'<div class="sel-arrow"></div>':''}
       <div class="rt-name">${room.name}</div>
       <div class="rt-info"><span class="rt-dot" style="background:${sp.dot}"></span>${sp.info}</div>
-      ${room._isDefault&&isSel?'<div class="next-pill">NEXT AVAIL.</div>':''}
       <div class="rt-bar" style="background:${sp.dot}"></div>`;
     div.addEventListener('click',()=>selectRoom(room));
     c.appendChild(div);
@@ -570,8 +566,22 @@ function updateDetailCard(){
   badge.setAttribute('style',sp.badgeStyle+';font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;');
   const zone=selectedRoom.zone==='lobby'?'Lobby area':'In-office area';
   el('dc-meta').textContent=`${zone} · 👤 ${selectedRoom.seats} seats`;
-  el('dc-time').textContent=sp.status==='busy'?`Occupied · ${sp.info}`:sp.status==='pending'?sp.info:sp.status==='soon'?`Free now · ${sp.info}`:sp.info||'Free all day';
-  el('dc-time').style.color=sp.status==='busy'?'var(--red)':sp.status==='pending'||sp.status==='soon'?'var(--amber)':'var(--blue-l)';
+  if(sp.status==='busy'){
+    el('dc-time').textContent=`Occupied · ${sp.info}`;
+    el('dc-time').style.color='var(--red)';
+  } else if(sp.status==='pending'){
+    el('dc-time').textContent=sp.info;
+    el('dc-time').style.color='var(--amber)';
+  } else if(sp.status==='soon'){
+    el('dc-time').textContent=`Free now · ${sp.info}`;
+    el('dc-time').style.color='var(--amber)';
+  } else {
+    // Show "Next available" badge if this is the auto-selected room
+    var timeStr=sp.info||'Free all day';
+    if(selectedRoom._isDefault)timeStr='★ Next available · '+timeStr;
+    el('dc-time').textContent=timeStr;
+    el('dc-time').style.color='var(--blue-l)';
+  }
   selectedRoom.approval?show('dc-appr'):hide('dc-appr');
   const btn=el('dc-book-btn');
   if(sp.status==='busy'){

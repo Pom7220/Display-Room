@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 8,
+  patch: 9,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -713,6 +713,7 @@ var APP_VERSION = {
 // v3.10.6 2026-06-11 - ris-shared.js cache bust ?v=11; outline fix for selected tile
 // v3.10.7 2026-06-11 - Macchiato pending meetings now show in list; PWA auto-fullscreen on standalone launch; tap-anywhere overlay no PIN; manifest.json display:fullscreen; showAs debug log
 // v3.10.8 2026-06-11 - fetchCal retries on null token (prevents empty meeting list after relaunch); locallyEnded auto-cleanup; root cause: stale meetings after auto-relaunch with expired token
+// v3.10.9 2026-06-11 - Chrome42 fix: detect Chrome<=45, use prompt:login not prompt:none (cookie blocking); clear all MSAL accounts on reauth; removes personal account from picker
 
 // ══════════════════════════════════════
 // STATE
@@ -1162,11 +1163,16 @@ function initMsal(){
         dbg('4. No account but have hint — attempting silent login: '+savedHint);
         hide('config-screen');el('cfg-sticky-bar').style.display='none';
         try{
-          msalInst.loginRedirect({
+          var isChrome42start=false;
+          try{var mc=/Chrome\/([\d]+)/.exec(navigator.userAgent);if(mc)isChrome42start=parseInt(mc[1],10)<=45;}catch(e){}
+          var startReq={
             scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],
-            loginHint:savedHint,
-            prompt:'none'  // Silent — no "Pick an account" UI shown
-          });
+            loginHint:savedHint
+          };
+          // Chrome 42: prompt:none always fails — use prompt:login instead
+          startReq.prompt=isChrome42start?'login':'none';
+          dbg('Startup reauth — Chrome42:'+isChrome42start+' prompt:'+startReq.prompt);
+          msalInst.loginRedirect(startReq);
         }catch(e2){dbg('Silent login failed, showing auth: '+e2);showAuth();}
       } else {
         dbg('4. No account, no hint - showing sign in');
@@ -1186,7 +1192,7 @@ function doReauth(){
   _cachedToken=null;
   _tokenExpiry=0;
   _tokenRefreshPending=false;
-  // Save login hint before clearing — used to skip MFA/account picker
+  // Save login hint before clearing
   var loginHint='';
   try{
     if(account&&account.username)loginHint=account.username;
@@ -1194,25 +1200,41 @@ function doReauth(){
     else{var h=localStorage.getItem('roomdisplay_loginhint');if(h)loginHint=h;}
   }catch(e){}
   try{localStorage.removeItem('roomdisplay_token');}catch(e){}
+  // Clear ALL MSAL cache — removes personal accounts, only loginHint survives
   try{
     var keys=[];
     for(var i=0;i<localStorage.length;i++){
       var k=localStorage.key(i);
-      if(k&&k.indexOf('msal.')===0)keys.push(k);
+      if(k&&(k.indexOf('msal.')===0||k.indexOf('msal|')===0))keys.push(k);
     }
     for(var j=0;j<keys.length;j++){localStorage.removeItem(keys[j]);}
-    dbg('Cleared '+keys.length+' MSAL cache keys');
+    dbg('Cleared '+keys.length+' MSAL cache keys — removed all cached accounts');
   }catch(e){}
   try{if(msalInst&&msalInst.clearCache)msalInst.clearCache();}catch(e){}
   account=null;
   clearErr();
+  // Detect Chrome 42 — blocks third-party cookies needed for prompt:none
+  // prompt:none always fails on Chrome 42, causing infinite redirect loop + account picker
+  var isChrome42=false;
+  try{
+    var m=/Chrome\/([\d]+)/.exec(navigator.userAgent);
+    if(m)isChrome42=parseInt(m[1],10)<=45;
+  }catch(e){}
+  dbg('isChrome42='+isChrome42+' loginHint='+loginHint);
   var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
   try{
     if(loginHint){
-      // Use login_hint + prompt:none — attempts completely silent re-auth
-      // This avoids MFA prompt if the session is still valid in Azure AD
-      dbg('Attempting silent reauth with hint: '+loginHint);
-      msalInst.loginRedirect({scopes:scopes,loginHint:loginHint,prompt:'none'});
+      if(isChrome42){
+        // Chrome 42: skip prompt:none (always fails due to cookie blocking)
+        // Use prompt:login with loginHint — pre-selects rismeetingroomsystem account
+        // Since MFA is disabled for this account, completes with one tap
+        dbg('Chrome 42: using prompt:login with hint');
+        msalInst.loginRedirect({scopes:scopes,loginHint:loginHint,prompt:'login'});
+      } else {
+        // Modern browser: attempt fully silent re-auth
+        dbg('Modern browser: attempting prompt:none with hint');
+        msalInst.loginRedirect({scopes:scopes,loginHint:loginHint,prompt:'none'});
+      }
     } else {
       msalInst.loginRedirect({scopes:scopes,prompt:'select_account'});
     }
@@ -1320,10 +1342,8 @@ function startTokenRefreshTimer(){
       dbg('Session keepalive failed: '+code);
       // Only trigger reauth if truly expired — not transient errors
       if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
-        dbg('Session genuinely expired — attempting silent reauth with hint');
-        var hint='';
-        try{hint=localStorage.getItem('roomdisplay_loginhint')||'';}catch(ex){}
-        if(hint&&!_tokenRefreshPending){
+        dbg('Session genuinely expired — calling doReauth');
+        if(!_tokenRefreshPending){
           _tokenRefreshPending=true;
           setTimeout(function(){doReauth();},1000);
         }
