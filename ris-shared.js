@@ -1,22 +1,22 @@
 // ris-shared.js — RIS Room Display shared logic
 // ES5 ONLY — loaded by both index.html (Chrome 42) and dashboard.html
 // DO NOT use: const/let, arrows, template literals, async/await, optional chaining
-// Version: 1.0 (2026-06-10)
+// Version: 1.1 (2026-06-11) — updated seat counts with ranges for Espresso/Doppio/Macchiato; Viennese/Decaffinato/Affogato to 6
 
 // ── ROOM DEFINITIONS ──
 var RIS_ROOMS = [
-  {num:1,  name:'Espresso',    email:'risespresso@central.co.th',    seats:8, zone:'lobby',  approval:false},
-  {num:2,  name:'Doppio',      email:'risdoppio@central.co.th',      seats:6, zone:'lobby',  approval:false},
-  {num:3,  name:'Cappuccino',  email:'riscappuccino@central.co.th',  seats:6, zone:'lobby',  approval:false},
-  {num:4,  name:'Americano',   email:'risamericano@central.co.th',   seats:6, zone:'lobby',  approval:false},
-  {num:5,  name:'Lungo',       email:'rislungo@central.co.th',       seats:4, zone:'lobby',  approval:false},
-  {num:6,  name:'Ristretto',   email:'risristretto@central.co.th',   seats:4, zone:'lobby',  approval:false},
-  {num:7,  name:'Macchiato',   email:'rismacchiato@central.co.th',   seats:6, zone:'office', approval:true },
-  {num:8,  name:'Viennese',    email:'risviennese@central.co.th',    seats:8, zone:'office', approval:false},
-  {num:9,  name:'Decaffinato', email:'risdecaffeinato@central.co.th',seats:4, zone:'office', approval:false},
-  {num:10, name:'Latte',       email:'rislatte@central.co.th',       seats:6, zone:'office', approval:false},
-  {num:11, name:'Mocha',       email:'rismocha@central.co.th',       seats:6, zone:'office', approval:false},
-  {num:12, name:'Affogato',    email:'risaffogato@central.co.th',    seats:8, zone:'office', approval:false}
+  {num:1,  name:'Espresso',    email:'risespresso@central.co.th',    seats:'8–12', zone:'lobby',  approval:false},
+  {num:2,  name:'Doppio',      email:'risdoppio@central.co.th',      seats:'6–8',  zone:'lobby',  approval:false},
+  {num:3,  name:'Cappuccino',  email:'riscappuccino@central.co.th',  seats:6,      zone:'lobby',  approval:false},
+  {num:4,  name:'Americano',   email:'risamericano@central.co.th',   seats:6,      zone:'lobby',  approval:false},
+  {num:5,  name:'Lungo',       email:'rislungo@central.co.th',       seats:4,      zone:'lobby',  approval:false},
+  {num:6,  name:'Ristretto',   email:'risristretto@central.co.th',   seats:4,      zone:'lobby',  approval:false},
+  {num:7,  name:'Macchiato',   email:'rismacchiato@central.co.th',   seats:'5–8',  zone:'office', approval:true },
+  {num:8,  name:'Viennese',    email:'risviennese@central.co.th',    seats:6,      zone:'office', approval:false},
+  {num:9,  name:'Decaffinato', email:'risdecaffeinato@central.co.th',seats:6,      zone:'office', approval:false},
+  {num:10, name:'Latte',       email:'rislatte@central.co.th',       seats:6,      zone:'office', approval:false},
+  {num:11, name:'Mocha',       email:'rismocha@central.co.th',       seats:6,      zone:'office', approval:false},
+  {num:12, name:'Affogato',    email:'risaffogato@central.co.th',    seats:6,      zone:'office', approval:false}
 ];
 
 // ── SHARED HELPERS ──
