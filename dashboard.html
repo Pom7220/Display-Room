@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a0a12">
 <title>RIS Rooms</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="ris-shared.js"></script>
+<script src="ris-shared.js?v=11"></script>
 <script src="msal-v1.min.js"></script>
 <style>
 :root{
@@ -88,7 +88,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .rt-bar{position:absolute;bottom:0;left:5px;right:5px;height:3px;border-radius:2px;}
 
 /* Selected state — white outline box, bar contained inside */
-.rt.sel{border:1.5px solid rgba(255,255,255,0.55);padding:7px 6px 5px;}
+.rt.sel{outline:2px solid rgba(255,255,255,0.55);outline-offset:-2px;padding:8px 7px 6px;}
 .rt.sel .rt-bar{left:0;right:0;bottom:0;height:4px;border-radius:0 0 var(--radius-sm) var(--radius-sm);}
 .rt.sel .rt-name{color:#fff;}
 .sel-arrow{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:7px solid rgba(255,255,255,0.55);z-index:2;}
@@ -223,7 +223,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.6 (2026-06-11)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.7 (2026-06-11)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">

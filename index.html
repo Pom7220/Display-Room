@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<script src="ris-shared.js"></script>
+<script src="ris-shared.js?v=11"></script>
 <script src="msal-v1.min.js"></script>
 <!-- Polyfills for Chrome 42 / Android 4.4 -->
 <script>
@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 5,
+  patch: 6,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
