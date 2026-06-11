@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 6,
+  patch: 8,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -710,6 +710,9 @@ var APP_VERSION = {
 // v3.10.3 2026-06-11 - Auto silent login on reboot (loginHint+prompt:none); auto fullscreen after redirect; kiosk no manual PIN needed after reboot
 // v3.10.4 2026-06-11 - Option D session keepalive every 45min prevents Azure AD timeout; SSL cert download button in config screen
 // v3.10.5 2026-06-11 - Pre-fill Tenant ID + Client ID defaults in config screen; sw.js auto-update on deploy
+// v3.10.6 2026-06-11 - ris-shared.js cache bust ?v=11; outline fix for selected tile
+// v3.10.7 2026-06-11 - Macchiato pending meetings now show in list; PWA auto-fullscreen on standalone launch; tap-anywhere overlay no PIN; manifest.json display:fullscreen; showAs debug log
+// v3.10.8 2026-06-11 - fetchCal retries on null token (prevents empty meeting list after relaunch); locallyEnded auto-cleanup; root cause: stale meetings after auto-relaunch with expired token
 
 // ══════════════════════════════════════
 // STATE
@@ -1446,12 +1449,28 @@ function enterKiosk(){
   if(!kioskOn)return;
   // Block back button on Android
   window.history.pushState(null,'',window.location.href);
-  window.onpopstate=function(){
-    window.history.pushState(null,'',window.location.href);
-  };
-  // Show tap-to-fullscreen overlay
+  window.onpopstate=function(){window.history.pushState(null,'',window.location.href);};
+  // Already fullscreen — nothing to do
   var already=!!(document.fullscreenElement||document.webkitFullscreenElement);
   if(already)return;
+  // Detect if running as PWA (standalone/fullscreen display mode)
+  var isStandalone=false;
+  try{
+    isStandalone=window.matchMedia('(display-mode: standalone)').matches
+      ||window.matchMedia('(display-mode: fullscreen)').matches
+      ||window.navigator.standalone===true;
+  }catch(e){}
+  if(isStandalone){
+    // PWA launch — attempt fullscreen immediately, no tap needed
+    dbg('PWA standalone detected — auto-entering fullscreen');
+    setTimeout(function(){
+      doFullscreen();
+      var ov=el('fs-overlay');if(ov)ov.style.display='none';
+    },600);
+    return;
+  }
+  // Browser launch — show simple "tap anywhere" overlay
+  // No PIN required for initial fullscreen
   var ov=el('fs-overlay');
   if(ov){ov.style.display='-webkit-flex';ov.style.display='flex';}
 }
@@ -1513,22 +1532,37 @@ function startClock(){
 // ══════════════════════════════════════
 function fetchCal(){
   getToken().then(function(tok){
-    if(!tok)return;
+    if(!tok){
+      // Token not ready yet — retry in 5 seconds
+      dbg('fetchCal: no token, retry in 5s');
+      setTimeout(fetchCal,5000);
+      return null;
+    }
     var s=new Date();s.setHours(0,0,0,0);
     var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
-    // Use shared fetchCalendarForRoom — identical fields and filtering
     return fetchCalendarForRoom(activeRoom.email,tok,s.toISOString(),e.toISOString());
   }).then(function(filtered){
-    if(!filtered)return;
-    // filterMeetings returns sorted, mapped, isCancelled-filtered array
+    if(!filtered)return; // null from retry path or error
     meetings=filtered;
+    // Debug — log showAs values to diagnose pending/free status on Macchiato
+    dbg('Cal: '+meetings.length+' meetings. '+meetings.slice(0,6).map(function(m){
+      return ft(m.start)+' showAs:'+m.showAs+(m.isPending?'[P]':'');
+    }).join(' | '));
     // Re-apply local pending bookings (not in Graph yet)
     pendingLocal.forEach(function(pb){
       if(!meetings.some(function(m){return Math.abs(m.start-pb.start)<60000&&m.title===pb.title;}))
         meetings.push(pb);
     });
-    // Re-apply locally ended meetings
+    // Re-apply locally ended meetings — only keep IDs that still exist in current fetch
+    // This prevents stale locallyEnded IDs from hiding future/different meetings
     if(locallyEnded.length>0){
+      // Clean up: remove IDs from locallyEnded that are no longer in the fetched meetings
+      // (meaning Graph has already updated — safe to stop hiding them)
+      var fetchedIds=meetings.map(function(m){return m.id;});
+      locallyEnded=locallyEnded.filter(function(id){
+        return fetchedIds.indexOf(id)>-1;
+      });
+      // Now filter out the remaining locally-ended meetings
       meetings=meetings.filter(function(m){return locallyEnded.indexOf(m.id)===-1;});
     }
     meetings.sort(function(a,b){return a.start-b.start;});
@@ -1687,17 +1721,24 @@ function renderMeetList(){
   var offset=curView==='today'?0:1;
   var day=getMeetingsForDay(offset);
   var show=offset===0?day.filter(function(m){
-    if(m.end<=n)return false; // past
-    // Hide the currently-active non-pending meeting — it's shown in the card
+    if(m.end<=n)return false; // past meetings — hide
+    // Hide the currently-active non-pending meeting — shown in card above
     var cur=getCur();
     if(cur&&!cur.isPending&&m.id===cur.id)return false;
     return true;
   }):day;
   var list=el('meet-list');
   if(!show.length){
+    // Check if there are pending meetings today that might explain "no meetings"
+    var hasPend=day.some(function(m){return m.isPending&&m.end>n;});
     var lbl=curView==='today'?'today':'tomorrow';
-    list.innerHTML='<div class="empty-day"><div class="empty-day-icon">&#128197;</div><div class="empty-day-txt">No meetings '+lbl+'</div></div>';
-    return;
+    if(hasPend){
+      // Show pending meetings instead of empty message
+      show=day.filter(function(m){return m.isPending&&m.end>n;});
+    } else {
+      list.innerHTML='<div class="empty-day"><div class="empty-day-icon">&#128197;</div><div class="empty-day-txt">No meetings '+lbl+'</div></div>';
+      return;
+    }
   }
   list.innerHTML=show.slice(0,12).map(function(m,i){
     var ip=m.isPending;
@@ -2314,13 +2355,13 @@ else{showConfig();el('cfg-sticky-bar').style.display='block';}
   <div id="days-panel-content"></div>
 </div>
 
-<!-- FULLSCREEN TAP OVERLAY -->
+<!-- FULLSCREEN TAP OVERLAY — tap anywhere to enter fullscreen, no PIN needed -->
 <div id="fs-overlay" onclick="doFullscreen();this.style.display='none';">
   <div class="fs-icon">&#9974;</div>
-  <div class="fs-title">Tap to go fullscreen</div>
+  <div class="fs-title">Tap anywhere to continue</div>
   <div class="fs-sub" style="max-width:320px;line-height:1.8;">
-    To hide the URL bar: Chrome menu &#8594; <strong style="color:#fff">Add to Home Screen</strong>, then launch from home screen icon.<br><br>
-    To hide Android nav bar: Settings &#8594; Security &#8594; <strong style="color:#fff">Screen Pinning</strong> &#8594; pin this app.
+    Tap once to enter fullscreen mode.<br><br>
+    For best experience: Chrome menu &#8594; <strong style="color:#fff">Add to Home Screen</strong>, then launch from the home screen icon for automatic fullscreen.
   </div>
 </div>
 
