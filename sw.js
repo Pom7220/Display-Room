@@ -1,61 +1,68 @@
-// RIS Room Display — Service Worker v2.1
-// Bump CACHE version to force all clients to update
-var CACHE = 'ris-room-display-v21';
-var CORE_FILES = ['./', './index.html', './msal-v1.min.js'];
+// sw.js — RIS Room Display Service Worker
+// VERSION must be bumped on every deploy — triggers cache clear on all clients
+// Match this to APP_VERSION in index.html
+var CACHE_VERSION = 'ris-v3.10.5';
+var CACHE_NAME = CACHE_VERSION;
 
-// Install: cache core files, skip waiting immediately
+var CACHE_FILES = [
+  './',
+  './index.html',
+  './ris-shared.js',
+  './msal-v1.min.js'
+];
+
+// Install — cache core files
 self.addEventListener('install', function(e) {
-  self.skipWaiting();
+  self.skipWaiting(); // Activate new SW immediately without waiting
   e.waitUntil(
-    caches.open(CACHE).then(function(c) {
-      return c.addAll(CORE_FILES);
+    caches.open(CACHE_NAME).then(function(cache) {
+      return cache.addAll(CACHE_FILES);
+    }).catch(function(err) {
+      console.log('SW cache install failed:', err);
     })
   );
 });
 
-// Activate: delete ALL old caches, claim all clients immediately
+// Activate — delete ALL old caches
 self.addEventListener('activate', function(e) {
   e.waitUntil(
     caches.keys().then(function(keys) {
       return Promise.all(
-        keys.map(function(k) {
-          // Delete any cache that isn't current version
-          if(k !== CACHE) {
-            console.log('SW: deleting old cache', k);
-            return caches.delete(k);
-          }
+        keys.filter(function(key) {
+          return key !== CACHE_NAME; // Delete anything that isn't current version
+        }).map(function(key) {
+          console.log('SW deleting old cache:', key);
+          return caches.delete(key);
         })
       );
     }).then(function() {
-      return self.clients.claim();
+      return self.clients.claim(); // Take control of all open tabs immediately
     })
   );
 });
 
-// Fetch: network FIRST, cache fallback
-// Always bypass cache for auth/API calls
+// Fetch — network first, fall back to cache
+// Network-first ensures latest version is always served when online
 self.addEventListener('fetch', function(e) {
-  var url = e.request.url;
-
-  // Never intercept Microsoft/auth/weather calls
-  if(url.indexOf('microsoft') > -1 ||
-     url.indexOf('msauth') > -1 ||
-     url.indexOf('login.microsoftonline') > -1 ||
-     url.indexOf('graph.microsoft') > -1 ||
-     url.indexOf('open-meteo') > -1 ||
-     url.indexOf('wttr.in') > -1) {
-    return;
-  }
+  // Only handle GET requests for our own origin
+  if (e.request.method !== 'GET') return;
+  if (e.request.url.indexOf(self.location.origin) === -1) return;
 
   e.respondWith(
-    fetch(e.request).then(function(res) {
-      if(e.request.method === 'GET' && res.status === 200) {
-        var clone = res.clone();
-        caches.open(CACHE).then(function(c) { c.put(e.request, clone); });
+    fetch(e.request).then(function(response) {
+      // Cache successful responses
+      if (response && response.status === 200) {
+        var clone = response.clone();
+        caches.open(CACHE_NAME).then(function(cache) {
+          cache.put(e.request, clone);
+        });
       }
-      return res;
+      return response;
     }).catch(function() {
-      return caches.match(e.request);
+      // Network failed — serve from cache
+      return caches.match(e.request).then(function(cached) {
+        return cached || new Response('Offline', { status: 503 });
+      });
     })
   );
 });
