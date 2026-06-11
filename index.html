@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 11,
+  patch: 12,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -716,6 +716,7 @@ var APP_VERSION = {
 // v3.10.9 2026-06-11 - Chrome42 fix: detect Chrome<=45, use prompt:login not prompt:none (cookie blocking); clear all MSAL accounts on reauth; removes personal account from picker
 // v3.10.10 2026-06-11 - Teams badge default OFF; loginHint undefined string fix; cert atob Chrome42 fix; dbgErr auto-enables debug on auth errors
 // v3.10.11 2026-06-11 - getAccountEmail helper reads MSAL v1 userName (not username); aggressive MSAL cache clear on reauth; personal account purge on boot; account property debug logging
+// v3.10.12 2026-06-11 - Fix broken MSAL session (no email in account) - detect and clear, retry with saved hint instead of silently hanging
 
 // ══════════════════════════════════════
 // STATE
@@ -1166,14 +1167,44 @@ function initMsal(){
     var act=msalInst.getAccount();
     if(act){
       // Log actual account properties to debug MSAL v1 field names on Chrome 42
-      dbg('4. Found cached account — email: '+getAccountEmail(act)+
+      var actEmail=getAccountEmail(act);
+      dbg('4. Found cached account — email:'+actEmail+
         ' userName:'+act.userName+' username:'+act.username+
         ' name:'+act.name);
-      account=act;
-      // Save login hint for future silent re-auth
-      saveLoginHint(act);
-      hide('config-screen');el('cfg-sticky-bar').style.display='none';
-      launch();
+      if(actEmail){
+        // Valid account with usable email — launch normally
+        account=act;
+        saveLoginHint(act);
+        hide('config-screen');el('cfg-sticky-bar').style.display='none';
+        launch();
+      } else {
+        // Account object exists but no usable email — broken MSAL session
+        // Clear cache and trigger fresh login to avoid infinite silent retry
+        dbgErr('4. Account found but no email — clearing broken session');
+        try{if(msalInst&&msalInst.clearCache)msalInst.clearCache();}catch(e){}
+        try{
+          var bkeys=[];
+          for(var bi=0;bi<localStorage.length;bi++){
+            var bk=localStorage.key(bi);
+            if(bk&&(bk.indexOf('msal.')===0||bk.indexOf('msal|')===0))bkeys.push(bk);
+          }
+          for(var bj=0;bj<bkeys.length;bj++){localStorage.removeItem(bkeys[bj]);}
+        }catch(e){}
+        account=null;
+        // Try with saved hint if available
+        var savedHintB='';
+        try{var shb=localStorage.getItem('roomdisplay_loginhint');if(shb&&shb!=='undefined'&&shb!=='null')savedHintB=shb;}catch(e){}
+        hide('config-screen');el('cfg-sticky-bar').style.display='none';
+        if(savedHintB){
+          var isC42b=false;
+          try{var mb=/Chrome\/([\d]+)/.exec(navigator.userAgent);if(mb)isC42b=parseInt(mb[1],10)<=45;}catch(e){}
+          dbg('Broken session — retrying with hint: '+savedHintB+' Chrome42:'+isC42b);
+          try{msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],loginHint:savedHintB,prompt:isC42b?'login':'none'});}
+          catch(e2){showAuth();}
+        } else {
+          showAuth();
+        }
+      }
     } else {
       // Try silent login with saved hint — avoids "Pick an account" screen on reboot
       var savedHint='';

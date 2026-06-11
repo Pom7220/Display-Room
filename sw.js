@@ -1,7 +1,7 @@
 // sw.js — RIS Room Display Service Worker
 // VERSION must be bumped on every deploy — triggers cache clear on all clients
 // Match this to APP_VERSION in index.html
-var CACHE_VERSION = 'ris-v3.10.11';
+var CACHE_VERSION = 'ris-v3.10.12';
 var CACHE_NAME = CACHE_VERSION;
 
 var CACHE_FILES = [
