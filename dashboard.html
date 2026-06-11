@@ -41,10 +41,22 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 /* HINT */
 .hint-bar{background:#0a1a0a;border-top:1px solid #1a3a1a;border-bottom:1px solid #1a3a1a;padding:6px 16px;display:flex;align-items:center;gap:8px;font-size:11px;color:#44bb66;}
 
-/* REFRESH */
-.ref-bar{display:flex;align-items:center;justify-content:space-between;padding:5px 16px;border-bottom:1px solid var(--border);}
-.ref-txt{font-size:10px;color:var(--hint);}
-.ref-btn{font-size:11px;color:var(--blue-l);background:none;border:none;cursor:pointer;padding:3px 6px;font-family:var(--font);}
+.tslot-d{padding:7px 12px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.tslot-d.active{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);color:var(--blue-l);}
+.tslot-d:active{opacity:.8;}background:rgba(4,8,16,.9);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+#sched-modal.hidden{display:none;}
+.sched-item{padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;}
+.sched-item:last-child{border-bottom:none;}
+.sched-time{font-size:12px;font-weight:700;color:var(--blue-l);white-space:nowrap;min-width:90px;font-variant-numeric:tabular-nums;}
+.sched-title{font-size:13px;color:var(--text);line-height:1.4;}
+.sched-org{font-size:11px;color:var(--muted);margin-top:2px;}
+.sched-empty{text-align:center;padding:24px;font-size:13px;color:var(--muted);}
+
+/* IMPROVED REFRESH BAR */
+.ref-bar{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;border-bottom:1px solid var(--border);background:var(--panel);}
+.ref-txt{font-size:11px;color:var(--muted);}
+.ref-btn{font-size:12px;font-weight:700;color:var(--blue-l);background:rgba(41,121,255,.12);border:1px solid rgba(41,121,255,.25);border-radius:6px;cursor:pointer;padding:5px 12px;font-family:var(--font);}
+.ref-btn:active{opacity:.8;}
 
 /* ZONES */
 .zone-wrap{padding:10px 14px 6px;}
@@ -197,7 +209,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.3 (2026-06-10)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.4 (2026-06-10)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -228,6 +240,12 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="mfield"><label>Your Name</label><input type="text" id="book-name" placeholder="Enter your name" autocomplete="off"></div>
     <div class="mfield"><label>Your Email</label><input type="text" id="book-email" placeholder="yourname@central.co.th" autocomplete="off"></div>
     <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
+    <div class="mfield">
+      <label>Start Time</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="dash-tslots">
+        <!-- populated by buildDashTimeSlots() -->
+      </div>
+    </div>
     <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
     <label style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:8px">Duration</label>
     <div class="dur-grid">
@@ -245,6 +263,19 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 
 <div id="toast" class="hidden"></div>
 
+<!-- SCHEDULE MODAL -->
+<div id="sched-modal" class="hidden">
+  <div class="msheet">
+    <div class="mdrag"></div>
+    <div class="mtitle" id="sched-title">Today's schedule</div>
+    <div class="msub" id="sched-sub"></div>
+    <div id="sched-list" style="margin-top:8px;max-height:340px;overflow-y:auto;"></div>
+    <div style="margin-top:16px">
+      <button class="mcancel" style="width:100%;text-align:center;" onclick="closeSchedModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const TENANT='817e531d-191b-4cf5-8812-f0061d89b53d';
 const CLIENT='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
@@ -254,7 +285,7 @@ const SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','Us
 const ROOMS = RIS_ROOMS;
 
 let msalInst=null, account=null, _token=null, _tokenExp=0;
-let roomData={}, selectedRoom=null, selDurMin=60;
+let roomData={}, selectedRoom=null, selDurMin=60, bookStart=null;
 
 const el=id=>document.getElementById(id);
 const show=id=>el(id)?.classList.remove('hidden');
@@ -316,13 +347,34 @@ function doSignIn(){
 async function getToken(){
   if(_token&&_tokenExp>Date.now()+120000)return _token;
   initMsal();
-  if(!account||!msalInst)return null;
+  if(!msalInst)return null;
+  // If no account, try to recover from localStorage hint
+  if(!account){
+    const savedHint=localStorage.getItem('roomdisplay_loginhint')||'';
+    if(savedHint&&msalInst){
+      try{
+        // Try silent redirect with hint
+        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});
+      }catch(e){}
+    }
+    return null;
+  }
   try{
     const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
     _token=r.accessToken;
     _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
     return _token;
-  }catch{return null;}
+  }catch(e){
+    // Silent failed — try redirect with hint
+    const savedHint=localStorage.getItem('roomdisplay_loginhint')||'';
+    if(savedHint){
+      try{msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});}
+      catch(e2){showSignInBar();}
+    } else {
+      showSignInBar();
+    }
+    return null;
+  }
 }
 
 // ES6 wrapper around shared fetchCalendarForRoom + deriveRoomStatus
@@ -360,7 +412,42 @@ async function fetchAllRooms(){
   else updateDetailCard();
 }
 
-function refreshAll(){fetchAllRooms();}
+function showSignInBar(){
+  el('ref-txt').textContent='Session expired — sign in to reload';
+  const refBtn=document.querySelector('.ref-btn');
+  if(refBtn){
+    refBtn.textContent='🔐 Sign in';
+    refBtn.style.background='rgba(255,149,0,.15)';
+    refBtn.style.borderColor='rgba(255,149,0,.4)';
+    refBtn.style.color='#ffaa33';
+    refBtn.onclick=function(){
+      initMsal();
+      if(msalInst){
+        const hint=localStorage.getItem('roomdisplay_loginhint')||'';
+        try{
+          msalInst.loginRedirect({
+            scopes:SCOPES,
+            loginHint:hint||undefined,
+            prompt:hint?'none':'select_account'
+          });
+        }catch(e){console.warn(e);}
+      }
+    };
+  }
+}
+
+function refreshAll(){
+  // Reset refresh button to normal state
+  const refBtn=document.querySelector('.ref-btn');
+  if(refBtn){
+    refBtn.textContent='↻ Refresh';
+    refBtn.style.background='';
+    refBtn.style.borderColor='';
+    refBtn.style.color='';
+    refBtn.onclick=refreshAll;
+  }
+  fetchAllRooms();
+}
 
 function getStatusProps(room){
   const d=roomData[room.email];
@@ -465,8 +552,50 @@ function updateDetailCard(){
 function showSchedule(){
   if(!selectedRoom)return;
   const d=roomData[selectedRoom.email];
-  if(!d?.meetings?.length){toast('No meetings scheduled today','warn');return;}
-  alert(`${selectedRoom.name} — Today:\n\n`+d.meetings.map(m=>`${ft(m.start)}–${ft(m.end)}  ${m.title}`).join('\n'));
+  el('sched-title').textContent=`${selectedRoom.name} — Today`;
+  el('sched-sub').textContent=selectedRoom.email;
+  const list=el('sched-list');
+  if(!d?.meetings?.length){
+    list.innerHTML='<div class="sched-empty">No meetings scheduled today</div>';
+  } else {
+    list.innerHTML=d.meetings.map(m=>{
+      const timeStr=`${ft(m.start)} – ${ft(m.end)}`;
+      const pending=m.isPending?'<span style="font-size:10px;color:var(--amber);margin-left:6px">PENDING</span>':'';
+      return `<div class="sched-item">
+        <div class="sched-time">${timeStr}</div>
+        <div><div class="sched-title">${m.title}${pending}</div>
+        ${m.organizer?`<div class="sched-org">${m.organizer}</div>`:''}
+        </div></div>`;
+    }).join('');
+  }
+  show('sched-modal');
+}
+function closeSchedModal(){hide('sched-modal');}
+el('sched-modal').addEventListener('click',e=>{if(e.target===el('sched-modal'))closeSchedModal();});
+
+function nextQuarterD(d){
+  const ms=15*60000;
+  return new Date(Math.ceil(d.getTime()/ms)*ms);
+}
+
+function buildDashTimeSlots(){
+  bookStart=nextQuarterD(new Date());
+  const container=el('dash-tslots');
+  if(!container)return;
+  let html=`<div class="tslot-d active" data-ms="${bookStart.getTime()}">Now (${ft(bookStart)})</div>`;
+  for(let i=1;i<=5;i++){
+    const t=new Date(bookStart.getTime()+i*30*60000);
+    html+=`<div class="tslot-d" data-ms="${t.getTime()}">${ft(t)}</div>`;
+  }
+  container.innerHTML=html;
+  container.querySelectorAll('.tslot-d').forEach(chip=>{
+    chip.addEventListener('click',()=>{
+      container.querySelectorAll('.tslot-d').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      bookStart=new Date(parseInt(chip.dataset.ms));
+      updatePrev();
+    });
+  });
 }
 
 function openBookModal(){
@@ -483,7 +612,9 @@ function openBookModal(){
   document.querySelectorAll('.dchip').forEach(c=>{
     c.className='dchip'+(c.dataset.min==='60'?(selectedRoom.approval?' sel asel':' sel'):'');
   });
-  updatePrev();show('book-modal');
+  buildDashTimeSlots();
+  updatePrev();
+  show('book-modal');
   setTimeout(()=>el('book-name').focus(),350);
 }
 
@@ -496,7 +627,8 @@ document.querySelectorAll('.dchip').forEach(c=>c.addEventListener('click',()=>{
 }));
 
 function updatePrev(){
-  const s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  const s=bookStart||new Date();
+  const e=new Date(s.getTime()+selDurMin*60000);
   el('prev-s').textContent=ft(s);el('prev-e').textContent=ft(e);
   [30,60,90,120].forEach(m=>{const x=el(`ce${m}`);if(x)x.textContent=ft(new Date(s.getTime()+m*60000));});
 }
@@ -512,7 +644,7 @@ async function confirmBooking(){
   el('mconfirm-lbl').innerHTML='<span class="spinner"></span>';
   const tok=await getToken();
   if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
-  const s=new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  const s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
   let tz='Asia/Bangkok';
   try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch{}
   try{
@@ -547,24 +679,8 @@ el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))clo
 startClock();
 initMsal();
 
-// If no account found, show sign-in prompt inline
 if(!account){
-  el('ref-txt').textContent='Sign in to load room status';
-  // Replace refresh button with sign-in button
-  const refBtn=document.querySelector('.ref-btn');
-  if(refBtn){
-    refBtn.textContent='Sign in';
-    refBtn.style.color='#60aaff';
-    refBtn.style.fontWeight='700';
-    refBtn.onclick=function(){
-      initMsal();
-      if(msalInst){
-        try{msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});}
-        catch(e){console.warn(e);}
-      }
-    };
-  }
-  // Still render empty rooms so layout shows
+  showSignInBar();
   renderRooms();
   selectDefaultRoom();
 } else {

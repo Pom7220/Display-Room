@@ -600,6 +600,7 @@ if('serviceWorker' in navigator){
     <div class="msub" id="modal-sub"></div>
     <div class="appr-banner" id="appr-banner" style="display:none"><strong>&#9993; Approval required</strong> An email will be sent to the room owner before confirming.</div>
     <div class="mfield"><label>Your Name</label><input type="text" id="book-name" placeholder="Enter your name" autocomplete="off"></div>
+    <div class="mfield"><label>Your Email</label><input type="text" id="book-email" placeholder="yourname@central.co.th" autocomplete="off"></div>
     <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
     <!-- Start time row -->
     <div class="mfield">
@@ -634,7 +635,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 1,
+  patch: 3,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -683,6 +684,8 @@ var APP_VERSION = {
 // v3.9.1 2026-06-10 - Spark/wave burn-in replaces slide drift; MFA fix: login_hint+prompt:none for silent reauth; save login hint on first auth
 // v3.10 2026-06-10 - Shared code refactor: gDate+isAllDay+filterMeetings+fetchCalendarForRoom moved to ris-shared.js; card padding-top 52px->36px; check-in countdown shows hours e.g. 3h 45m
 // v3.10.1 2026-06-10 - Fix soon status wording: "Available - meeting at 15:30" not "Available soon in 14m"; dashboard: "Free now · Meeting at 15:30 (in 14m)"
+// v3.10.2 2026-06-10 - Resource booking: POST /me/events room as type:resource + requester invited; add email field to booking modal; both index+dashboard updated
+// v3.10.3 2026-06-11 - Auto silent login on reboot (loginHint+prompt:none); auto fullscreen after redirect; kiosk no manual PIN needed after reboot
 
 // ══════════════════════════════════════
 // STATE
@@ -1079,19 +1082,42 @@ function initMsal(){
         }
         hide('config-screen');el('cfg-sticky-bar').style.display='none';
         launch();
+        // Auto-enter fullscreen after redirect — no tap needed
+        // Delay allows page to settle after MSAL redirect
+        setTimeout(function(){
+          doFullscreen();
+          var ov=el('fs-overlay');if(ov)ov.style.display='none';
+        },800);
       }
     });
     // Check existing account
     var act=msalInst.getAccount();
     if(act){
-      dbg('4. Found cached account - launching!');
+      dbg('4. Found cached account: '+act.username);
       account=act;
+      // Save login hint for future silent re-auth
+      try{if(act.username)localStorage.setItem('roomdisplay_loginhint',act.username);}catch(e){}
       hide('config-screen');el('cfg-sticky-bar').style.display='none';
       launch();
     } else {
-      dbg('4. No account - showing sign in');
-      hide('config-screen');el('cfg-sticky-bar').style.display='none';
-      showAuth();
+      // Try silent login with saved hint — avoids "Pick an account" screen on reboot
+      var savedHint='';
+      try{savedHint=localStorage.getItem('roomdisplay_loginhint')||'';}catch(e){}
+      if(savedHint){
+        dbg('4. No account but have hint — attempting silent login: '+savedHint);
+        hide('config-screen');el('cfg-sticky-bar').style.display='none';
+        try{
+          msalInst.loginRedirect({
+            scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],
+            loginHint:savedHint,
+            prompt:'none'  // Silent — no "Pick an account" UI shown
+          });
+        }catch(e2){dbg('Silent login failed, showing auth: '+e2);showAuth();}
+      } else {
+        dbg('4. No account, no hint - showing sign in');
+        hide('config-screen');el('cfg-sticky-bar').style.display='none';
+        showAuth();
+      }
     }
   }catch(e){
     var msg=e&&e.message?e.message:String(e);
@@ -1722,7 +1748,7 @@ function joinTeams(url){
 // BOOKING
 // ══════════════════════════════════════
 function openModal(){
-  el('book-name').value='';el('book-title').value='';
+  el('book-name').value='';el('book-email').value='';el('book-title').value='';
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
   var na=cfg.booking&&cfg.approval;
@@ -1813,39 +1839,46 @@ function updatePrev(){
 
 var bookStart=null; // the rounded start time for the current booking
 function confirmBooking(){
-  var name=el('book-name').value.trim(),title=el('book-title').value.trim();
+  var name=el('book-name').value.trim();
+  var email=el('book-email').value.trim();
+  var title=el('book-title').value.trim();
   if(!name){toast('Please enter your name','warn');return;}
+  if(!email||email.indexOf('@')<0){toast('Please enter a valid email address','warn');return;}
   if(!title){toast('Please enter a meeting title','warn');return;}
   var btn=el('mconfirm');btn.disabled=true;
   el('mconfirm-lbl').innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>';
   var s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
   var done=function(){btn.disabled=false;el('mconfirm-lbl').textContent=cfg.approval?'Send approval request':'Confirm booking';};
-  if(cfg.approval)sendApproval(name,title,s,e,done);
-  else createDirect(name,title,s,e,done);
+  if(cfg.approval)sendApproval(name,email,title,s,e,done);
+  else createDirect(name,email,title,s,e,done);
 }
 
-function createDirect(name,title,s,e,done){
+function createDirect(name,email,title,s,e,done){
   getToken().then(function(tok){
     if(!tok){closeModal();if(done)done();return;}
-    // Intl.DateTimeFormat().resolvedOptions().timeZone not supported in Chrome 42
-    // Hardcode Bangkok timezone — this app is always deployed in Thailand
     var tz='Asia/Bangkok';
-    try{var t=Intl.DateTimeFormat().resolvedOptions().timeZone;if(t)tz=t;}catch(e){}
-    var body={subject:title,
-      body:{contentType:'text',content:'Booked by '+name+' from the RIS Room Display.'},
+    try{var t=Intl.DateTimeFormat().resolvedOptions().timeZone;if(t)tz=t;}catch(ex){}
+    var body={
+      subject:title,
+      body:{contentType:'text',content:'Booked by '+name+' ('+email+') from the RIS Room Display.'},
       start:{dateTime:localISO(s),timeZone:tz},
       end:{dateTime:localISO(e),timeZone:tz},
-      attendees:[{emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'required'}],
-      isOnlineMeeting:false};
-    // Post directly to room calendar — avoids personal email notifications
-    // Requires signed-in account to have Full Access to room mailbox
-    var bookUrl='https://graph.microsoft.com/v1.0/users/'+encodeURIComponent(activeRoom.email)+'/events';
-    return fetch(bookUrl,
+      attendees:[
+        // Room as resource — Exchange auto-accepts/declines, conflict detection applies
+        {emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'resource'},
+        // Requester as required attendee — receives meeting invitation
+        {emailAddress:{address:email,name:name},type:'required'}
+      ],
+      isOnlineMeeting:false
+    };
+    // POST to /me/events — resource booking approach
+    // Exchange processes room invite: auto-accepts if free, auto-declines if busy
+    return fetch('https://graph.microsoft.com/v1.0/me/events',
       {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)});
   }).then(function(r){
     if(!r)return;
     if(!r.ok){return r.json().then(function(er){toast('Booking failed: '+((er.error&&er.error.message)||r.status),'error');closeModal();if(done)done();});}
-    closeModal();toast('Room booked!','success');
+    closeModal();toast('Room booked! Invitation sent to '+email,'success');
     meetings.push({id:'loc-'+Date.now(),title:title,organizer:name,start:s,end:e,attendees:1,isPending:false,joinUrl:null,isOnline:false});
     meetings.sort(function(a,b){return a.start-b.start;});
     updateCurrentCard();renderBadges();renderMeetList();
@@ -1854,7 +1887,7 @@ function createDirect(name,title,s,e,done){
   }).catch(function(err){toast('Error: '+err.message,'error');closeModal();if(done)done();});
 }
 
-function sendApproval(name,title,s,e,done){
+function sendApproval(name,email,title,s,e,done){
   getToken().then(function(tok){
     if(!tok){closeModal();if(done)done();return;}
     var bid='BOOK-'+Date.now();
