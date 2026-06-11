@@ -386,7 +386,6 @@ if('serviceWorker' in navigator){
     <h3>Azure AD / Microsoft 365</h3>
     <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="817e531d-191b-4cf5-8812-f0061d89b53d"></div>
     <div class="field"><label>Client (Application) ID</label><input type="text" id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="80648895-4acf-4ac5-b4a3-c5bf6bc98983"></div>
-    <div class="field"><label>Service Account Email</label><input type="text" id="cfg-svcaccount" placeholder="rismeetingroomsystem@central.co.th" value="rismeetingroomsystem@central.co.th"><div class="hint">Used for silent re-auth on Chrome 42 (LG tablet)</div></div>
   </div>
   <div class="cfg-card">
     <h3>Primary Room</h3>
@@ -422,7 +421,7 @@ if('serviceWorker' in navigator){
     <h3>Microsoft Teams</h3>
     <div class="toggle-row">
       <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Show "Join Teams" button</div><div class="tr-sub">One-tap join on active Teams meetings</div></div>
-      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-teams"><span class="tog-slider"></span></label>
+      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-teams" checked><span class="tog-slider"></span></label>
     </div>
   </div>
   <div class="cfg-card">
@@ -658,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 13,
+  patch: 14,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -715,10 +714,7 @@ var APP_VERSION = {
 // v3.10.7 2026-06-11 - Macchiato pending meetings now show in list; PWA auto-fullscreen on standalone launch; tap-anywhere overlay no PIN; manifest.json display:fullscreen; showAs debug log
 // v3.10.8 2026-06-11 - fetchCal retries on null token (prevents empty meeting list after relaunch); locallyEnded auto-cleanup; root cause: stale meetings after auto-relaunch with expired token
 // v3.10.9 2026-06-11 - Chrome42 fix: detect Chrome<=45, use prompt:login not prompt:none (cookie blocking); clear all MSAL accounts on reauth; removes personal account from picker
-// v3.10.10 2026-06-11 - Teams badge default OFF; loginHint undefined string fix; cert atob Chrome42 fix; dbgErr auto-enables debug on auth errors
-// v3.10.11 2026-06-11 - getAccountEmail helper reads MSAL v1 userName (not username); aggressive MSAL cache clear on reauth; personal account purge on boot; account property debug logging
-// v3.10.12 2026-06-11 - Fix broken MSAL session (no email in account) - detect and clear, retry with saved hint instead of silently hanging
-// v3.10.13 2026-06-11 - Service account email field in config (pre-filled); loginHint set from config on every boot; getEmailFromResp reads JWT claims directly; covers Chrome42 where account.userName=undefined
+// v3.10.14 2026-06-11 - Proper loginHint fix: getEmailFromJWT decodes access token JWT directly; cfg.loginHint persists across cookie clears; no new UI fields; based on v3.10.9
 
 // ══════════════════════════════════════
 // STATE
@@ -973,31 +969,23 @@ function startBurnIn(){
 function downloadCert(){
   var b64='MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAwTzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2VhcmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoBggIBAK3oJHP0FDfzm54rVygchQnme2sOJAeLmkDuBNQRlSrxcKiyR/xchNegrW4F5h+QxMRoZgUy5inHHw8BRTB6QSMg8CzHW9plu1aHMZKQ0as7yQYRubMoTB8T8ZLB4U3fxGjK10s0nD9LATn6jh/gcx5rqaHoSBatqIG2n+bfTn6s7bSf94lD4y53b2U1LM5xkv7fzGl3nBQ7k5dLq18LIEA6yAzVALyMSEE3aCEF1fVXVJqEphDmE2NiCiOmjpfFKFOHUOCHFXBJULAFc3j3QR6FVqdYg3LxZKAPiQvZZq8RGNbHVm6DPM/lOo6VrGbqjDHj7kfEhRuUQPk4V1Y0YnB6eGQ3e0GD3rh3n4Ql0SdDgJlGg0ACzxGZH7PKAXJz4CqjL0VqLNjCQSGDxWJGUqT1z9Yp+1cDOkHxe3C1nqLEh/HB5pkaqHrCgdtO3EFvzb9mPOlKxfb6I8+a+SBIkRaVOBxP2vA3GHNnCKn2lp+X3GhYH+GZqZ6zyMGWJBGV+0HtHmjQG/L1dBMHvMOaQ/p6R01YmjmR3dOkObHe9LkI=';
   try{
-    // Chrome 42 strict base64 — clean string: remove whitespace, ensure correct padding
-    var clean=b64.replace(/\s+/g,'').replace(/[^A-Za-z0-9+/=]/g,'');
-    // Ensure padding
-    while(clean.length%4!==0){clean+='=';}
-    // Decode base64 to binary string
-    var bin=window.atob(clean);
-    // Convert to byte array using charCodeAt (ES5 safe)
-    var bytes=[];
-    for(var i=0;i<bin.length;i++){bytes.push(bin.charCodeAt(i)&0xff);}
-    // Create Uint8Array
-    var arr=new Uint8Array(bytes);
-    // Create blob — use application/octet-stream for better Chrome 42 compat
-    var blob=new Blob([arr],{type:'application/octet-stream'});
+    // Decode base64 to binary
+    var bin=atob(b64);
+    var bytes=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++){bytes[i]=bin.charCodeAt(i);}
+    // Create blob and trigger download
+    var blob=new Blob([bytes],{type:'application/x-x509-ca-cert'});
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
     a.href=url;a.download='isrgrootx1.der';
     document.body.appendChild(a);a.click();
     document.body.removeChild(a);
-    setTimeout(function(){URL.revokeObjectURL(url);},3000);
+    URL.revokeObjectURL(url);
     // Show install instructions
     var steps=document.getElementById('cert-steps');
     if(steps)steps.style.display='block';
-    toast('Certificate downloaded to Downloads folder','success');
   }catch(e){
-    toast('Download failed: '+e.message,'error');
+    alert('Download failed: '+e.message+'\n\nPlease download the certificate manually.');
   }
 }
 
@@ -1021,14 +1009,8 @@ function saveConfig(){
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
-    svcaccount:v('cfg-svcaccount')||'rismeetingroomsystem@central.co.th',
     extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
-  // Always save svcaccount as loginHint — most reliable source on Chrome 42
-  if(cfg.svcaccount){
-    dbg('Saving loginHint from config: '+cfg.svcaccount);
-    try{localStorage.setItem('roomdisplay_loginhint',cfg.svcaccount);}catch(e){}
-  }
   initMsal();
 }
 
@@ -1039,8 +1021,6 @@ function showConfig(){
   else el('cfg-tenant').value='817e531d-191b-4cf5-8812-f0061d89b53d';
   if(cfg.client)el('cfg-client').value=cfg.client;
   else el('cfg-client').value='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
-  var svcDefault='rismeetingroomsystem@central.co.th';
-  if(el('cfg-svcaccount'))el('cfg-svcaccount').value=cfg.svcaccount||svcDefault;
   if(cfg.roomname)el('cfg-roomname').value=cfg.roomname;
   if(cfg.roomemail)el('cfg-roomemail').value=cfg.roomemail;
   if(cfg.release!=null)el('cfg-release').value=cfg.release;
@@ -1110,13 +1090,6 @@ function dbg(msg){
       '<b style="color:#fff">Debug Log:</b><br>'+dbgLines.join('<br>');
   }
 }
-// Auto-enable debug on critical errors — shows overlay even if debug was closed
-// Next page load will keep debug enabled until manually turned off
-function dbgErr(msg){
-  dbgEnabled=true;
-  try{localStorage.setItem('roomdisplay_debug','1');}catch(e){}
-  dbg('ERR: '+msg);
-}
 window.onerror=function(msg,src,line){
   // Always show JS errors regardless of dbgEnabled
   var d=el('debug-overlay');
@@ -1127,6 +1100,24 @@ window.onerror=function(msg,src,line){
   }
   return false;
 };
+
+// Decode email from JWT access token — works on Chrome 42, no MSAL property dependency
+// Azure AD access tokens always contain upn/unique_name claim with the signed-in email
+function getEmailFromJWT(token){
+  try{
+    var parts=token.split('.');
+    if(parts.length<2)return '';
+    // JWT uses base64url — replace chars and add padding before atob
+    var b64=parts[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(b64.length%4!==0)b64+='=';
+    var payload=JSON.parse(atob(b64));
+    // Try claims in order of reliability
+    return payload.upn||payload.unique_name||payload.preferred_username||payload.email||'';
+  }catch(e){
+    dbg('getEmailFromJWT error: '+e.message);
+    return '';
+  }
+}
 
 function initMsal(){
   dbg('1. saveConfig OK, checking Msal v1...');
@@ -1158,22 +1149,21 @@ function initMsal(){
         dbg('Redirect OK - got account');
         account=resp.account;
         _tokenRefreshPending=false;
-        // Extract email from response — more reliable than account object on Chrome 42
-        var respEmail=getEmailFromResp(resp);
-        if(respEmail){
-          dbg('loginHint from resp: '+respEmail);
-          try{localStorage.setItem('roomdisplay_loginhint',respEmail);}catch(e){}
-        } else {
-          saveLoginHint(account);
-        }
+        // Extract email from access token JWT — reliable on all browsers incl Chrome 42
+        // account.username is undefined on Chrome 42 MSAL v1 — JWT decode bypasses this
         if(resp.accessToken){
+          var hint=getEmailFromJWT(resp.accessToken);
+          if(hint){
+            dbg('loginHint from JWT: '+hint);
+            try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
+            // Also persist into cfg so it survives cookie clears
+            try{cfg.loginHint=hint;localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
+          }
           var exp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
           saveToken(resp.accessToken,exp);
         }
         hide('config-screen');el('cfg-sticky-bar').style.display='none';
         launch();
-        // Auto-enter fullscreen after redirect — no tap needed
-        // Delay allows page to settle after MSAL redirect
         setTimeout(function(){
           doFullscreen();
           var ov=el('fs-overlay');if(ov)ov.style.display='none';
@@ -1183,52 +1173,24 @@ function initMsal(){
     // Check existing account
     var act=msalInst.getAccount();
     if(act){
-      // Log actual account properties to debug MSAL v1 field names on Chrome 42
-      var actEmail=getAccountEmail(act);
-      dbg('4. Found cached account — email:'+actEmail+
-        ' userName:'+act.userName+' username:'+act.username+
-        ' name:'+act.name);
-      if(actEmail){
-        // Valid account with usable email — launch normally
-        account=act;
-        saveLoginHint(act);
-        hide('config-screen');el('cfg-sticky-bar').style.display='none';
-        launch();
-      } else {
-        // Account object exists but no usable email — broken MSAL session
-        // Clear cache and trigger fresh login to avoid infinite silent retry
-        dbgErr('4. Account found but no email — clearing broken session');
-        try{if(msalInst&&msalInst.clearCache)msalInst.clearCache();}catch(e){}
-        try{
-          var bkeys=[];
-          for(var bi=0;bi<localStorage.length;bi++){
-            var bk=localStorage.key(bi);
-            if(bk&&(bk.indexOf('msal.')===0||bk.indexOf('msal|')===0))bkeys.push(bk);
-          }
-          for(var bj=0;bj<bkeys.length;bj++){localStorage.removeItem(bkeys[bj]);}
-        }catch(e){}
-        account=null;
-        // Try with saved hint if available
-        var savedHintB='';
-        try{var shb=localStorage.getItem('roomdisplay_loginhint');if(shb&&shb!=='undefined'&&shb!=='null')savedHintB=shb;}catch(e){}
-        hide('config-screen');el('cfg-sticky-bar').style.display='none';
-        if(savedHintB){
-          var isC42b=false;
-          try{var mb=/Chrome\/([\d]+)/.exec(navigator.userAgent);if(mb)isC42b=parseInt(mb[1],10)<=45;}catch(e){}
-          dbg('Broken session — retrying with hint: '+savedHintB+' Chrome42:'+isC42b);
-          try{msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'],loginHint:savedHintB,prompt:isC42b?'login':'none'});}
-          catch(e2){showAuth();}
-        } else {
-          showAuth();
+      dbg('4. Found cached account: '+(act.userName||act.username||'(no email)'));
+      account=act;
+      // Try to get email from stored token if account props are empty
+      var storedHint=localStorage.getItem('roomdisplay_loginhint')||'';
+      if(!storedHint||storedHint==='undefined'){
+        // Try cfg.loginHint as last resort
+        var cfgHint=(cfg&&cfg.loginHint)||'';
+        if(cfgHint){
+          dbg('loginHint from cfg: '+cfgHint);
+          try{localStorage.setItem('roomdisplay_loginhint',cfgHint);}catch(e){}
         }
       }
+      hide('config-screen');el('cfg-sticky-bar').style.display='none';
+      launch();
     } else {
       // Try silent login with saved hint — avoids "Pick an account" screen on reboot
       var savedHint='';
-      try{
-        var sh=localStorage.getItem('roomdisplay_loginhint');
-        if(sh&&sh!=='undefined'&&sh!=='null')savedHint=sh;
-      }catch(e){}
+      try{savedHint=localStorage.getItem('roomdisplay_loginhint')||'';}catch(e){}
       if(savedHint){
         dbg('4. No account but have hint — attempting silent login: '+savedHint);
         hide('config-screen');el('cfg-sticky-bar').style.display='none';
@@ -1257,82 +1219,7 @@ function initMsal(){
   }
 }
 
-// Extract email from MSAL v1 account — tries every known property
-// MSAL v1 on Chrome 42 may have all standard props as undefined
-// but idTokenClaims or the raw idToken object may have the data
-function getAccountEmail(acct){
-  if(!acct)return '';
-  var candidates=[
-    acct.userName,           // MSAL v1 primary
-    acct.username,           // MSAL v2
-    acct.name,               // display name fallback
-  ];
-  // Try idToken object (MSAL v1)
-  if(acct.idToken){
-    candidates.push(acct.idToken.preferred_username);
-    candidates.push(acct.idToken.upn);
-    candidates.push(acct.idToken.email);
-    candidates.push(acct.idToken.unique_name);
-    candidates.push(acct.idToken.oid);
-  }
-  // Try idTokenClaims (MSAL v1 alternative)
-  if(acct.idTokenClaims){
-    candidates.push(acct.idTokenClaims.preferred_username);
-    candidates.push(acct.idTokenClaims.upn);
-    candidates.push(acct.idTokenClaims.email);
-    candidates.push(acct.idTokenClaims.unique_name);
-  }
-  // Return first valid email-like string
-  for(var i=0;i<candidates.length;i++){
-    var c=candidates[i];
-    if(c&&typeof c==='string'&&c!=='undefined'&&c!=='null'&&c.indexOf('@')>0)
-      return c;
-  }
-  // No email found — log all keys for diagnostics
-  try{
-    dbg('getAccountEmail: no email found. acct keys:'+Object.keys(acct).join(','));
-    if(acct.idToken)dbg('idToken keys:'+Object.keys(acct.idToken).join(','));
-  }catch(e){}
-  return '';
-}
-
-function saveLoginHint(acct){
-  var email=getAccountEmail(acct);
-  if(email){
-    dbg('Saving loginHint: '+email);
-    try{localStorage.setItem('roomdisplay_loginhint',email);}catch(e){}
-  } else {
-    dbg('saveLoginHint: could not find email in account object');
-  }
-}
-
-// Extract email directly from redirect response (more reliable than account object)
-function getEmailFromResp(resp){
-  if(!resp)return '';
-  // Try idToken claims directly from response
-  var claims=null;
-  try{
-    if(resp.idToken&&resp.idToken.claims)claims=resp.idToken.claims;
-    else if(resp.idTokenClaims)claims=resp.idTokenClaims;
-  }catch(e){}
-  if(claims){
-    var c=claims.preferred_username||claims.upn||claims.email||claims.unique_name||'';
-    if(c&&c.indexOf('@')>0)return c;
-  }
-  // Try decoding idToken JWT directly
-  try{
-    if(resp.idToken&&resp.idToken.rawIdToken){
-      var parts=resp.idToken.rawIdToken.split('.');
-      if(parts.length>=2){
-        var payload=JSON.parse(atob(parts[1]));
-        var e=payload.preferred_username||payload.upn||payload.email||payload.unique_name||'';
-        if(e&&e.indexOf('@')>0)return e;
-      }
-    }
-  }catch(e){}
-  // Fall back to account object
-  return getAccountEmail(resp.account);
-}
+function doReauth(){
   dbg('doReauth called — clearing all token cache');
   _cachedToken=null;
   _tokenExpiry=0;
@@ -1340,34 +1227,26 @@ function getEmailFromResp(resp){
   // Save login hint before clearing
   var loginHint='';
   try{
-    // Use correct MSAL v1 property (userName not username)
-    if(account)loginHint=getAccountEmail(account);
+    if(account&&account.username)loginHint=account.username;
     if(loginHint)localStorage.setItem('roomdisplay_loginhint',loginHint);
     else{
       var h=localStorage.getItem('roomdisplay_loginhint');
       if(h&&h!=='undefined'&&h!=='null')loginHint=h;
+      // cfg.loginHint saved from JWT on last successful login — survives cookie clears
+      if(!loginHint&&cfg&&cfg.loginHint)loginHint=cfg.loginHint;
     }
   }catch(e){}
+  dbg('doReauth loginHint: '+(loginHint||'EMPTY'));
   try{localStorage.removeItem('roomdisplay_token');}catch(e){}
-  // Aggressively clear ALL MSAL cache — removes ALL cached accounts including personal ones
-  // Only the loginHint string survives in roomdisplay_loginhint
+  // Clear ALL MSAL cache — removes personal accounts, only loginHint survives
   try{
     var keys=[];
     for(var i=0;i<localStorage.length;i++){
       var k=localStorage.key(i);
-      // Clear any key that looks like MSAL data
-      if(k&&(
-        k.indexOf('msal.')===0||
-        k.indexOf('msal|')===0||
-        k.indexOf('msal-')===0||
-        k.indexOf('adal.')===0||
-        (cfg&&cfg.client&&k.indexOf(cfg.client)>-1)||
-        (cfg&&cfg.tenant&&k.indexOf(cfg.tenant)>-1)||
-        k.indexOf('login.microsoftonline')>-1
-      ))keys.push(k);
+      if(k&&(k.indexOf('msal.')===0||k.indexOf('msal|')===0))keys.push(k);
     }
     for(var j=0;j<keys.length;j++){localStorage.removeItem(keys[j]);}
-    dbg('Cleared '+keys.length+' MSAL/auth cache keys — all accounts removed');
+    dbg('Cleared '+keys.length+' MSAL cache keys — removed all cached accounts');
   }catch(e){}
   try{if(msalInst&&msalInst.clearCache)msalInst.clearCache();}catch(e){}
   account=null;
@@ -1501,7 +1380,7 @@ function startTokenRefreshTimer(){
       dbg('Session keepalive failed: '+code);
       // Only trigger reauth if truly expired — not transient errors
       if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
-        dbgErr('Session expired: '+code+' — triggering reauth');
+        dbg('Session genuinely expired — calling doReauth');
         if(!_tokenRefreshPending){
           _tokenRefreshPending=true;
           setTimeout(function(){doReauth();},1000);
@@ -2506,46 +2385,6 @@ document.addEventListener('click',function(e){handleTap(e);});
 })();
 
 loadCfg();
-
-// Always ensure loginHint is set from config — most reliable on Chrome 42
-// This runs before initMsal so reauth always has the hint available
-(function(){
-  var svc=cfg.svcaccount||'rismeetingroomsystem@central.co.th';
-  var existing='';
-  try{existing=localStorage.getItem('roomdisplay_loginhint')||'';}catch(e){}
-  if(!existing||existing==='undefined'||existing==='null'){
-    dbg('Boot: setting loginHint from config: '+svc);
-    try{localStorage.setItem('roomdisplay_loginhint',svc);}catch(e){}
-  }
-})();
-
-// One-time cleanup — remove any personal accounts from MSAL cache
-// Keeps only rismeetingroomsystem. Runs on every boot, harmless if already clean.
-(function(){
-  var hint='';
-  try{hint=localStorage.getItem('roomdisplay_loginhint')||'';}catch(e){}
-  if(!hint||hint==='undefined'||hint==='null')return; // No hint saved yet, nothing to clean
-  // Find and remove any MSAL account entries that don't match our hint
-  try{
-    var toRemove=[];
-    for(var ci=0;ci<localStorage.length;ci++){
-      var ck=localStorage.key(ci);
-      // Remove MSAL account entries for accounts OTHER than our hint
-      if(ck&&(ck.indexOf('msal.')===0||ck.indexOf('msal|')===0)){
-        var val='';
-        try{val=localStorage.getItem(ck)||'';}catch(e){}
-        // If this key contains an email that's not our hint — remove it
-        if(val&&val.indexOf('@')>-1&&val.indexOf(hint)<0){
-          toRemove.push(ck);
-        }
-      }
-    }
-    if(toRemove.length>0){
-      dbg('Purging '+toRemove.length+' foreign account cache entries');
-      for(var ri=0;ri<toRemove.length;ri++){localStorage.removeItem(toRemove[ri]);}
-    }
-  }catch(e){}
-})();
 // Handle dashboard auth redirect — if index.html was used as redirect URI for dashboard
 (function(){
   try{
