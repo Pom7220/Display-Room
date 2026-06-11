@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 10,
+  patch: 11,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -715,6 +715,7 @@ var APP_VERSION = {
 // v3.10.8 2026-06-11 - fetchCal retries on null token (prevents empty meeting list after relaunch); locallyEnded auto-cleanup; root cause: stale meetings after auto-relaunch with expired token
 // v3.10.9 2026-06-11 - Chrome42 fix: detect Chrome<=45, use prompt:login not prompt:none (cookie blocking); clear all MSAL accounts on reauth; removes personal account from picker
 // v3.10.10 2026-06-11 - Teams badge default OFF; loginHint undefined string fix; cert atob Chrome42 fix; dbgErr auto-enables debug on auth errors
+// v3.10.11 2026-06-11 - getAccountEmail helper reads MSAL v1 userName (not username); aggressive MSAL cache clear on reauth; personal account purge on boot; account property debug logging
 
 // ══════════════════════════════════════
 // STATE
@@ -1146,11 +1147,7 @@ function initMsal(){
         dbg('Redirect OK - got account');
         account=resp.account;
         _tokenRefreshPending=false;
-        // Save login hint for future silent re-auth (avoids MFA prompts)
-        try{
-          if(account.username&&typeof account.username==='string'&&account.username!=='undefined')
-            localStorage.setItem('roomdisplay_loginhint',account.username);
-        }catch(e){}
+        saveLoginHint(account);
         if(resp.accessToken){
           var exp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
           saveToken(resp.accessToken,exp);
@@ -1168,13 +1165,13 @@ function initMsal(){
     // Check existing account
     var act=msalInst.getAccount();
     if(act){
-      dbg('4. Found cached account: '+act.username);
+      // Log actual account properties to debug MSAL v1 field names on Chrome 42
+      dbg('4. Found cached account — email: '+getAccountEmail(act)+
+        ' userName:'+act.userName+' username:'+act.username+
+        ' name:'+act.name);
       account=act;
       // Save login hint for future silent re-auth
-      try{
-        if(act.username&&typeof act.username==='string'&&act.username!=='undefined')
-          localStorage.setItem('roomdisplay_loginhint',act.username);
-      }catch(e){}
+      saveLoginHint(act);
       hide('config-screen');el('cfg-sticky-bar').style.display='none';
       launch();
     } else {
@@ -1212,7 +1209,39 @@ function initMsal(){
   }
 }
 
-function doReauth(){
+// MSAL v1 stores email in userName (capital N), not username
+// Also check idToken.preferred_username and idToken.upn as fallbacks
+function getAccountEmail(acct){
+  if(!acct)return '';
+  var email='';
+  // MSAL v1 primary property
+  if(acct.userName&&typeof acct.userName==='string'&&acct.userName!=='undefined')
+    email=acct.userName;
+  // MSAL v1 idToken fallbacks
+  else if(acct.idToken){
+    if(acct.idToken.preferred_username&&typeof acct.idToken.preferred_username==='string')
+      email=acct.idToken.preferred_username;
+    else if(acct.idToken.upn&&typeof acct.idToken.upn==='string')
+      email=acct.idToken.upn;
+    else if(acct.idToken.email&&typeof acct.idToken.email==='string')
+      email=acct.idToken.email;
+  }
+  // MSAL v2 fallback (lowercase)
+  if(!email&&acct.username&&typeof acct.username==='string'&&acct.username!=='undefined')
+    email=acct.username;
+  return email||'';
+}
+
+function saveLoginHint(acct){
+  var email=getAccountEmail(acct);
+  if(email){
+    dbg('Saving loginHint: '+email);
+    try{localStorage.setItem('roomdisplay_loginhint',email);}catch(e){}
+  } else {
+    dbg('Could not extract email from account — account keys: '+
+      (acct?Object.keys(acct).join(','):'null'));
+  }
+}
   dbg('doReauth called — clearing all token cache');
   _cachedToken=null;
   _tokenExpiry=0;
@@ -1220,25 +1249,34 @@ function doReauth(){
   // Save login hint before clearing
   var loginHint='';
   try{
-    if(account&&account.username&&typeof account.username==='string'&&account.username!=='undefined')
-      loginHint=account.username;
+    // Use correct MSAL v1 property (userName not username)
+    if(account)loginHint=getAccountEmail(account);
     if(loginHint)localStorage.setItem('roomdisplay_loginhint',loginHint);
     else{
       var h=localStorage.getItem('roomdisplay_loginhint');
-      // Guard: reject stored "undefined" string
       if(h&&h!=='undefined'&&h!=='null')loginHint=h;
     }
   }catch(e){}
   try{localStorage.removeItem('roomdisplay_token');}catch(e){}
-  // Clear ALL MSAL cache — removes personal accounts, only loginHint survives
+  // Aggressively clear ALL MSAL cache — removes ALL cached accounts including personal ones
+  // Only the loginHint string survives in roomdisplay_loginhint
   try{
     var keys=[];
     for(var i=0;i<localStorage.length;i++){
       var k=localStorage.key(i);
-      if(k&&(k.indexOf('msal.')===0||k.indexOf('msal|')===0))keys.push(k);
+      // Clear any key that looks like MSAL data
+      if(k&&(
+        k.indexOf('msal.')===0||
+        k.indexOf('msal|')===0||
+        k.indexOf('msal-')===0||
+        k.indexOf('adal.')===0||
+        (cfg&&cfg.client&&k.indexOf(cfg.client)>-1)||
+        (cfg&&cfg.tenant&&k.indexOf(cfg.tenant)>-1)||
+        k.indexOf('login.microsoftonline')>-1
+      ))keys.push(k);
     }
     for(var j=0;j<keys.length;j++){localStorage.removeItem(keys[j]);}
-    dbg('Cleared '+keys.length+' MSAL cache keys — removed all cached accounts');
+    dbg('Cleared '+keys.length+' MSAL/auth cache keys — all accounts removed');
   }catch(e){}
   try{if(msalInst&&msalInst.clearCache)msalInst.clearCache();}catch(e){}
   account=null;
@@ -2377,6 +2415,34 @@ document.addEventListener('click',function(e){handleTap(e);});
 })();
 
 loadCfg();
+
+// One-time cleanup — remove any personal accounts from MSAL cache
+// Keeps only rismeetingroomsystem. Runs on every boot, harmless if already clean.
+(function(){
+  var hint='';
+  try{hint=localStorage.getItem('roomdisplay_loginhint')||'';}catch(e){}
+  if(!hint||hint==='undefined'||hint==='null')return; // No hint saved yet, nothing to clean
+  // Find and remove any MSAL account entries that don't match our hint
+  try{
+    var toRemove=[];
+    for(var ci=0;ci<localStorage.length;ci++){
+      var ck=localStorage.key(ci);
+      // Remove MSAL account entries for accounts OTHER than our hint
+      if(ck&&(ck.indexOf('msal.')===0||ck.indexOf('msal|')===0)){
+        var val='';
+        try{val=localStorage.getItem(ck)||'';}catch(e){}
+        // If this key contains an email that's not our hint — remove it
+        if(val&&val.indexOf('@')>-1&&val.indexOf(hint)<0){
+          toRemove.push(ck);
+        }
+      }
+    }
+    if(toRemove.length>0){
+      dbg('Purging '+toRemove.length+' foreign account cache entries');
+      for(var ri=0;ri<toRemove.length;ri++){localStorage.removeItem(toRemove[ri]);}
+    }
+  }catch(e){}
+})();
 // Handle dashboard auth redirect — if index.html was used as redirect URI for dashboard
 (function(){
   try{
