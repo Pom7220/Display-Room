@@ -43,14 +43,28 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 
 .tslot-d{padding:7px 12px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
 .tslot-d.active{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);color:var(--blue-l);}
-.tslot-d:active{opacity:.8;}background:rgba(4,8,16,.9);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+.tslot-d:active{opacity:.8;}
+
+/* SCHEDULE POPUP — white alert style */
+#sched-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;}
 #sched-modal.hidden{display:none;}
-.sched-item{padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;}
-.sched-item:last-child{border-bottom:none;}
-.sched-time{font-size:12px;font-weight:700;color:var(--blue-l);white-space:nowrap;min-width:90px;font-variant-numeric:tabular-nums;}
-.sched-title{font-size:13px;color:var(--text);line-height:1.4;}
-.sched-org{font-size:11px;color:var(--muted);margin-top:2px;}
-.sched-empty{text-align:center;padding:24px;font-size:13px;color:var(--muted);}
+.sched-popup{background:#fff;border-radius:14px;padding:20px 20px 14px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.35);}
+.sched-popup-title{font-size:15px;font-weight:700;color:#111;margin-bottom:1px;}
+.sched-popup-sub{font-size:11px;color:#999;margin-bottom:12px;}
+.sched-divider{height:1px;background:#ebebeb;margin-bottom:10px;}
+.sched-row{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f2f2f2;}
+.sched-row:last-of-type{border-bottom:none;}
+.sched-row.now-row{background:#eef4ff;border-radius:7px;padding:7px 8px;margin:2px -8px;border-bottom:none;}
+.sched-row-time{font-size:12px;color:#666;white-space:nowrap;min-width:96px;font-variant-numeric:tabular-nums;}
+.sched-row.now-row .sched-row-time{color:#2979ff;font-weight:700;}
+.sched-row-info{flex:1;}
+.sched-row-title{font-size:13px;color:#222;line-height:1.4;}
+.sched-row.now-row .sched-row-title{font-weight:700;color:#111;}
+.now-tag{display:inline-block;background:#2979ff;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle;letter-spacing:.04em;}
+.sched-row-org{font-size:11px;color:#999;margin-top:1px;}
+.sched-pending-tag{font-size:10px;color:#ff9500;margin-left:5px;}
+.sched-empty-txt{font-size:13px;color:#999;text-align:center;padding:16px 0;}
+.sched-close-btn{width:100%;margin-top:14px;padding:11px;background:#f0f2f5;border:none;border-radius:8px;font-size:14px;font-weight:600;color:#333;cursor:pointer;font-family:var(--font);}
 
 /* IMPROVED REFRESH BAR */
 .ref-bar{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;border-bottom:1px solid var(--border);background:var(--panel);}
@@ -209,7 +223,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.4 (2026-06-10)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.5 (2026-06-10)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -263,16 +277,14 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 
 <div id="toast" class="hidden"></div>
 
-<!-- SCHEDULE MODAL -->
+<!-- SCHEDULE POPUP — white alert style -->
 <div id="sched-modal" class="hidden">
-  <div class="msheet">
-    <div class="mdrag"></div>
-    <div class="mtitle" id="sched-title">Today's schedule</div>
-    <div class="msub" id="sched-sub"></div>
-    <div id="sched-list" style="margin-top:8px;max-height:340px;overflow-y:auto;"></div>
-    <div style="margin-top:16px">
-      <button class="mcancel" style="width:100%;text-align:center;" onclick="closeSchedModal()">Close</button>
-    </div>
+  <div class="sched-popup">
+    <div class="sched-popup-title" id="sched-title">Today's schedule</div>
+    <div class="sched-popup-sub" id="sched-sub"></div>
+    <div class="sched-divider"></div>
+    <div id="sched-list"></div>
+    <button class="sched-close-btn" onclick="closeSchedModal()">Close</button>
   </div>
 </div>
 
@@ -555,17 +567,23 @@ function showSchedule(){
   el('sched-title').textContent=`${selectedRoom.name} — Today`;
   el('sched-sub').textContent=selectedRoom.email;
   const list=el('sched-list');
+  const now=new Date();
   if(!d?.meetings?.length){
-    list.innerHTML='<div class="sched-empty">No meetings scheduled today</div>';
+    list.innerHTML='<div class="sched-empty-txt">No meetings scheduled today</div>';
   } else {
     list.innerHTML=d.meetings.map(m=>{
-      const timeStr=`${ft(m.start)} – ${ft(m.end)}`;
-      const pending=m.isPending?'<span style="font-size:10px;color:var(--amber);margin-left:6px">PENDING</span>':'';
-      return `<div class="sched-item">
-        <div class="sched-time">${timeStr}</div>
-        <div><div class="sched-title">${m.title}${pending}</div>
-        ${m.organizer?`<div class="sched-org">${m.organizer}</div>`:''}
-        </div></div>`;
+      const isNow=m.start<=now&&m.end>=now;
+      const rowCls=isNow?'sched-row now-row':'sched-row';
+      const nowTag=isNow?'<span class="now-tag">NOW</span>':'';
+      const pendTag=m.isPending?'<span class="sched-pending-tag">PENDING</span>':'';
+      const org=m.organizer?`<div class="sched-row-org">${m.organizer}</div>`:'';
+      return `<div class="${rowCls}">
+        <div class="sched-row-time">${ft(m.start)} – ${ft(m.end)}</div>
+        <div class="sched-row-info">
+          <div class="sched-row-title">${m.title}${nowTag}${pendTag}</div>
+          ${org}
+        </div>
+      </div>`;
     }).join('');
   }
   show('sched-modal');
