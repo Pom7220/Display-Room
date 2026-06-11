@@ -386,6 +386,7 @@ if('serviceWorker' in navigator){
     <h3>Azure AD / Microsoft 365</h3>
     <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="817e531d-191b-4cf5-8812-f0061d89b53d"></div>
     <div class="field"><label>Client (Application) ID</label><input type="text" id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="80648895-4acf-4ac5-b4a3-c5bf6bc98983"></div>
+    <div class="field"><label>Service Account Email</label><input type="text" id="cfg-svcaccount" placeholder="rismeetingroomsystem@central.co.th" value="rismeetingroomsystem@central.co.th"><div class="hint">Used for silent re-auth on Chrome 42 (LG tablet)</div></div>
   </div>
   <div class="cfg-card">
     <h3>Primary Room</h3>
@@ -657,7 +658,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 12,
+  patch: 13,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -717,6 +718,7 @@ var APP_VERSION = {
 // v3.10.10 2026-06-11 - Teams badge default OFF; loginHint undefined string fix; cert atob Chrome42 fix; dbgErr auto-enables debug on auth errors
 // v3.10.11 2026-06-11 - getAccountEmail helper reads MSAL v1 userName (not username); aggressive MSAL cache clear on reauth; personal account purge on boot; account property debug logging
 // v3.10.12 2026-06-11 - Fix broken MSAL session (no email in account) - detect and clear, retry with saved hint instead of silently hanging
+// v3.10.13 2026-06-11 - Service account email field in config (pre-filled); loginHint set from config on every boot; getEmailFromResp reads JWT claims directly; covers Chrome42 where account.userName=undefined
 
 // ══════════════════════════════════════
 // STATE
@@ -1019,8 +1021,14 @@ function saveConfig(){
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
+    svcaccount:v('cfg-svcaccount')||'rismeetingroomsystem@central.co.th',
     extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
+  // Always save svcaccount as loginHint — most reliable source on Chrome 42
+  if(cfg.svcaccount){
+    dbg('Saving loginHint from config: '+cfg.svcaccount);
+    try{localStorage.setItem('roomdisplay_loginhint',cfg.svcaccount);}catch(e){}
+  }
   initMsal();
 }
 
@@ -1031,6 +1039,8 @@ function showConfig(){
   else el('cfg-tenant').value='817e531d-191b-4cf5-8812-f0061d89b53d';
   if(cfg.client)el('cfg-client').value=cfg.client;
   else el('cfg-client').value='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
+  var svcDefault='rismeetingroomsystem@central.co.th';
+  if(el('cfg-svcaccount'))el('cfg-svcaccount').value=cfg.svcaccount||svcDefault;
   if(cfg.roomname)el('cfg-roomname').value=cfg.roomname;
   if(cfg.roomemail)el('cfg-roomemail').value=cfg.roomemail;
   if(cfg.release!=null)el('cfg-release').value=cfg.release;
@@ -1148,7 +1158,14 @@ function initMsal(){
         dbg('Redirect OK - got account');
         account=resp.account;
         _tokenRefreshPending=false;
-        saveLoginHint(account);
+        // Extract email from response — more reliable than account object on Chrome 42
+        var respEmail=getEmailFromResp(resp);
+        if(respEmail){
+          dbg('loginHint from resp: '+respEmail);
+          try{localStorage.setItem('roomdisplay_loginhint',respEmail);}catch(e){}
+        } else {
+          saveLoginHint(account);
+        }
         if(resp.accessToken){
           var exp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
           saveToken(resp.accessToken,exp);
@@ -1240,27 +1257,43 @@ function initMsal(){
   }
 }
 
-// MSAL v1 stores email in userName (capital N), not username
-// Also check idToken.preferred_username and idToken.upn as fallbacks
+// Extract email from MSAL v1 account — tries every known property
+// MSAL v1 on Chrome 42 may have all standard props as undefined
+// but idTokenClaims or the raw idToken object may have the data
 function getAccountEmail(acct){
   if(!acct)return '';
-  var email='';
-  // MSAL v1 primary property
-  if(acct.userName&&typeof acct.userName==='string'&&acct.userName!=='undefined')
-    email=acct.userName;
-  // MSAL v1 idToken fallbacks
-  else if(acct.idToken){
-    if(acct.idToken.preferred_username&&typeof acct.idToken.preferred_username==='string')
-      email=acct.idToken.preferred_username;
-    else if(acct.idToken.upn&&typeof acct.idToken.upn==='string')
-      email=acct.idToken.upn;
-    else if(acct.idToken.email&&typeof acct.idToken.email==='string')
-      email=acct.idToken.email;
+  var candidates=[
+    acct.userName,           // MSAL v1 primary
+    acct.username,           // MSAL v2
+    acct.name,               // display name fallback
+  ];
+  // Try idToken object (MSAL v1)
+  if(acct.idToken){
+    candidates.push(acct.idToken.preferred_username);
+    candidates.push(acct.idToken.upn);
+    candidates.push(acct.idToken.email);
+    candidates.push(acct.idToken.unique_name);
+    candidates.push(acct.idToken.oid);
   }
-  // MSAL v2 fallback (lowercase)
-  if(!email&&acct.username&&typeof acct.username==='string'&&acct.username!=='undefined')
-    email=acct.username;
-  return email||'';
+  // Try idTokenClaims (MSAL v1 alternative)
+  if(acct.idTokenClaims){
+    candidates.push(acct.idTokenClaims.preferred_username);
+    candidates.push(acct.idTokenClaims.upn);
+    candidates.push(acct.idTokenClaims.email);
+    candidates.push(acct.idTokenClaims.unique_name);
+  }
+  // Return first valid email-like string
+  for(var i=0;i<candidates.length;i++){
+    var c=candidates[i];
+    if(c&&typeof c==='string'&&c!=='undefined'&&c!=='null'&&c.indexOf('@')>0)
+      return c;
+  }
+  // No email found — log all keys for diagnostics
+  try{
+    dbg('getAccountEmail: no email found. acct keys:'+Object.keys(acct).join(','));
+    if(acct.idToken)dbg('idToken keys:'+Object.keys(acct.idToken).join(','));
+  }catch(e){}
+  return '';
 }
 
 function saveLoginHint(acct){
@@ -1269,9 +1302,36 @@ function saveLoginHint(acct){
     dbg('Saving loginHint: '+email);
     try{localStorage.setItem('roomdisplay_loginhint',email);}catch(e){}
   } else {
-    dbg('Could not extract email from account — account keys: '+
-      (acct?Object.keys(acct).join(','):'null'));
+    dbg('saveLoginHint: could not find email in account object');
   }
+}
+
+// Extract email directly from redirect response (more reliable than account object)
+function getEmailFromResp(resp){
+  if(!resp)return '';
+  // Try idToken claims directly from response
+  var claims=null;
+  try{
+    if(resp.idToken&&resp.idToken.claims)claims=resp.idToken.claims;
+    else if(resp.idTokenClaims)claims=resp.idTokenClaims;
+  }catch(e){}
+  if(claims){
+    var c=claims.preferred_username||claims.upn||claims.email||claims.unique_name||'';
+    if(c&&c.indexOf('@')>0)return c;
+  }
+  // Try decoding idToken JWT directly
+  try{
+    if(resp.idToken&&resp.idToken.rawIdToken){
+      var parts=resp.idToken.rawIdToken.split('.');
+      if(parts.length>=2){
+        var payload=JSON.parse(atob(parts[1]));
+        var e=payload.preferred_username||payload.upn||payload.email||payload.unique_name||'';
+        if(e&&e.indexOf('@')>0)return e;
+      }
+    }
+  }catch(e){}
+  // Fall back to account object
+  return getAccountEmail(resp.account);
 }
   dbg('doReauth called — clearing all token cache');
   _cachedToken=null;
@@ -2446,6 +2506,18 @@ document.addEventListener('click',function(e){handleTap(e);});
 })();
 
 loadCfg();
+
+// Always ensure loginHint is set from config — most reliable on Chrome 42
+// This runs before initMsal so reauth always has the hint available
+(function(){
+  var svc=cfg.svcaccount||'rismeetingroomsystem@central.co.th';
+  var existing='';
+  try{existing=localStorage.getItem('roomdisplay_loginhint')||'';}catch(e){}
+  if(!existing||existing==='undefined'||existing==='null'){
+    dbg('Boot: setting loginHint from config: '+svc);
+    try{localStorage.setItem('roomdisplay_loginhint',svc);}catch(e){}
+  }
+})();
 
 // One-time cleanup — remove any personal accounts from MSAL cache
 // Keeps only rismeetingroomsystem. Runs on every boot, harmless if already clean.
