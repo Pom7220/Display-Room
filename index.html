@@ -421,7 +421,7 @@ if('serviceWorker' in navigator){
     <h3>Microsoft Teams</h3>
     <div class="toggle-row">
       <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Show "Join Teams" button</div><div class="tr-sub">One-tap join on active Teams meetings</div></div>
-      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-teams" checked><span class="tog-slider"></span></label>
+      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-teams"><span class="tog-slider"></span></label>
     </div>
   </div>
   <div class="cfg-card">
@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 9,
+  patch: 10,
   date: '2026-06-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -714,6 +714,7 @@ var APP_VERSION = {
 // v3.10.7 2026-06-11 - Macchiato pending meetings now show in list; PWA auto-fullscreen on standalone launch; tap-anywhere overlay no PIN; manifest.json display:fullscreen; showAs debug log
 // v3.10.8 2026-06-11 - fetchCal retries on null token (prevents empty meeting list after relaunch); locallyEnded auto-cleanup; root cause: stale meetings after auto-relaunch with expired token
 // v3.10.9 2026-06-11 - Chrome42 fix: detect Chrome<=45, use prompt:login not prompt:none (cookie blocking); clear all MSAL accounts on reauth; removes personal account from picker
+// v3.10.10 2026-06-11 - Teams badge default OFF; loginHint undefined string fix; cert atob Chrome42 fix; dbgErr auto-enables debug on auth errors
 
 // ══════════════════════════════════════
 // STATE
@@ -968,23 +969,31 @@ function startBurnIn(){
 function downloadCert(){
   var b64='MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAwTzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2VhcmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoBggIBAK3oJHP0FDfzm54rVygchQnme2sOJAeLmkDuBNQRlSrxcKiyR/xchNegrW4F5h+QxMRoZgUy5inHHw8BRTB6QSMg8CzHW9plu1aHMZKQ0as7yQYRubMoTB8T8ZLB4U3fxGjK10s0nD9LATn6jh/gcx5rqaHoSBatqIG2n+bfTn6s7bSf94lD4y53b2U1LM5xkv7fzGl3nBQ7k5dLq18LIEA6yAzVALyMSEE3aCEF1fVXVJqEphDmE2NiCiOmjpfFKFOHUOCHFXBJULAFc3j3QR6FVqdYg3LxZKAPiQvZZq8RGNbHVm6DPM/lOo6VrGbqjDHj7kfEhRuUQPk4V1Y0YnB6eGQ3e0GD3rh3n4Ql0SdDgJlGg0ACzxGZH7PKAXJz4CqjL0VqLNjCQSGDxWJGUqT1z9Yp+1cDOkHxe3C1nqLEh/HB5pkaqHrCgdtO3EFvzb9mPOlKxfb6I8+a+SBIkRaVOBxP2vA3GHNnCKn2lp+X3GhYH+GZqZ6zyMGWJBGV+0HtHmjQG/L1dBMHvMOaQ/p6R01YmjmR3dOkObHe9LkI=';
   try{
-    // Decode base64 to binary
-    var bin=atob(b64);
-    var bytes=new Uint8Array(bin.length);
-    for(var i=0;i<bin.length;i++){bytes[i]=bin.charCodeAt(i);}
-    // Create blob and trigger download
-    var blob=new Blob([bytes],{type:'application/x-x509-ca-cert'});
+    // Chrome 42 strict base64 — clean string: remove whitespace, ensure correct padding
+    var clean=b64.replace(/\s+/g,'').replace(/[^A-Za-z0-9+/=]/g,'');
+    // Ensure padding
+    while(clean.length%4!==0){clean+='=';}
+    // Decode base64 to binary string
+    var bin=window.atob(clean);
+    // Convert to byte array using charCodeAt (ES5 safe)
+    var bytes=[];
+    for(var i=0;i<bin.length;i++){bytes.push(bin.charCodeAt(i)&0xff);}
+    // Create Uint8Array
+    var arr=new Uint8Array(bytes);
+    // Create blob — use application/octet-stream for better Chrome 42 compat
+    var blob=new Blob([arr],{type:'application/octet-stream'});
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
     a.href=url;a.download='isrgrootx1.der';
     document.body.appendChild(a);a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(function(){URL.revokeObjectURL(url);},3000);
     // Show install instructions
     var steps=document.getElementById('cert-steps');
     if(steps)steps.style.display='block';
+    toast('Certificate downloaded to Downloads folder','success');
   }catch(e){
-    alert('Download failed: '+e.message+'\n\nPlease download the certificate manually.');
+    toast('Download failed: '+e.message,'error');
   }
 }
 
@@ -1089,6 +1098,13 @@ function dbg(msg){
       '<b style="color:#fff">Debug Log:</b><br>'+dbgLines.join('<br>');
   }
 }
+// Auto-enable debug on critical errors — shows overlay even if debug was closed
+// Next page load will keep debug enabled until manually turned off
+function dbgErr(msg){
+  dbgEnabled=true;
+  try{localStorage.setItem('roomdisplay_debug','1');}catch(e){}
+  dbg('ERR: '+msg);
+}
 window.onerror=function(msg,src,line){
   // Always show JS errors regardless of dbgEnabled
   var d=el('debug-overlay');
@@ -1131,7 +1147,10 @@ function initMsal(){
         account=resp.account;
         _tokenRefreshPending=false;
         // Save login hint for future silent re-auth (avoids MFA prompts)
-        try{if(account.username)localStorage.setItem('roomdisplay_loginhint',account.username);}catch(e){}
+        try{
+          if(account.username&&typeof account.username==='string'&&account.username!=='undefined')
+            localStorage.setItem('roomdisplay_loginhint',account.username);
+        }catch(e){}
         if(resp.accessToken){
           var exp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
           saveToken(resp.accessToken,exp);
@@ -1152,13 +1171,19 @@ function initMsal(){
       dbg('4. Found cached account: '+act.username);
       account=act;
       // Save login hint for future silent re-auth
-      try{if(act.username)localStorage.setItem('roomdisplay_loginhint',act.username);}catch(e){}
+      try{
+        if(act.username&&typeof act.username==='string'&&act.username!=='undefined')
+          localStorage.setItem('roomdisplay_loginhint',act.username);
+      }catch(e){}
       hide('config-screen');el('cfg-sticky-bar').style.display='none';
       launch();
     } else {
       // Try silent login with saved hint — avoids "Pick an account" screen on reboot
       var savedHint='';
-      try{savedHint=localStorage.getItem('roomdisplay_loginhint')||'';}catch(e){}
+      try{
+        var sh=localStorage.getItem('roomdisplay_loginhint');
+        if(sh&&sh!=='undefined'&&sh!=='null')savedHint=sh;
+      }catch(e){}
       if(savedHint){
         dbg('4. No account but have hint — attempting silent login: '+savedHint);
         hide('config-screen');el('cfg-sticky-bar').style.display='none';
@@ -1195,9 +1220,14 @@ function doReauth(){
   // Save login hint before clearing
   var loginHint='';
   try{
-    if(account&&account.username)loginHint=account.username;
+    if(account&&account.username&&typeof account.username==='string'&&account.username!=='undefined')
+      loginHint=account.username;
     if(loginHint)localStorage.setItem('roomdisplay_loginhint',loginHint);
-    else{var h=localStorage.getItem('roomdisplay_loginhint');if(h)loginHint=h;}
+    else{
+      var h=localStorage.getItem('roomdisplay_loginhint');
+      // Guard: reject stored "undefined" string
+      if(h&&h!=='undefined'&&h!=='null')loginHint=h;
+    }
   }catch(e){}
   try{localStorage.removeItem('roomdisplay_token');}catch(e){}
   // Clear ALL MSAL cache — removes personal accounts, only loginHint survives
@@ -1342,7 +1372,7 @@ function startTokenRefreshTimer(){
       dbg('Session keepalive failed: '+code);
       // Only trigger reauth if truly expired — not transient errors
       if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
-        dbg('Session genuinely expired — calling doReauth');
+        dbgErr('Session expired: '+code+' — triggering reauth');
         if(!_tokenRefreshPending){
           _tokenRefreshPending=true;
           setTimeout(function(){doReauth();},1000);
