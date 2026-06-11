@@ -223,7 +223,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.5 (2026-06-10)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.6 (2026-06-11)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -338,15 +338,19 @@ function initMsal(){
       if(err){console.warn('Redirect error:',err);return;}
       if(resp&&resp.account){
         account=resp.account;
+        // Save login hint for future silent re-auth
+        try{if(account.username)localStorage.setItem('roomdisplay_loginhint',account.username);}catch(e){}
         if(resp.accessToken){
           _token=resp.accessToken;
           _tokenExp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
         }
         fetchAllRooms();
+        startDashboardKeepalive();
       }
     });
-    // MSAL v1 uses getAccount() not getAllAccounts()
     account=msalInst.getAccount();
+    // Save hint if already signed in
+    if(account){try{localStorage.setItem('roomdisplay_loginhint',account.username);}catch(e){}}
   }catch(e){console.warn('MSAL init:',e);}
 }
 
@@ -354,6 +358,26 @@ function doSignIn(){
   initMsal();
   try{msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});}
   catch(e){el('auth-error').textContent=e.message;}
+}
+
+// Session keepalive — same as kiosk v3.10.5
+// Pings acquireTokenSilent every 45 min to prevent Azure AD session timeout
+function startDashboardKeepalive(){
+  setInterval(async function(){
+    if(!account||!msalInst)return;
+    try{
+      const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
+      _token=r.accessToken;
+      _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
+      console.log('Dashboard keepalive OK — session renewed');
+    }catch(e){
+      const code=e?.errorCode||'';
+      console.warn('Dashboard keepalive failed:',code);
+      if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
+        showSignInBar();
+      }
+    }
+  },2700000); // 45 minutes
 }
 
 async function getToken(){
@@ -414,11 +438,15 @@ async function fetchRoom(room, tok){
 
 async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
+  // Show spinner on refresh button during fetch
+  const refBtn=document.querySelector('.ref-btn');
+  if(refBtn)refBtn.textContent='↻ …';
   const tok = await getToken();
-  // fetchRoom now handles its own date range internally via shared functions
   const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
   ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
-  el('ref-txt').textContent = `Updated ${ft(new Date())}`;
+  const now=new Date();
+  el('ref-txt').textContent=`Updated ${ft(now)}`;
+  if(refBtn)refBtn.textContent='↻ Refresh';
   renderRooms(); updateSummary();
   if(!selectedRoom) selectDefaultRoom();
   else updateDetailCard();
@@ -663,11 +691,29 @@ async function confirmBooking(){
   const tok=await getToken();
   if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
   const s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
+
+  // ── CONFLICT CHECK — fetch room calendar for requested slot ──
+  try{
+    const existing=await fetchCalendarForRoom(selectedRoom.email,tok,s.toISOString(),e.toISOString());
+    const conflict=existing.find(function(m){
+      // Check overlap: meeting starts before our end AND ends after our start
+      return !m.isPending&&(m.end-m.start)<86399000&&m.start<e&&m.end>s;
+    });
+    if(conflict){
+      btn.disabled=false;
+      el('mconfirm-lbl').textContent='Confirm booking';
+      toast('Room is already booked at that time: '+ft(conflict.start)+'–'+ft(conflict.end),'error');
+      setTimeout(fetchAllRooms,500); // Refresh to show latest status
+      return;
+    }
+  }catch(err){
+    // Conflict check failed — proceed anyway, Exchange will handle it
+    console.warn('Conflict check failed:',err.message);
+  }
+
   let tz='Asia/Bangkok';
   try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch{}
   try{
-    // Resource booking — POST to /me/events, room as resource, requester as required
-    // Exchange handles conflict detection — auto-accepts if free, auto-declines if busy
     const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{
       method:'POST',
       headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},
@@ -677,9 +723,7 @@ async function confirmBooking(){
         start:{dateTime:localISO(s),timeZone:tz},
         end:{dateTime:localISO(e),timeZone:tz},
         attendees:[
-          // Room as resource — Exchange auto-accepts/declines
           {emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'resource'},
-          // Requester receives meeting invitation
           {emailAddress:{address:email,name:name},type:'required'}
         ],
         isOnlineMeeting:false
@@ -703,6 +747,7 @@ if(!account){
   selectDefaultRoom();
 } else {
   fetchAllRooms();
+  startDashboardKeepalive();
 }
 setInterval(fetchAllRooms,60000);
 </script>
