@@ -52,7 +52,7 @@ if(!Object.assign){Object.assign=function(t){for(var i=1;i<arguments.length;i++)
   --r:16px;--rs:12px;--rxs:8px;
 }
 
-html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:var(--font);overflow:hidden;-webkit-font-smoothing:antialiased;}
+html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'Inter',Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;}
 
 /* ── BACKGROUND ── */
 #bg{position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;background:#0a1628;}
@@ -2385,6 +2385,30 @@ document.addEventListener('click',function(e){handleTap(e);});
 // ══════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════
+
+// ── IFRAME GUARD ──
+// When msal-v1.min.js does silent iframe renewal, it loads this page in a hidden
+// iframe. The MSAL constructor's _processRedirectIfRequired detects the iframe
+// context and postMessages the token hash to the parent window.
+// We must NOT start the full app (fetchCal, intervals, service worker, etc.)
+// in the iframe — just init MSAL minimally and stop.
+if(window!==window.top){
+  try{
+    loadCfg();
+    if(cfg.client&&cfg.tenant){
+      // This constructor call triggers _processRedirectIfRequired → postMessage
+      new Msal.UserAgentApplication({
+        auth:{clientId:cfg.client,
+              authority:'https://login.microsoftonline.com/'+cfg.tenant,
+              redirectUri:location.href.split('?')[0].split('#')[0]},
+        cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+      });
+    }
+  }catch(e){}
+  // Stop here — do not start the app in the iframe
+}else{
+// ── NORMAL BOOT (top-level window) ──
+
 // Show version in config screen
 (function(){
   var vd=el('ver-display');
@@ -2412,6 +2436,7 @@ loadCfg();
 try{dbgEnabled=localStorage.getItem('roomdisplay_debug')==='1';}catch(e){}
 if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail)initMsal();
 else{showConfig();el('cfg-sticky-bar').style.display='block';}
+} // end normal boot
 </script>
 <!-- NEXT 5 DAYS SLIDE PANEL -->
 <div id="days-panel-overlay" onclick="closeDaysPanel()"></div>
