@@ -221,7 +221,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.8 (2026-06-11)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.9 (2026-06-12)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -609,20 +609,43 @@ function showSchedule(){
   if(!d?.meetings?.length){
     list.innerHTML='<div class="sched-empty-txt">No meetings scheduled today</div>';
   } else {
-    list.innerHTML=d.meetings.map(m=>{
-      const isNow=m.start<=now&&m.end>=now;
-      const rowCls=isNow?'sched-row now-row':'sched-row';
-      const nowTag=isNow?'<span class="now-tag">NOW</span>':'';
-      const pendTag=m.isPending?'<span class="sched-pending-tag">PENDING</span>':'';
-      const org=m.organizer?`<div class="sched-row-org">${m.organizer}</div>`:'';
-      return `<div class="${rowCls}">
-        <div class="sched-row-time">${ft(m.start)} – ${ft(m.end)}</div>
-        <div class="sched-row-info">
-          <div class="sched-row-title">${m.title}${nowTag}${pendTag}</div>
-          ${org}
-        </div>
-      </div>`;
-    }).join('');
+    // Split all-day events from timed meetings
+    const allDayEvts = d.meetings.filter(function(m){ return (m.end-m.start)>=86399000; });
+    const timedMeets = d.meetings.filter(function(m){ return (m.end-m.start)<86399000; });
+    var html = '';
+    // All-day events shown as a compact banner at the top, not as time slots
+    if(allDayEvts.length){
+      html += allDayEvts.map(function(m){
+        const pendTag=m.isPending?'<span class="sched-pending-tag">PENDING</span>':'';
+        const org=m.organizer?`<div class="sched-row-org">${m.organizer}</div>`:'';
+        return `<div class="sched-row" style="background:#f0f4ff;border-radius:6px;padding:6px 8px;margin-bottom:4px">
+          <div class="sched-row-time" style="color:#2979ff;font-weight:700;min-width:60px">All day</div>
+          <div class="sched-row-info">
+            <div class="sched-row-title">${m.title}${pendTag}</div>
+            ${org}
+          </div>
+        </div>`;
+      }).join('');
+    }
+    // Timed meetings
+    if(timedMeets.length){
+      html += timedMeets.map(m=>{
+        const isNow=m.start<=now&&m.end>=now;
+        const rowCls=isNow?'sched-row now-row':'sched-row';
+        const nowTag=isNow?'<span class="now-tag">NOW</span>':'';
+        const pendTag=m.isPending?'<span class="sched-pending-tag">PENDING</span>':'';
+        const org=m.organizer?`<div class="sched-row-org">${m.organizer}</div>`:'';
+        return `<div class="${rowCls}">
+          <div class="sched-row-time">${ft(m.start)} – ${ft(m.end)}</div>
+          <div class="sched-row-info">
+            <div class="sched-row-title">${m.title}${nowTag}${pendTag}</div>
+            ${org}
+          </div>
+        </div>`;
+      }).join('');
+    }
+    if(!html) html = '<div class="sched-empty-txt">No meetings scheduled today</div>';
+    list.innerHTML = html;
   }
   show('sched-modal');
 }
