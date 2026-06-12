@@ -657,8 +657,8 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 14,
-  date: '2026-06-10',
+  patch: 15,
+  date: '2026-06-12',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -715,6 +715,7 @@ var APP_VERSION = {
 // v3.10.8 2026-06-11 - fetchCal retries on null token (prevents empty meeting list after relaunch); locallyEnded auto-cleanup; root cause: stale meetings after auto-relaunch with expired token
 // v3.10.9 2026-06-11 - Chrome42 fix: detect Chrome<=45, use prompt:login not prompt:none (cookie blocking); clear all MSAL accounts on reauth; removes personal account from picker
 // v3.10.14 2026-06-11 - Proper loginHint fix: getEmailFromJWT decodes access token JWT directly; cfg.loginHint persists across cookie clears; no new UI fields; based on v3.10.9
+// v3.10.15 2026-06-12 - All-day room bookings correctly show as IN USE; status text 'Booked All Day'; End/+30m hidden for all-day cur; ris-shared.js deriveRoomStatus includes all-day in cur
 
 // ══════════════════════════════════════
 // STATE
@@ -1662,7 +1663,7 @@ function setTheme(status){
 // ══════════════════════════════════════
 // CURRENT CARD
 // ══════════════════════════════════════
-function getCur(){var n=new Date();return meetings.find(function(m){return !m.isPending&&!isAllDay(m)&&m.start<=n&&m.end>=n;})||null;}
+function getCur(){var n=new Date();return meetings.find(function(m){return !m.isPending&&m.start<=n&&m.end>=n;})||null;}
 function getNext(){
   var n=new Date();
   // Only show upcoming meetings from TODAY — not tomorrow or future days
@@ -1687,7 +1688,7 @@ function updateCurrentCard(){
       stxt.style.color='#44ee88';
       el('sdot').className='sdot av';
     } else {
-      stxt.textContent=ip?'Pending Approval':'In Use';
+      stxt.textContent=ip?'Pending Approval':(isAllDay(cur)?'Booked All Day':'In Use');
     }
     var pct=Math.min(100,Math.round((n-cur.start)/(cur.end-cur.start)*100));
     var btns='';
@@ -1698,8 +1699,11 @@ function updateCurrentCard(){
       if(!checkedIn){
         btns+='<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>';
       }
-      btns+='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
-      btns+='<button class="abtn abtn-extend" id="ext-btn">+ +30m</button>';
+      // All-day room bookings: hide End and +30m — can't extend or end a full-day block from kiosk
+      if(!isAllDay(cur)){
+        btns+='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
+        btns+='<button class="abtn abtn-extend" id="ext-btn">+ +30m</button>';
+      }
       // Teams join button removed — kiosk tablets don't have Teams installed
       // TEAMS badge in meeting list is sufficient indicator
     }
@@ -1708,12 +1712,18 @@ function updateCurrentCard(){
       var ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
       if(ml>0)warn='<div class="rel-warn">&#9888; Releases in '+ml+' min without check-in</div>';
     }
+    var timeDisplay;
+    if(isAllDay(cur)){
+      timeDisplay='<div class="meet-time-lg" style="color:#ff6666">Booked all day</div>';
+    } else {
+      timeDisplay='<div class="meet-time-lg" style="color:#ff6666">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>';
+    }
     cont.innerHTML=
       '<div class="meet-tag '+(ip?'pend':'busy')+'">'+(ip?'&#9203; PENDING':'&#128308; IN USE')+'</div>'+
       '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
-      '<div class="meet-time-lg" style="color:#ff6666">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
+      timeDisplay+
       (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
-      '<div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:#ff4444"></div></div>'+
+      (!isAllDay(cur)?'<div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:#ff4444"></div></div>':'')+
       '<div class="action-row">'+btns+'</div>'+warn;
     el('nav-book-btn').style.display='none';
 

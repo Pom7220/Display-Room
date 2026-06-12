@@ -1,7 +1,7 @@
 // ris-shared.js — RIS Room Display shared logic
 // ES5 ONLY — loaded by both index.html (Chrome 42) and dashboard.html
 // DO NOT use: const/let, arrows, template literals, async/await, optional chaining
-// Version: 1.1 (2026-06-11) — updated seat counts with ranges for Espresso/Doppio/Macchiato; Viennese/Decaffinato/Affogato to 6
+// Version: 1.2 (2026-06-12) — updated seat counts with ranges for Espresso/Doppio/Macchiato; Viennese/Decaffinato/Affogato to 6
 
 // ── ROOM DEFINITIONS ──
 var RIS_ROOMS = [
@@ -84,23 +84,26 @@ function filterMeetings(evArr) {
 }
 
 // Derive room status from a list of filtered meetings
-// Returns: {status, cur, nxt, pendingCur, freeUntil}
+// Returns: {status, cur, nxt, pendingCur, freeUntil, allDayCur}
 // status: 'avail' | 'busy' | 'soon' | 'pending' | 'unknown'
+// allDayCur: true when the current booking is an all-day room block
 // 'pending' = tentative meeting now or upcoming soon — not confirmed but not available either
 function deriveRoomStatus(meetings) {
   var now = new Date();
   var endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
 
-  // Current confirmed meeting: non-pending, non-all-day, happening now
+  // Current confirmed meeting: non-pending, happening now
+  // ALL-DAY events ARE included — a room booked all day is not available
   var cur = null;
   for (var i = 0; i < meetings.length; i++) {
     var m = meetings[i];
-    if (!m.isPending && !isAllDay(m) && m.start <= now && m.end >= now) {
+    if (!m.isPending && m.start <= now && m.end >= now) {
       cur = m; break;
     }
   }
 
   // Next confirmed meeting: non-pending, non-all-day, in future today
+  // All-day events are excluded from nxt — they don't represent a "coming up soon" slot
   var nxt = null;
   for (var j = 0; j < meetings.length; j++) {
     var n = meetings[j];
@@ -119,10 +122,13 @@ function deriveRoomStatus(meetings) {
   }
 
   var status, freeUntil = null;
+  var allDayCur = cur ? isAllDay(cur) : false;
 
   if (cur) {
     // Confirmed meeting in progress — busy
-    status = 'busy'; freeUntil = cur.end;
+    status = 'busy';
+    // For all-day bookings, freeUntil = end of today (not tomorrow 07:00 local)
+    freeUntil = allDayCur ? endOfToday : cur.end;
   } else if (pendingCur && pendingCur.start <= now) {
     // Pending meeting in progress now — show as pending
     status = 'pending'; freeUntil = pendingCur.end;
@@ -139,7 +145,7 @@ function deriveRoomStatus(meetings) {
     status = 'avail';
   }
 
-  return { status: status, cur: cur, nxt: nxt, pendingCur: pendingCur, freeUntil: freeUntil };
+  return { status: status, cur: cur, nxt: nxt, pendingCur: pendingCur, freeUntil: freeUntil, allDayCur: allDayCur };
 }
 
 // Fetch calendar for a single room — returns Promise

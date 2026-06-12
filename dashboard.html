@@ -427,7 +427,8 @@ async function fetchRoom(room, tok){
       meetings: meetings,
       cur: derived.cur,
       nxt: derived.nxt,
-      freeUntil: derived.freeUntil
+      freeUntil: derived.freeUntil,
+      allDayCur: derived.allDayCur
     };
   }catch(err){
     return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
@@ -491,7 +492,7 @@ function getStatusProps(room){
   const d=roomData[room.email];
   const now=new Date();
   if(!d||d.status==='unknown')return{status:'unknown',dot:'#3a4d6b',info:'—',dcCls:'',badgeTxt:'—',badgeStyle:'background:#1a1a2e;color:#7788aa'};
-  if(d.status==='busy')return{status:'busy',dot:'#ff3333',info:d.cur?`Until ${ft(d.cur.end)}`:'Occupied',dcCls:'dc-busy',badgeTxt:'IN USE',badgeStyle:'background:rgba(255,51,51,.15);color:#ff8888;border:1px solid rgba(255,51,51,.3)'};
+  if(d.status==='busy'){const busyInfo=d.allDayCur?'Booked all day':(d.cur?`Until ${ft(d.cur.end)}`:'Occupied');return{status:'busy',dot:'#ff3333',info:busyInfo,dcCls:'dc-busy',badgeTxt:'IN USE',badgeStyle:'background:rgba(255,51,51,.15);color:#ff8888;border:1px solid rgba(255,51,51,.3)'}; }
   if(d.status==='pending'){
     const p=d.pendingCur;
     const info=p?(p.start<=now?`Pending until ${ft(p.end)}`:`Pending at ${ft(p.start)}`):'Pending approval';
