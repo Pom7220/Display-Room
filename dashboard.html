@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a0a12">
 <title>RIS Rooms</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="ris-shared.js?v=11"></script>
+<script src="ris-shared.js?v=12"></script>
 <script src="msal-v1.min.js"></script>
 <style>
 :root{
@@ -221,7 +221,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v1.9 (2026-06-12)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.0 (2026-06-12)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -294,7 +294,7 @@ const SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','Us
 // ROOMS loaded from ris-shared.js as RIS_ROOMS
 const ROOMS = RIS_ROOMS;
 
-let msalInst=null, account=null, _token=null, _tokenExp=0;
+let msalInst=null, account=null, _token=null, _tokenExp=0, _redirectInProgress=false;
 let roomData={}, selectedRoom=null, selDurMin=60, bookStart=null;
 
 const el=id=>document.getElementById(id);
@@ -333,11 +333,22 @@ function initMsal(){
     });
     // Handle redirect response (returning from Microsoft login)
     msalInst.handleRedirectCallback(function(err,resp){
-      if(err){console.warn('Redirect error:',err);return;}
+      _redirectInProgress=false; // always clear on return from Azure
+      if(err){
+        console.warn('Redirect error:',err);
+        // interaction_required on prompt:none → show sign-in bar, don't loop
+        const code=(err.errorCode||err.errorMessage||'').toLowerCase();
+        if(code.indexOf('interaction_required')>-1||code.indexOf('login_required')>-1||
+           code.indexOf('50196')>-1||code.indexOf('loop')>-1){
+          showSignInBar();
+        }
+        return;
+      }
       if(resp&&resp.account){
         account=resp.account;
-        // Save login hint for future silent re-auth
-        try{if(account.username)localStorage.setItem('roomdisplay_loginhint',account.username);}catch(e){}
+        // Save login hint — use JWT decode for reliability (account.username undefined on some browsers)
+        var hint=getEmailFromJWT(resp.accessToken)||account.userName||account.username||'';
+        if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
         if(resp.accessToken){
           _token=resp.accessToken;
           _tokenExp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
@@ -348,14 +359,33 @@ function initMsal(){
     });
     account=msalInst.getAccount();
     // Save hint if already signed in
-    if(account){try{localStorage.setItem('roomdisplay_loginhint',account.username);}catch(e){}}
+    if(account){
+      var hint=account.userName||account.username||'';
+      if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
+    }
   }catch(e){console.warn('MSAL init:',e);}
 }
 
+// Decode email from access token JWT — reliable on all browsers
+// account.username/userName can be undefined; JWT claims always populated
+function getEmailFromJWT(token){
+  try{
+    var parts=(token||'').split('.');
+    if(parts.length<2)return '';
+    var b64=parts[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(b64.length%4!==0)b64+='=';
+    var payload=JSON.parse(atob(b64));
+    return payload.upn||payload.unique_name||payload.preferred_username||payload.email||'';
+  }catch(e){return '';}
+}
+
 function doSignIn(){
+  if(_redirectInProgress)return;
   initMsal();
-  try{msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});}
-  catch(e){el('auth-error').textContent=e.message;}
+  try{
+    _redirectInProgress=true;
+    msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});
+  }catch(e){_redirectInProgress=false;el('auth-error').textContent=e.message;}
 }
 
 // Session keepalive — same as kiosk v3.10.5
@@ -382,28 +412,37 @@ async function getToken(){
   if(_token&&_tokenExp>Date.now()+120000)return _token;
   initMsal();
   if(!msalInst)return null;
-  // If no account, try to recover from localStorage hint
+  // Already mid-redirect — don't stack another one
+  if(_redirectInProgress)return null;
+  // No account — attempt silent reauth with saved hint, or show sign-in bar
   if(!account){
     const savedHint=localStorage.getItem('roomdisplay_loginhint')||'';
-    if(savedHint&&msalInst){
+    if(savedHint){
       try{
-        // Try silent redirect with hint
+        _redirectInProgress=true;
+        // prompt:none = fully silent on modern browsers (Surface Pro etc)
+        // If it fails Azure returns interaction_required → handleRedirectCallback → showSignInBar
         msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});
-      }catch(e){}
+      }catch(e){_redirectInProgress=false;showSignInBar();}
+    } else {
+      showSignInBar();
     }
     return null;
   }
+  // Have account — try acquireTokenSilent first (no redirect at all)
   try{
     const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
     _token=r.accessToken;
     _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
     return _token;
   }catch(e){
-    // Silent failed — try redirect with hint
+    // Silent token renewal failed — redirect with hint
     const savedHint=localStorage.getItem('roomdisplay_loginhint')||'';
-    if(savedHint){
-      try{msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});}
-      catch(e2){showSignInBar();}
+    if(savedHint&&!_redirectInProgress){
+      try{
+        _redirectInProgress=true;
+        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});
+      }catch(e2){_redirectInProgress=false;showSignInBar();}
     } else {
       showSignInBar();
     }
@@ -460,16 +499,20 @@ function showSignInBar(){
     refBtn.style.borderColor='rgba(255,149,0,.4)';
     refBtn.style.color='#ffaa33';
     refBtn.onclick=function(){
+      if(_redirectInProgress)return;
       initMsal();
       if(msalInst){
         const hint=localStorage.getItem('roomdisplay_loginhint')||'';
         try{
+          _redirectInProgress=true;
+          // Manual tap: always use select_account so user can actively choose
+          // prompt:none is only for background/automatic silent reauth
           msalInst.loginRedirect({
             scopes:SCOPES,
             loginHint:hint||undefined,
-            prompt:hint?'none':'select_account'
+            prompt:'select_account'
           });
-        }catch(e){console.warn(e);}
+        }catch(e){_redirectInProgress=false;console.warn(e);}
       }
     };
   }
