@@ -42,37 +42,13 @@ self.addEventListener('activate', function(e) {
 });
 
 // Fetch — network first, fall back to cache
-self.addEventListener('fetch', function(e) {
-  if (e.request.method !== 'GET') return;
-  if (e.request.url.indexOf(self.location.origin) === -1) return;
-
-  e.respondWith(
-    fetch(e.request).then(function(response) {
-      if (response && response.status === 200) {
-        var clone = response.clone();
-        caches.open(CACHE_NAME).then(function(cache) {
-          cache.put(e.request, clone);
-        });
-      }
-      return response;
-    }).catch(function() {
-      return caches.match(e.request).then(function(cached) {
-        return cached || new Response('Offline', { status: 503 });
-      });
-    })
-  );
-});
-
-// Fetch — network first, fall back to cache
 // Network-first ensures latest version is always served when online
 self.addEventListener('fetch', function(e) {
-  // Only handle GET requests for our own origin
   if (e.request.method !== 'GET') return;
   if (e.request.url.indexOf(self.location.origin) === -1) return;
 
   e.respondWith(
     fetch(e.request).then(function(response) {
-      // Cache successful responses
       if (response && response.status === 200) {
         var clone = response.clone();
         caches.open(CACHE_NAME).then(function(cache) {
@@ -81,7 +57,6 @@ self.addEventListener('fetch', function(e) {
       }
       return response;
     }).catch(function() {
-      // Network failed — serve from cache
       return caches.match(e.request).then(function(cached) {
         return cached || new Response('Offline', { status: 503 });
       });
