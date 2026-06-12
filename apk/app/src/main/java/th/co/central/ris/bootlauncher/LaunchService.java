@@ -17,7 +17,7 @@ import android.os.PowerManager;
  */
 public class LaunchService extends Service {
 
-    private static final String DISPLAY_URL = "https://pom7220.github.io/Display-Room/";
+    private static final String DISPLAY_URL = "https://ris-display.ris-display.workers.dev/";
     private static final long BOOT_DELAY_MS = 10000; // 10 seconds for WiFi
 
     @Override

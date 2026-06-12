@@ -1528,10 +1528,26 @@ function enterKiosk(){
     },600);
     return;
   }
-  // Browser launch — show simple "tap anywhere" overlay
-  // No PIN required for initial fullscreen
-  var ov=el('fs-overlay');
-  if(ov){ov.style.display='-webkit-flex';ov.style.display='flex';}
+  // Browser launch (boot launcher or direct URL)
+  // Try auto-fullscreen first — Chrome 42 allows requestFullscreen from
+  // a timer after programmatic navigation (same mechanism as Layer 3).
+  // If Chrome rejects it, fall back to the tap overlay.
+  dbg('Browser mode — trying auto-fullscreen after delay');
+  setTimeout(function(){
+    doFullscreen();
+    // Check if fullscreen worked after a brief delay
+    setTimeout(function(){
+      var inFS=!!(document.fullscreenElement||document.webkitFullscreenElement);
+      if(inFS){
+        dbg('Auto-fullscreen succeeded in browser mode');
+        var ov=el('fs-overlay');if(ov)ov.style.display='none';
+      } else {
+        dbg('Auto-fullscreen denied — showing tap overlay');
+        var ov=el('fs-overlay');
+        if(ov){ov.style.display='-webkit-flex';ov.style.display='flex';}
+      }
+    },500);
+  },800);
 }
 
 // Re-enter fullscreen if user exits (e.g. swipe from edge)

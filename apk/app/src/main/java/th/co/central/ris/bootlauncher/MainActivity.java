@@ -31,7 +31,7 @@ import java.io.InputStream;
  */
 public class MainActivity extends Activity {
 
-    private static final String DISPLAY_URL = "https://pom7220.github.io/Display-Room/";
+    private static final String DISPLAY_URL = "https://ris-display.ris-display.workers.dev/";
     private static final String CERT_FILENAME = "isrgrootx1.crt";
     private static final int CERT_INSTALL_REQUEST = 1001;
 
