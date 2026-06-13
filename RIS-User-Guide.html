@@ -1,0 +1,73 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>RIS Room Display — User Guide</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:'Inter',Arial,sans-serif; font-size:12px; color:#1a1a1a; line-height:1.6; padding:28px 32px; max-width:720px; margin:0 auto; }
+h1 { font-size:20px; font-weight:600; margin-bottom:2px; }
+h1 .icon { font-size:18px; margin-right:6px; }
+.subtitle { font-size:11px; color:#888; margin-bottom:18px; }
+h2 { font-size:14px; font-weight:600; margin:18px 0 8px; padding-bottom:4px; border-bottom:1px solid #e8e8e8; }
+h3 { font-size:12px; font-weight:600; margin:10px 0 4px; }
+p { margin:4px 0; }
+table { width:100%; border-collapse:collapse; margin:8px 0 12px; font-size:11px; }
+th { background:#f5f5f5; text-align:left; padding:6px 10px; font-weight:600; border:1px solid #e0e0e0; }
+td { padding:6px 10px; border:1px solid #e0e0e0; vertical-align:top; }
+tr:nth-child(even) td { background:#fafafa; }
+.mono { font-family:'Courier New',monospace; font-size:10px; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0; }
+.grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:8px 0; }
+.card { background:#f8f8f8; border:1px solid #e8e8e8; border-radius:6px; padding:10px 12px; }
+.card-title { font-weight:600; font-size:12px; margin-bottom:2px; }
+.card-sub { font-size:11px; color:#666; }
+.step { display:flex; gap:10px; align-items:flex-start; margin:6px 0; }
+.step-num { min-width:22px; height:22px; border-radius:50%; background:#2979ff; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; flex-shrink:0; }
+.step p { margin:0; }
+.warn { background:#fff8e6; border:1px solid #f0d060; border-radius:6px; padding:8px 12px; font-size:11px; color:#7a5d00; margin:8px 0; }
+.info { background:#e8f4ff; border:1px solid #b0d4f1; border-radius:6px; padding:8px 12px; font-size:11px; color:#1a5276; margin:8px 0; }
+.success { background:#eafbe7; border:1px solid #a3d99b; border-radius:6px; padding:8px 12px; font-size:11px; color:#1a6b1a; margin:8px 0; }
+.status-row { display:flex; align-items:center; gap:6px; margin:4px 0; }
+.dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.checklist label { display:flex; align-items:flex-start; gap:6px; margin:4px 0; font-size:11px; }
+.checklist input { margin-top:2px; }
+.footer { margin-top:20px; padding-top:10px; border-top:1px solid #e0e0e0; font-size:10px; color:#aaa; text-align:center; }
+@media print { body { padding:16px 20px; } }
+</style></head><body>
+
+<h1>⬡ RIS Room Display — User Guide</h1>
+<div class="subtitle">Central Silom Tower · RIS floor · 12 meeting rooms</div>
+
+<h2>Room status indicators</h2>
+<div class="grid2">
+<div class="card"><div class="status-row"><div class="dot" style="background:#2979ff"></div><strong>Available</strong></div><div class="card-sub">Room is free — you can book it</div></div>
+<div class="card"><div class="status-row"><div class="dot" style="background:#ff3333"></div><strong>In use</strong></div><div class="card-sub">Meeting in progress — check in if it's yours</div></div>
+<div class="card"><div class="status-row"><div class="dot" style="background:#ff9500"></div><strong>Soon</strong></div><div class="card-sub">Next meeting starts within 30 minutes</div></div>
+<div class="card"><div class="status-row"><div class="dot" style="background:#ff9500"></div><strong>Pending</strong></div><div class="card-sub">Awaiting room owner approval</div></div>
+</div>
+
+<h2>How to book a room</h2>
+<div class="step"><div class="step-num">1</div><p><strong>Tap "Book Room"</strong> on the tablet display (only appears when room is available)</p></div>
+<div class="step"><div class="step-num">2</div><p><strong>Enter your name, email, and meeting title</strong></p></div>
+<div class="step"><div class="step-num">3</div><p><strong>Pick a start time and duration</strong> (30 min to 2 hours)</p></div>
+<div class="step"><div class="step-num">4</div><p><strong>Tap "Confirm"</strong> — you'll receive an Outlook calendar invitation</p></div>
+<div class="warn">⚠ <strong>Macchiato</strong> is the only room requiring owner approval. All other rooms are instant booking.</div>
+
+<h2>During your meeting</h2>
+<div class="grid3">
+<div class="card" style="text-align:center"><div class="card-title">✓ Check in</div><div class="card-sub">Confirm you're using the room. Unchecked rooms auto-release after 10 min.</div></div>
+<div class="card" style="text-align:center"><div class="card-title">+30m Extend</div><div class="card-sub">Add 30 minutes if the next time slot is free.</div></div>
+<div class="card" style="text-align:center"><div class="card-title">✕ End meeting</div><div class="card-sub">Release the room early so others can book it.</div></div>
+</div>
+
+<h2>Mobile dashboard</h2>
+<p>See all 12 rooms at a glance from your phone or laptop:</p>
+<p class="mono" style="font-size:11px;color:#2979ff;margin:4px 0">pom7220.github.io/Display-Room/dashboard.html</p>
+<p>Tap any room to see its schedule or book it. Auto-refreshes every 60 seconds.</p>
+
+<h2>Room directory</h2>
+<div class="grid2">
+<div class="card"><h3>Lobby area (rooms 1–6)</h3><p>Espresso · Doppio · Cappuccino<br>Americano · Lungo · Ristretto</p></div>
+<div class="card"><h3>In-office area (rooms 7–12)</h3><p>Macchiato · Viennese · Decaffinato<br>Latte · Mocha · Affogato</p></div>
+</div>
+
+<div class="footer">RIS Room Display v3.10.15 · Central Group · 2026</div>
+</body></html>
