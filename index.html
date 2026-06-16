@@ -2435,6 +2435,35 @@ if(window!==window.top){
 })();
 
 loadCfg();
+
+// ── URL PARAM CONFIG INJECTION ──
+// When the APK boot launcher passes room config via URL params (?room=...&roomname=...),
+// auto-save to localStorage so the kiosk launches with the correct room.
+// This solves the PWA vs Chrome localStorage context mismatch — config is always set
+// regardless of which Chrome context opens the page.
+(function(){
+  try{
+    var params=location.search||'';
+    if(params.indexOf('room=')>-1){
+      var get=function(k){var m=params.match(new RegExp('[?&]'+k+'=([^&]*)'));return m?decodeURIComponent(m[1]):null;};
+      var room=get('room');
+      var roomname=get('roomname');
+      var approval=get('approval');
+      if(room){
+        // Pre-fill config with room from APK
+        if(!cfg.tenant)cfg.tenant='817e531d-191b-4cf5-8812-f0061d89b53d';
+        if(!cfg.client)cfg.client='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
+        cfg.roomemail=room;
+        if(roomname)cfg.roomname=roomname;
+        cfg.booking=true;
+        cfg.approval=approval==='1';
+        try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
+        dbg('URL param config injected: '+room+' ('+roomname+')');
+      }
+    }
+  }catch(e){dbg('URL param parse error: '+e);}
+})();
+
 // Handle dashboard auth redirect — if index.html was used as redirect URI for dashboard
 (function(){
   try{
