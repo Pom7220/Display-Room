@@ -1,26 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="th.co.central.ris.bootlauncher"
-    android:versionCode="1"
-    android:versionName="1.0" >
+    package="th.co.central.ris.bootlauncher">
 
-    <uses-sdk
-        android:minSdkVersion="19"
-        android:targetSdkVersion="19" />
-
-    <!-- Required to receive boot completed broadcast -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="false"
-        android:label="RIS Kiosk Launcher"
-        android:icon="@drawable/ic_launcher" >
+        android:label="RIS Kiosk"
+        android:icon="@drawable/ic_launcher">
 
-        <!-- Boot receiver — fires when Android finishes booting -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="true" >
+            android:exported="true">
             <intent-filter android:priority="999">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
@@ -28,11 +20,12 @@
             </intent-filter>
         </receiver>
 
-        <!-- Minimal activity required for APK install -->
         <activity
             android:name=".MainActivity"
-            android:label="RIS Kiosk Launcher"
-            android:theme="@android:style/Theme.NoDisplay" >
+            android:label="RIS Kiosk"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Holo.NoActionBar.Fullscreen"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -40,5 +33,4 @@
         </activity>
 
     </application>
-
 </manifest>

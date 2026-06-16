@@ -8,13 +8,13 @@ android {
         applicationId "th.co.central.ris.bootlauncher"
         minSdkVersion 19
         targetSdkVersion 19
-        versionCode 3
-        versionName "1.2"
+        versionCode 4
+        versionName "1.3"
     }
 
     buildTypes {
-        debug { minifyEnabled false }
         release { minifyEnabled false }
+        debug { minifyEnabled false }
     }
 
     compileOptions {
