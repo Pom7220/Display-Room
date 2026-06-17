@@ -2448,7 +2448,6 @@ loadCfg();
       var get=function(k){var m=params.match(new RegExp('[?&]'+k+'=([^&]*)'));return m?decodeURIComponent(m[1]):null;};
       var room=get('room');
       var roomname=get('roomname');
-      var approval=get('approval');
       if(room){
         // Pre-fill config with room from APK
         if(!cfg.tenant)cfg.tenant='817e531d-191b-4cf5-8812-f0061d89b53d';
@@ -2456,9 +2455,16 @@ loadCfg();
         cfg.roomemail=room;
         if(roomname)cfg.roomname=roomname;
         cfg.booking=true;
-        cfg.approval=approval==='1';
+        // Approval is determined by ris-shared.js RIS_ROOMS, not URL param
+        // Macchiato = approval required, all others = no
+        cfg.approval=false;
+        if(typeof RIS_ROOMS!=='undefined'){
+          for(var ri=0;ri<RIS_ROOMS.length;ri++){
+            if(RIS_ROOMS[ri].email===room){cfg.approval=!!RIS_ROOMS[ri].approval;break;}
+          }
+        }
         try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
-        dbg('URL param config injected: '+room+' ('+roomname+')');
+        dbg('URL param config injected: '+room+' ('+roomname+') approval='+cfg.approval);
       }
     }
   }catch(e){dbg('URL param parse error: '+e);}
