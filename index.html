@@ -657,8 +657,8 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 15,
-  date: '2026-06-12',
+  patch: 16,
+  date: '2026-06-16',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -2455,14 +2455,8 @@ loadCfg();
         cfg.roomemail=room;
         if(roomname)cfg.roomname=roomname;
         cfg.booking=true;
-        // Approval is determined by ris-shared.js RIS_ROOMS, not URL param
-        // Macchiato = approval required, all others = no
-        cfg.approval=false;
-        if(typeof RIS_ROOMS!=='undefined'){
-          for(var ri=0;ri<RIS_ROOMS.length;ri++){
-            if(RIS_ROOMS[ri].email===room){cfg.approval=!!RIS_ROOMS[ri].approval;break;}
-          }
-        }
+        // Approval defaults to OFF — enable manually in config if needed
+        if(typeof cfg.approval==='undefined')cfg.approval=false;
         try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
         dbg('URL param config injected: '+room+' ('+roomname+') approval='+cfg.approval);
       }
