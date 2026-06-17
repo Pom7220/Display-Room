@@ -52,7 +52,6 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private String selectedEmail = "";
     private String selectedName = "";
-    private boolean selectedApproval = false;
     private View selectedView = null;
     private TextView statusText;
     private Button launchBtn;
@@ -151,7 +150,7 @@ public class MainActivity extends Activity {
 
         // Version
         TextView ver = new TextView(this);
-        ver.setText("\nRIS Kiosk Launcher v1.3\nth.co.central.ris.bootlauncher");
+        ver.setText("\nRIS Kiosk Launcher v1.4\nth.co.central.ris.bootlauncher");
         ver.setTextColor(Color.parseColor("#3a4d6b"));
         ver.setTextSize(10);
         ver.setGravity(Gravity.CENTER);
@@ -243,13 +242,10 @@ public class MainActivity extends Activity {
 
                 selectedEmail = room[1];
                 selectedName = room[0];
-                selectedApproval = "yes".equals(room[4]);
-
                 // Save to SharedPreferences
                 prefs.edit()
                     .putString("room_email", selectedEmail)
                     .putString("room_name", selectedName)
-                    .putBoolean("room_approval", selectedApproval)
                     .apply();
 
                 updateStatus();
@@ -277,9 +273,7 @@ public class MainActivity extends Activity {
         url.append("?nocache=").append(System.currentTimeMillis());
         url.append("&room=").append(Uri.encode(selectedEmail));
         url.append("&roomname=").append(Uri.encode(selectedName));
-        if (selectedApproval) {
-            url.append("&approval=1");
-        }
+
 
         try {
             Intent chromeIntent = new Intent(Intent.ACTION_VIEW);
