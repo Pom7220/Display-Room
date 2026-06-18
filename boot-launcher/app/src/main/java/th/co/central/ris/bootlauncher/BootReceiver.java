@@ -8,8 +8,9 @@ import android.net.Uri;
 
 /**
  * Launches Chrome on BOOT_COMPLETED with room config in URL params.
- * Room approval is NOT passed via URL — it's determined by ris-shared.js
- * RIS_ROOMS definition (Macchiato = approval required, all others = no).
+ * Double-launch strategy: fires at 90s AND 180s after boot.
+ * Meet in Touch also fires on boot and may steal the foreground.
+ * The second launch at 180s brings Chrome back on top.
  */
 public class BootReceiver extends BroadcastReceiver {
 
@@ -17,8 +18,8 @@ public class BootReceiver extends BroadcastReceiver {
         "https://ris-display.ris-display.workers.dev/";
     private static final String CHROME_PACKAGE = "com.android.chrome";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
-    // 90 seconds — LG tablets need extra time for all services to start
-    private static final long BOOT_DELAY_MS = 90000;
+    private static final long FIRST_LAUNCH_MS = 90000;   // 90 seconds
+    private static final long SECOND_LAUNCH_MS = 180000;  // 3 minutes
 
     @Override
     public void onReceive(final Context context, Intent intent) {
@@ -27,14 +28,15 @@ public class BootReceiver extends BroadcastReceiver {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
 
+            // First launch — after WiFi and services settle
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    try {
-                        Thread.sleep(BOOT_DELAY_MS);
-                    } catch (InterruptedException e) {
-                        // Continue
-                    }
+                    try { Thread.sleep(FIRST_LAUNCH_MS); } catch (InterruptedException e) {}
+                    launchKiosk(context);
+
+                    // Second launch — brings Chrome back if Meet in Touch stole foreground
+                    try { Thread.sleep(SECOND_LAUNCH_MS - FIRST_LAUNCH_MS); } catch (InterruptedException e) {}
                     launchKiosk(context);
                 }
             }).start();
@@ -46,7 +48,6 @@ public class BootReceiver extends BroadcastReceiver {
         String roomEmail = prefs.getString("room_email", "");
         String roomName = prefs.getString("room_name", "");
 
-        // Build URL with room config — approval is determined by ris-shared.js, not here
         StringBuilder url = new StringBuilder(BASE_URL);
         url.append("?nocache=").append(System.currentTimeMillis());
 
@@ -74,9 +75,7 @@ public class BootReceiver extends BroadcastReceiver {
                 fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 context.startActivity(fallbackIntent);
-            } catch (Exception e2) {
-                // Both failed
-            }
+            } catch (Exception e2) {}
         }
     }
 }
