@@ -8,8 +8,10 @@
 <meta name="theme-color" content="#0a0a12">
 <title>RIS Rooms</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="ris-shared.js?v=12"></script>
-<script src="msal-v1.min.js"></script>
+<script src="ris-shared.js?v=12">
+</script>
+<script src="msal-v1.min.js">
+</script>
 <style>
 :root{
   --bg:#040810;--panel:#0d1526;--panel2:#111d35;
@@ -164,6 +166,45 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 #toast.warn{border-color:rgba(255,149,0,.45);color:var(--amber);}
 .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;display:inline-block;vertical-align:middle;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ADMIN PANEL */
+.admin-btn{background:#1a1a2e;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;letter-spacing:.05em;}
+.admin-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+#admin-panel{display:none;padding:12px 14px 80px;}
+#admin-panel.visible{display:block;}
+.adm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+.adm-stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;text-align:center;}
+.adm-stat-n{font-size:22px;font-weight:800;line-height:1.2;}
+.adm-stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+.adm-section{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.adm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+.adm-room{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;position:relative;}
+.adm-room-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;}
+.adm-room-status{font-size:10px;margin-bottom:2px;}
+.adm-room-meta{font-size:9px;color:var(--hint);line-height:1.5;}
+.adm-room-dot{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%;}
+.adm-room-actions{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
+.adm-act{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--panel2);color:var(--muted);}
+.adm-act:active{opacity:.7;}
+.adm-act.reload{color:var(--blue);border-color:rgba(41,121,255,.3);}
+.adm-act.fullscreen{color:var(--green);border-color:rgba(0,214,143,.3);}
+.adm-act.clear{color:var(--amber);border-color:rgba(255,149,0,.3);}
+.adm-act.reauth{color:var(--red);border-color:rgba(255,51,51,.3);}
+.adm-incidents{margin-bottom:16px;}
+.adm-inc{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:4px;font-size:11px;}
+.adm-inc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.adm-inc-room{font-weight:600;color:#fff;min-width:70px;}
+.adm-inc-type{color:var(--muted);min-width:120px;}
+.adm-inc-time{color:var(--hint);margin-left:auto;white-space:nowrap;font-size:10px;}
+.adm-inc-dur{font-size:9px;padding:1px 6px;border-radius:3px;margin-left:6px;}
+.adm-inc-dur.resolved{background:rgba(0,214,143,.1);color:var(--green);}
+.adm-inc-dur.open{background:rgba(255,51,51,.1);color:var(--red);}
+.adm-empty{text-align:center;padding:24px;color:var(--hint);font-size:12px;}
+.adm-refresh{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.adm-refresh-btn{padding:6px 14px;background:var(--blue);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:600;cursor:pointer;}
+.adm-refresh-btn:active{opacity:.8;}
+.adm-last{font-size:10px;color:var(--hint);}
+.adm-log{background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:monospace;font-size:10px;color:var(--muted);max-height:120px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;display:none;}
 </style>
 </head>
 <body>
@@ -181,6 +222,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="hdr-row">
       <div class="ris-logo">RIS</div>
       <div class="hdr-title">Meeting Rooms</div>
+      <button class="admin-btn" id="admin-toggle" onclick="toggleAdmin()">ADMIN</button>
       <div class="clock-wrap">
         <span class="clock-time" id="clock-time">--:--</span>
         <span class="clock-date" id="clock-date">---</span>
@@ -221,7 +263,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.0 (2026-06-12)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.1 (2026-06-21)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -274,6 +316,32 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 </div>
 
 <div id="toast" class="hidden"></div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-panel">
+  <div class="adm-refresh">
+    <button class="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh status</button>
+    <span class="adm-last" id="adm-last-refresh">—</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 60s</span>
+  </div>
+
+  <div class="adm-stats">
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-online" style="color:var(--green)">—</div><div class="adm-stat-l">Online</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-offline" style="color:var(--red)">—</div><div class="adm-stat-l">Offline</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Open issues</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg resolve</div></div>
+  </div>
+
+  <div class="adm-section">Tablet health — 12 rooms</div>
+  <div class="adm-grid" id="adm-room-grid">
+    <div class="adm-empty">Loading status…</div>
+  </div>
+
+  <div class="adm-section">Recent incidents</div>
+  <div class="adm-incidents" id="adm-incident-list">
+    <div class="adm-empty">Loading incidents…</div>
+  </div>
+</div>
 
 <!-- SCHEDULE POPUP — white alert style -->
 <div id="sched-modal" class="hidden">
@@ -842,6 +910,189 @@ if(!account){
 setInterval(fetchAllRooms,60000);
 
 } // end normal boot
+
+
+// ══════════════════════════════════════
+// ADMIN PANEL — remote monitoring
+// ══════════════════════════════════════
+const MONITOR_URL = 'https://ris-display.ris-display.workers.dev/api/';
+let adminVisible = false;
+let adminRefreshInterval = null;
+
+function toggleAdmin() {
+  adminVisible = !adminVisible;
+  const panel = document.getElementById('admin-panel');
+  const btn = document.getElementById('admin-toggle');
+  const mainApp = document.getElementById('main-app');
+
+  if (adminVisible) {
+    panel.classList.add('visible');
+    btn.classList.add('active');
+    btn.textContent = 'ROOMS';
+    // Hide room grid and detail card, keep header
+    document.querySelectorAll('.zone-wrap,.zone-div,.legend,.dc-wrap,.sum-row,.hint-bar').forEach(el => el.style.display = 'none');
+    refreshAdmin();
+    adminRefreshInterval = setInterval(refreshAdmin, 60000);
+  } else {
+    panel.classList.remove('visible');
+    btn.classList.remove('active');
+    btn.textContent = 'ADMIN';
+    document.querySelectorAll('.zone-wrap,.zone-div,.legend,.dc-wrap,.sum-row,.hint-bar').forEach(el => el.style.display = '');
+    if (adminRefreshInterval) { clearInterval(adminRefreshInterval); adminRefreshInterval = null; }
+  }
+}
+
+async function refreshAdmin() {
+  try {
+    // Fetch room status
+    const statusResp = await fetch(MONITOR_URL + 'status');
+    const statusData = await statusResp.json();
+
+    // Fetch incidents
+    const incResp = await fetch(MONITOR_URL + 'incidents?limit=30');
+    const incData = await incResp.json();
+
+    renderAdminRooms(statusData.rooms || []);
+    renderAdminStats(statusData.rooms || [], incData.stats || {});
+    renderAdminIncidents(incData.incidents || []);
+
+    document.getElementById('adm-last-refresh').textContent =
+      'Updated: ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  } catch (e) {
+    document.getElementById('adm-room-grid').innerHTML =
+      '<div class="adm-empty" style="color:var(--red)">Error loading: ' + e.message + '</div>';
+  }
+}
+
+function renderAdminStats(rooms, stats) {
+  const online = rooms.filter(r => r.isOnline).length;
+  const offline = rooms.length > 0 ? rooms.filter(r => !r.isOnline).length : 0;
+
+  document.getElementById('adm-online').textContent = online;
+  document.getElementById('adm-offline').textContent = offline;
+  document.getElementById('adm-incidents-open').textContent = stats.open || 0;
+
+  const avg = stats.avgResolutionMinutes;
+  document.getElementById('adm-avg-resolve').textContent =
+    avg > 0 ? (avg < 60 ? avg + 'm' : Math.round(avg/60) + 'h') : '—';
+}
+
+function renderAdminRooms(rooms) {
+  const grid = document.getElementById('adm-room-grid');
+
+  // Build a map of rooms from heartbeat data
+  const roomMap = {};
+  rooms.forEach(r => { roomMap[r.room] = r; });
+
+  // Show all 12 RIS rooms (even if no heartbeat yet)
+  let html = '';
+  RIS_ROOMS.forEach(ris => {
+    const r = roomMap[ris.email] || null;
+    const isOnline = r && r.isOnline;
+    const dotColor = !r ? '#555' : (isOnline ? '#00d68f' : '#ff3333');
+    const statusText = !r ? 'No heartbeat' :
+      (isOnline ? 'Online — ' + r.status : 'Offline (' + r.lastSeenMinutes + 'm ago)');
+    const tokenText = !r ? '' :
+      (r.hasRefreshToken ? '🔑 Token: ' + (r.tokenMinsLeft > 0 ? r.tokenMinsLeft + 'm left' : 'expired') + ' · refresh ✓'
+        : '⚠ No refresh token');
+    const versionText = r ? 'v' + r.version : '';
+    const uptimeText = r ? '⏱ ' + r.uptime + 'm uptime' : '';
+    const meetText = r ? '📅 ' + r.meetingCount + ' meetings' : '';
+    const lastLog = (r && r.log && r.log.length > 0) ? r.log[r.log.length - 1] : '';
+
+    html += '<div class="adm-room">' +
+      '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
+      '<div class="adm-room-name">' + ris.name + '</div>' +
+      '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
+      '<div class="adm-room-meta">' + [tokenText, versionText, uptimeText, meetText].filter(Boolean).join('<br>') + '</div>';
+
+    // Log toggle
+    if (r && r.log && r.log.length > 0) {
+      const logId = 'log-' + ris.name.toLowerCase();
+      html += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
+    }
+
+    // Action buttons
+    html += '<div class="adm-room-actions">' +
+      '<div class="adm-act reload" onclick="sendCmd(\'' + ris.email + '\',\'reload\')">↻ Reload</div>' +
+      '<div class="adm-act fullscreen" onclick="sendCmd(\'' + ris.email + '\',\'force_fullscreen\')">⛶ Fullscreen</div>' +
+      '<div class="adm-act clear" onclick="sendCmd(\'' + ris.email + '\',\'clear_tokens\')">🔑 Clear tokens</div>' +
+      '<div class="adm-act reauth" onclick="sendCmd(\'' + ris.email + '\',\'re_auth\')">🔐 Re-auth</div>';
+
+    // Log toggle button
+    if (r && r.log && r.log.length > 0) {
+      const logId = 'log-' + ris.name.toLowerCase();
+      html += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋 Log</div>';
+    }
+
+    html += '</div></div>';
+  });
+
+  grid.innerHTML = html;
+}
+
+function renderAdminIncidents(incidents) {
+  const list = document.getElementById('adm-incident-list');
+  if (!incidents.length) {
+    list.innerHTML = '<div class="adm-empty">No incidents recorded</div>';
+    return;
+  }
+
+  let html = '';
+  incidents.forEach(inc => {
+    const isOpen = !inc.resolvedAt;
+    const dotColor = isOpen ? '#ff3333' : '#00d68f';
+    const time = new Date(inc.reportedAt).toLocaleString('en-US', {
+      month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
+    });
+    const durHtml = isOpen
+      ? '<span class="adm-inc-dur open">OPEN</span>'
+      : '<span class="adm-inc-dur resolved">' + (inc.durationMinutes || 0) + 'm</span>';
+
+    html += '<div class="adm-inc">' +
+      '<div class="adm-inc-dot" style="background:' + dotColor + '"></div>' +
+      '<div class="adm-inc-room">' + (inc.roomname || inc.room) + '</div>' +
+      '<div class="adm-inc-type">' + inc.type + (inc.detail ? ' — ' + inc.detail.substring(0, 40) : '') + '</div>' +
+      '<div class="adm-inc-time">' + time + durHtml + '</div>' +
+      '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
+async function sendCmd(room, command) {
+  if (!confirm('Send "' + command + '" to ' + room + '?')) return;
+  try {
+    const resp = await fetch(MONITOR_URL + 'command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({room, command, sentBy: 'admin-dashboard'})
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast('✓ Command sent: ' + command);
+    } else {
+      showToast('✗ ' + (data.error || 'Failed'), 'error');
+    }
+  } catch (e) {
+    showToast('✗ ' + e.message, 'error');
+  }
+}
+
+function toggleLog(logId) {
+  const el = document.getElementById(logId);
+  if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type === 'error' ? 'toast-error' : '';
+  t.classList.remove('hidden');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
 </script>
 </body>
 </html>

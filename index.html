@@ -657,8 +657,8 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 16,
-  date: '2026-06-16',
+  patch: 17,
+  date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -1079,6 +1079,9 @@ function toggleOwner(){el('owner-field').style.display=el('cfg-approval').checke
 // ══════════════════════════════════════
 var dbgLines=[];
 var dbgEnabled=false;
+var _bootTime=Date.now();
+var _lastCalSuccess=0;
+var _monitorUrl='https://ris-display.ris-display.workers.dev/api/';
 function dbg(msg){
   dbgLines.push(msg);
   if(dbgLines.length>15)dbgLines.shift();
@@ -1222,6 +1225,7 @@ function initMsal(){
 
 function doReauth(){
   dbg('doReauth called — clearing all token cache');
+  reportIncident('token_reauth','Token expired or refresh failed — reauth triggered',true);
   _cachedToken=null;
   _tokenExpiry=0;
   _tokenRefreshPending=false;
@@ -1382,6 +1386,7 @@ function startTokenRefreshTimer(){
       // Only trigger reauth if truly expired — not transient errors
       if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
         dbg('Session genuinely expired — calling doReauth');
+        reportIncident('session_expired','Azure session expired — interactive login needed',false);
         if(!_tokenRefreshPending){
           _tokenRefreshPending=true;
           setTimeout(function(){doReauth();},1000);
@@ -1412,6 +1417,179 @@ function launch(){
   enterKiosk();
   startAutoRelaunch();
   startTokenRefreshTimer();
+  startMonitoring();
+}
+
+
+// ══════════════════════════════════════
+// REMOTE MONITORING — heartbeat, commands, incidents
+// ══════════════════════════════════════
+function startMonitoring(){
+  if(!cfg.roomemail)return;
+  dbg('Monitoring started — heartbeat every 20m, commands every 5m');
+
+  // Initial heartbeat after 30 seconds (let app settle)
+  setTimeout(sendHeartbeat,30000);
+  // Then every 20 minutes
+  setInterval(sendHeartbeat,1200000);
+
+  // Poll for commands every 5 minutes
+  setTimeout(pollCommand,60000);
+  setInterval(pollCommand,300000);
+}
+
+function getMonitorStatus(){
+  var hasRefresh=false;
+  try{
+    var key='msal.'+cfg.client+'.refresh_token';
+    hasRefresh=!!localStorage.getItem(key);
+  }catch(e){}
+
+  var tokenMinsLeft=0;
+  if(_tokenExpiry>Date.now()){
+    tokenMinsLeft=Math.round((_tokenExpiry-Date.now())/60000);
+  }
+
+  var status='ok';
+  if(!_cachedToken&&!hasRefresh)status='no_auth';
+  else if(_tokenExpiry>0&&_tokenExpiry<Date.now()&&!hasRefresh)status='token_expired_no_refresh';
+  else if(_tokenExpiry>0&&_tokenExpiry<Date.now())status='token_expired';
+
+  return {
+    room: cfg.roomemail||'',
+    roomname: cfg.roomname||'',
+    status: status,
+    tokenMinsLeft: tokenMinsLeft,
+    hasRefreshToken: hasRefresh,
+    version: APP_VERSION.label(),
+    lastCal: _lastCalSuccess||0,
+    meetingCount: (typeof meetings!=='undefined')?meetings.length:0,
+    uptime: Math.round((Date.now()-_bootTime)/60000),
+    log: dbgLines.slice(-10)
+  };
+}
+
+function sendHeartbeat(){
+  if(!cfg.roomemail)return;
+  var data=getMonitorStatus();
+
+  try{
+    var xhr=new XMLHttpRequest();
+    xhr.open('POST',_monitorUrl+'heartbeat',true);
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.onreadystatechange=function(){
+      if(xhr.readyState===4){
+        if(xhr.status===200){
+          try{
+            var resp=JSON.parse(xhr.responseText);
+            // Heartbeat response may include a pending command
+            if(resp.command&&resp.command.command){
+              dbg('Command from heartbeat: '+resp.command.command);
+              executeCommand(resp.command);
+            }
+          }catch(e){}
+        }
+      }
+    };
+    xhr.send(JSON.stringify(data));
+  }catch(e){
+    dbg('Heartbeat error: '+e.message);
+  }
+}
+
+function pollCommand(){
+  if(!cfg.roomemail)return;
+  try{
+    var xhr=new XMLHttpRequest();
+    xhr.open('GET',_monitorUrl+'command?room='+encodeURIComponent(cfg.roomemail),true);
+    xhr.onreadystatechange=function(){
+      if(xhr.readyState===4&&xhr.status===200){
+        try{
+          var resp=JSON.parse(xhr.responseText);
+          if(resp.command&&resp.command.command){
+            dbg('Remote command received: '+resp.command.command);
+            executeCommand(resp.command);
+          }
+        }catch(e){}
+      }
+    };
+    xhr.send();
+  }catch(e){}
+}
+
+function executeCommand(cmd){
+  if(!cmd||!cmd.command)return;
+  var action=cmd.command;
+  dbg('Executing command: '+action);
+
+  if(action==='reload'){
+    reportIncident('remote_reload','Admin triggered reload',true);
+    setTimeout(function(){location.reload();},1000);
+  }
+  else if(action==='clear_tokens'){
+    reportIncident('remote_clear_tokens','Admin cleared auth tokens',true);
+    try{
+      var prefix='msal.'+cfg.client+'.';
+      localStorage.removeItem(prefix+'access_token');
+      localStorage.removeItem(prefix+'token_expires');
+      localStorage.removeItem(prefix+'refresh_token');
+      localStorage.removeItem(prefix+'id_token');
+      localStorage.removeItem(prefix+'account');
+      _cachedToken=null;_tokenExpiry=0;
+    }catch(e){}
+    dbg('Tokens cleared — will re-auth on next fetch');
+  }
+  else if(action==='clear_config'){
+    reportIncident('remote_clear_config','Admin cleared room config',true);
+    try{localStorage.removeItem(CFG_KEY);}catch(e){}
+    dbg('Config cleared — URL params will re-inject on next boot');
+  }
+  else if(action==='force_fullscreen'){
+    doFullscreen();
+    dbg('Fullscreen forced by admin');
+  }
+  else if(action==='re_auth'){
+    reportIncident('remote_reauth','Admin triggered re-authentication',true);
+    doReauth();
+  }
+  else{
+    dbg('Unknown command: '+action);
+  }
+}
+
+function reportIncident(type,detail,autoResolvable){
+  if(!cfg.roomemail)return;
+  var data={
+    room:cfg.roomemail,
+    roomname:cfg.roomname||'',
+    type:type,
+    detail:detail||'',
+    reportedBy:'tablet',
+    autoResolvable:!!autoResolvable
+  };
+  try{
+    var xhr=new XMLHttpRequest();
+    xhr.open('POST',_monitorUrl+'incident',true);
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.send(JSON.stringify(data));
+  }catch(e){}
+}
+
+function resolveIncident(incidentKey,resolution){
+  if(!cfg.roomemail)return;
+  var data={
+    room:cfg.roomemail,
+    action:'resolve',
+    incidentKey:incidentKey,
+    resolvedBy:'auto',
+    resolution:resolution||'auto-resolved'
+  };
+  try{
+    var xhr=new XMLHttpRequest();
+    xhr.open('POST',_monitorUrl+'incident',true);
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.send(JSON.stringify(data));
+  }catch(e){}
 }
 
 function startAutoRelaunch(){
