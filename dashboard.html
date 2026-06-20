@@ -919,7 +919,19 @@ const MONITOR_URL = 'https://ris-display.ris-display.workers.dev/api/';
 let adminVisible = false;
 let adminRefreshInterval = null;
 
+let adminKey = localStorage.getItem('ris_admin_key') || '';
+
 function toggleAdmin() {
+  // If turning ON admin, check for key first
+  if (!adminVisible) {
+    if (!adminKey) {
+      const key = prompt('Enter admin key:');
+      if (!key) return;
+      adminKey = key;
+      localStorage.setItem('ris_admin_key', key);
+    }
+  }
+
   adminVisible = !adminVisible;
   const panel = document.getElementById('admin-panel');
   const btn = document.getElementById('admin-toggle');
@@ -949,7 +961,16 @@ async function refreshAdmin() {
     const statusData = await statusResp.json();
 
     // Fetch incidents
-    const incResp = await fetch(MONITOR_URL + 'incidents?limit=30');
+    const incResp = await fetch(MONITOR_URL + 'incidents?limit=30', {
+      headers: {'X-Admin-Key': adminKey}
+    });
+    if (incResp.status === 401) {
+      adminKey = '';
+      localStorage.removeItem('ris_admin_key');
+      document.getElementById('adm-room-grid').innerHTML =
+        '<div class="adm-empty" style="color:var(--red)">Invalid admin key — tap ADMIN to re-enter</div>';
+      return;
+    }
     const incData = await incResp.json();
 
     renderAdminRooms(statusData.rooms || []);
@@ -1065,7 +1086,7 @@ async function sendCmd(room, command) {
   try {
     const resp = await fetch(MONITOR_URL + 'command', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
       body: JSON.stringify({room, command, sentBy: 'admin-dashboard'})
     });
     const data = await resp.json();
