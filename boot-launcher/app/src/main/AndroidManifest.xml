@@ -3,6 +3,7 @@
     package="th.co.central.ris.bootlauncher">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.GET_TASKS" />
 
     <application
         android:allowBackup="false"
@@ -31,6 +32,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Background watchdog — keeps Chrome in foreground -->
+        <service
+            android:name=".ForegroundWatchService"
+            android:exported="false" />
 
     </application>
 </manifest>

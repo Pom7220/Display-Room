@@ -7,10 +7,11 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 
 /**
- * Launches Chrome on BOOT_COMPLETED with room config in URL params.
- * Double-launch: opens URL at 90s, then brings Chrome to front at 3min.
- * Second launch uses ACTION_MAIN (no URL) to avoid opening a new tab —
- * just brings the existing tab back on top of Meet in Touch.
+ * v1.8 — Full kiosk boot launcher:
+ * 1. Three-tier Chrome launch: PWA mode → shortcut mode → regular
+ * 2. Double launch at 90s + 3min (beats Meet in Touch)
+ * 3. CLEAR_TASK flag (single tab, no accumulation)
+ * 4. Starts ForegroundWatchService (keeps Chrome on top 24/7)
  */
 public class BootReceiver extends BroadcastReceiver {
 
@@ -28,14 +29,18 @@ public class BootReceiver extends BroadcastReceiver {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
 
+            // Start the foreground watchdog service
+            try {
+                context.startService(new Intent(context, ForegroundWatchService.class));
+            } catch (Exception e) {}
+
+            // Launch Chrome with delay
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    // First launch — open URL with room config (new tab)
                     try { Thread.sleep(FIRST_LAUNCH_MS); } catch (InterruptedException e) {}
-                    launchWithUrl(context);
+                    launchKiosk(context);
 
-                    // Second launch — just bring Chrome to foreground (no new tab)
                     try { Thread.sleep(SECOND_LAUNCH_MS - FIRST_LAUNCH_MS); } catch (InterruptedException e) {}
                     bringChromeToFront(context);
                 }
@@ -43,46 +48,87 @@ public class BootReceiver extends BroadcastReceiver {
         }
     }
 
-    private void launchWithUrl(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String roomEmail = prefs.getString("room_email", "");
-        String roomName = prefs.getString("room_name", "");
+    private void launchKiosk(Context context) {
+        String url = buildUrl(context);
 
-        StringBuilder url = new StringBuilder(BASE_URL);
-        url.append("?nocache=").append(System.currentTimeMillis());
+        // Try 1: PWA mode (standalone, auto-fullscreen)
+        if (tryPwaLaunch(context, url)) return;
 
-        if (roomEmail.length() > 0) {
-            url.append("&room=").append(Uri.encode(roomEmail));
-        }
-        if (roomName.length() > 0) {
-            url.append("&roomname=").append(Uri.encode(roomName));
-        }
+        // Try 2: Shortcut mode (older Chrome class name)
+        if (tryShortcutLaunch(context, url)) return;
 
+        // Try 3: Regular Chrome (browser mode)
+        launchRegularChrome(context, url);
+    }
+
+    private boolean tryPwaLaunch(Context context, String url) {
         try {
-            Intent chromeIntent = new Intent(Intent.ACTION_VIEW);
-            chromeIntent.setData(Uri.parse(url.toString()));
-            chromeIntent.setPackage(CHROME_PACKAGE);
-            chromeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            context.startActivity(chromeIntent);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse(url));
+            intent.setClassName(CHROME_PACKAGE,
+                "com.google.android.apps.chrome.webapps.WebappLauncherActivity");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean tryShortcutLaunch(Context context, String url) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse(url));
+            intent.setClassName(CHROME_PACKAGE,
+                "org.chromium.chrome.browser.webapps.WebappLauncherActivity");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void launchRegularChrome(Context context, String url) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse(url));
+            intent.setPackage(CHROME_PACKAGE);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivity(intent);
         } catch (Exception e) {
             try {
                 Intent fallback = new Intent(Intent.ACTION_VIEW);
-                fallback.setData(Uri.parse(url.toString()));
+                fallback.setData(Uri.parse(url));
                 fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 context.startActivity(fallback);
             } catch (Exception e2) {}
         }
     }
 
-    private void bringChromeToFront(Context context) {
+    private String buildUrl(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String roomEmail = prefs.getString("room_email", "");
+        String roomName = prefs.getString("room_name", "");
+
+        StringBuilder url = new StringBuilder(BASE_URL);
+        url.append("?nocache=").append(System.currentTimeMillis());
+        if (roomEmail.length() > 0) {
+            url.append("&room=").append(Uri.encode(roomEmail));
+        }
+        if (roomName.length() > 0) {
+            url.append("&roomname=").append(Uri.encode(roomName));
+        }
+        return url.toString();
+    }
+
+    static void bringChromeToFront(Context context) {
         try {
-            // ACTION_MAIN + CATEGORY_LAUNCHER brings Chrome to front
-            // with the last viewed tab — no new tab created
-            Intent frontIntent = new Intent(Intent.ACTION_MAIN);
-            frontIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-            frontIntent.setPackage(CHROME_PACKAGE);
-            frontIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(frontIntent);
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.addCategory(Intent.CATEGORY_LAUNCHER);
+            intent.setPackage(CHROME_PACKAGE);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
         } catch (Exception e) {}
     }
 }
