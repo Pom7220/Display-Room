@@ -339,7 +339,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="adm-empty">Loading status…</div>
   </div>
 
-  <div class="adm-section">Recent incidents</div>
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Recent incidents <button style="padding:3px 10px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveAllIncidents()">✓ Resolve all</button></div>
   <div class="adm-incidents" id="adm-incident-list">
     <div class="adm-empty">Loading incidents…</div>
   </div>
@@ -1077,7 +1077,7 @@ function renderAdminIncidents(incidents) {
       month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
     });
     const durHtml = isOpen
-      ? '<span class="adm-inc-dur open">OPEN</span>'
+      ? '<span class="adm-inc-dur open">OPEN</span><button style="margin-left:4px;padding:2px 8px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveIncidentRemote(\'' + (inc.id || '') + '\',\'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '') + '\')">✓ Resolve</button>'
       : '<span class="adm-inc-dur resolved">' + (inc.durationMinutes || 0) + 'm</span>';
 
     html += '<div class="adm-inc">' +
@@ -1312,6 +1312,60 @@ function renderReports(reports) {
   });
 
   container.innerHTML = html;
+}
+
+async function resolveIncidentRemote(incId, incKey) {
+  try {
+    const resp = await fetch(MONITOR_URL + 'incident', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({
+        room: 'admin',
+        action: 'resolve',
+        incidentKey: incKey,
+        resolvedBy: 'admin-dashboard',
+        resolution: 'Manually resolved by admin'
+      })
+    });
+    if (resp.ok) {
+      showToast('✓ Incident resolved');
+      setTimeout(refreshAdmin, 1000);
+    } else {
+      const data = await resp.json();
+      showToast('✗ ' + (data.error || 'Failed'), 'error');
+    }
+  } catch(e) {
+    showToast('✗ ' + e.message, 'error');
+  }
+}
+
+async function resolveAllIncidents() {
+  if (!confirm('Resolve all open incidents?')) return;
+  const incResp = await fetch(MONITOR_URL + 'incidents?limit=50', {
+    headers: {'X-Admin-Key': adminKey}
+  });
+  const incData = await incResp.json();
+  const open = (incData.incidents || []).filter(i => !i.resolvedAt);
+  let resolved = 0;
+  for (const inc of open) {
+    const key = 'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '');
+    try {
+      const resp = await fetch(MONITOR_URL + 'incident', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+        body: JSON.stringify({
+          room: inc.room,
+          action: 'resolve',
+          incidentKey: key,
+          resolvedBy: 'admin-dashboard',
+          resolution: 'Bulk resolved by admin'
+        })
+      });
+      if (resp.ok) resolved++;
+    } catch(e) {}
+  }
+  showToast('✓ Resolved ' + resolved + ' incidents');
+  setTimeout(refreshAdmin, 1000);
 }
 
 function showToast(msg, type) {
