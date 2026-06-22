@@ -263,7 +263,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.4 (2026-06-22)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.5 (2026-06-22)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -344,7 +344,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="adm-empty">Loading incidents…</div>
   </div>
 
-  <div class="adm-section">Daily reports (last 7 days)</div>
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Daily reports (last 7 days) <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Generate now</button></div>
   <div id="adm-reports">
     <div class="adm-empty">Loading reports…</div>
   </div>
@@ -1262,6 +1262,24 @@ async function bulkCommand(command, group) {
 }
 
 // ── DAILY REPORTS ──
+
+async function generateReport() {
+  try {
+    const resp = await fetch(MONITOR_URL + 'reports/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey}
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast('✓ Report generated');
+      setTimeout(fetchReports, 1000);
+    } else {
+      showToast('✗ ' + (data.error || 'Failed'), 'error');
+    }
+  } catch(e) {
+    showToast('✗ ' + e.message, 'error');
+  }
+}
 
 async function fetchReports() {
   try {
