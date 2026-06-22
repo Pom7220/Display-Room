@@ -1,9 +1,9 @@
 {
   "name": "RIS Room Display",
   "short_name": "RIS Rooms",
-  "description": "RIS Meeting Room Display — Central Group",
-  "start_url": "./",
-  "scope": "./",
+  "description": "RIS Meeting Room Display \u2014 Central Group",
+  "start_url": "https://ris-display.ris-display.workers.dev/",
+  "scope": "https://ris-display.ris-display.workers.dev/",
   "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#0a0a12",
@@ -35,12 +35,8 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["business", "productivity"],
-  "shortcuts": [
-    {
-      "name": "Book a Room",
-      "short_name": "Book",
-      "url": "./"
-    }
+  "categories": [
+    "business",
+    "productivity"
   ]
 }
