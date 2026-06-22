@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 19,
+  patch: 20,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1536,7 +1536,8 @@ function executeCommand(cmd){
   dbg('Executing command: '+action);
 
   if(action==='reload'){
-    reportIncident('remote_reload','Admin triggered reload',true);
+    // No incident report for reload — it's an admin action, not an error
+    dbg('Remote reload command received — reloading in 1s');
     setTimeout(function(){location.href=location.protocol+'//'+location.host+location.pathname+'?nocache='+Date.now();},1000);
   }
   else if(action==='clear_tokens'){
@@ -1559,7 +1560,7 @@ function executeCommand(cmd){
   }
   else if(action==='force_fullscreen'){
     doFullscreen();
-    dbg('Fullscreen forced by admin');
+    dbg('Fullscreen forced by admin — no incident logged');
   }
   else if(action==='re_auth'){
     reportIncident('remote_reauth','Admin triggered re-authentication',true);
