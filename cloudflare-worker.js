@@ -20,6 +20,12 @@
  */
 
 export default {
+  // Cron trigger — runs daily at 20:00 UTC+7 (13:00 UTC)
+  async scheduled(event, env) {
+    if (!env.RIS_KV) return;
+    await generateDailyReport(env);
+  },
+
   async fetch(request, env) {
     var url = new URL(request.url);
     var path = url.pathname;
@@ -49,8 +55,9 @@ export default {
         return handleStatus(env);
       }
 
-      // POST /api/command — admin sends command to tablet
+      // POST /api/command — admin sends command to tablet (protected)
       if (path === '/api/command' && method === 'POST') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
         return handleCommandSet(request, env);
       }
 
@@ -59,14 +66,21 @@ export default {
         return handleCommandGet(url, env);
       }
 
-      // GET /api/incidents — incident history
+      // GET /api/incidents — incident history (protected)
       if (path === '/api/incidents' && method === 'GET') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
         return handleIncidentsList(url, env);
       }
 
       // POST /api/incident — report or resolve incident
       if (path === '/api/incident' && method === 'POST') {
         return handleIncidentReport(request, env);
+      }
+
+      // GET /api/reports — daily summary reports
+      if (path === '/api/reports' && method === 'GET') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        return handleReportsList(url, env);
       }
 
       return jsonResponse({ error: 'Not found' }, 404);
@@ -170,9 +184,14 @@ async function handleCommandSet(request, env) {
       return jsonResponse({ error: 'Missing room or command' }, 400);
     }
 
-    var validCommands = ['reload', 'clear_tokens', 'clear_config', 'force_fullscreen', 're_auth'];
+    var validCommands = ['reload', 'clear_tokens', 'clear_config', 'force_fullscreen', 're_auth', 're_auth_remote'];
     if (validCommands.indexOf(data.command) === -1) {
       return jsonResponse({ error: 'Invalid command. Valid: ' + validCommands.join(', ') }, 400);
+    }
+
+    // Special handling for re_auth_remote — fetch tokens server-side via ROPC
+    if (data.command === 're_auth_remote') {
+      return handleRemoteReauth(data.room, data.sentBy || 'admin', env);
     }
 
     var cmd = {
@@ -191,6 +210,78 @@ async function handleCommandSet(request, env) {
     return jsonResponse({ ok: true, command: cmd });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
+// REMOTE RE-AUTH — ROPC flow server-side
+// ═══════════════════════════════════════
+// Authenticates with Azure AD using stored service account credentials.
+// Returns tokens to the tablet via the command channel.
+// Password NEVER touches the tablet — stays in Cloudflare secrets.
+
+async function handleRemoteReauth(room, sentBy, env) {
+  var svcUser = env.RIS_SVC_USER || '';
+  var svcPass = env.RIS_SVC_PASSWORD || '';
+  var tenantId = env.RIS_TENANT_ID || '';
+  var clientId = env.RIS_CLIENT_ID || '';
+
+  if (!svcUser || !svcPass || !tenantId || !clientId) {
+    return jsonResponse({
+      error: 'Remote re-auth not configured. Set RIS_SVC_USER, RIS_SVC_PASSWORD, RIS_TENANT_ID, RIS_CLIENT_ID in Worker secrets.'
+    }, 400);
+  }
+
+  try {
+    // ROPC token request to Azure AD
+    var tokenUrl = 'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token';
+    var body = 'client_id=' + encodeURIComponent(clientId)
+      + '&scope=' + encodeURIComponent('Calendars.ReadWrite Calendars.ReadWrite.Shared Mail.Send User.Read openid profile offline_access')
+      + '&username=' + encodeURIComponent(svcUser)
+      + '&password=' + encodeURIComponent(svcPass)
+      + '&grant_type=password';
+
+    var resp = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body
+    });
+
+    var tokenData = await resp.json();
+
+    if (tokenData.error) {
+      return jsonResponse({
+        error: 'Azure AD rejected ROPC: ' + (tokenData.error_description || tokenData.error)
+      }, 401);
+    }
+
+    // Build inject_tokens command with the fresh tokens
+    var cmd = {
+      command: 'inject_tokens',
+      sentBy: sentBy,
+      sentAt: new Date().toISOString(),
+      tokens: {
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token || '',
+        id_token: tokenData.id_token || '',
+        expires_in: tokenData.expires_in || 3600
+      }
+    };
+
+    // Store command for the tablet to pick up
+    await env.RIS_KV.put(
+      'cmd:' + room,
+      JSON.stringify(cmd),
+      { expirationTtl: 1800 }
+    );
+
+    return jsonResponse({
+      ok: true,
+      message: 'Tokens fetched via ROPC and queued for ' + room,
+      command: { command: 'inject_tokens', sentBy: sentBy, sentAt: cmd.sentAt }
+    });
+  } catch (e) {
+    return jsonResponse({ error: 'ROPC failed: ' + e.message }, 500);
   }
 }
 
@@ -363,6 +454,108 @@ async function handleProxy(request, url) {
 }
 
 // ═══════════════════════════════════════
+// DAILY REPORTS
+// ═══════════════════════════════════════
+
+async function generateDailyReport(env) {
+  var today = new Date().toISOString().slice(0, 10);
+
+  // Collect current room statuses
+  var list = await env.RIS_KV.list({ prefix: 'room:' });
+  var rooms = [];
+  for (var i = 0; i < list.keys.length; i++) {
+    var val = await env.RIS_KV.get(list.keys[i].name);
+    if (val) rooms.push(JSON.parse(val));
+  }
+
+  // Collect today's incidents
+  var indexRaw = await env.RIS_KV.get('incidents_index');
+  var index = indexRaw ? JSON.parse(indexRaw) : [];
+  var todayIncidents = [];
+  for (var j = 0; j < Math.min(index.length, 100); j++) {
+    var inc = await env.RIS_KV.get(index[j]);
+    if (inc) {
+      var record = JSON.parse(inc);
+      if (record.reportedAt && record.reportedAt.startsWith(today)) {
+        todayIncidents.push(record);
+      }
+    }
+  }
+
+  var resolved = todayIncidents.filter(function(i) { return i.resolvedAt; });
+  var autoResolved = resolved.filter(function(i) { return i.resolvedBy === 'auto'; });
+  var open = todayIncidents.filter(function(i) { return !i.resolvedAt; });
+
+  var totalDuration = 0;
+  resolved.forEach(function(i) { totalDuration += (i.durationMinutes || 0); });
+
+  var report = {
+    date: today,
+    generatedAt: new Date().toISOString(),
+    tabletsDeployed: rooms.length,
+    tabletsOnline: rooms.filter(function(r) {
+      var age = (Date.now() - new Date(r.timestamp).getTime()) / 60000;
+      return age < 30;
+    }).length,
+    rooms: rooms.map(function(r) {
+      return {
+        room: r.room,
+        roomname: r.roomname,
+        status: r.status,
+        version: r.version,
+        uptime: r.uptime,
+        hasRefreshToken: r.hasRefreshToken,
+        meetingCount: r.meetingCount,
+        lastSeen: r.timestamp
+      };
+    }),
+    incidents: {
+      total: todayIncidents.length,
+      resolved: resolved.length,
+      autoResolved: autoResolved.length,
+      open: open.length,
+      avgResolutionMinutes: resolved.length > 0 ? Math.round(totalDuration / resolved.length) : 0,
+      details: todayIncidents
+    },
+    tokenRefreshes: {
+      note: 'Count from incident reports — actual refreshes happen silently'
+    }
+  };
+
+  // Store report (TTL 90 days)
+  await env.RIS_KV.put('report:' + today, JSON.stringify(report), { expirationTtl: 7776000 });
+
+  // Update report index (last 90 days)
+  var riRaw = await env.RIS_KV.get('reports_index');
+  var ri = riRaw ? JSON.parse(riRaw) : [];
+  if (ri.indexOf('report:' + today) === -1) {
+    ri.unshift('report:' + today);
+    if (ri.length > 90) ri = ri.slice(0, 90);
+    await env.RIS_KV.put('reports_index', JSON.stringify(ri));
+  }
+
+  return report;
+}
+
+async function handleReportsList(url, env) {
+  try {
+    var limit = parseInt(url.searchParams.get('limit') || '7');
+    var riRaw = await env.RIS_KV.get('reports_index');
+    var ri = riRaw ? JSON.parse(riRaw) : [];
+
+    var reports = [];
+    for (var i = 0; i < Math.min(ri.length, limit); i++) {
+      var val = await env.RIS_KV.get(ri[i]);
+      if (val) reports.push(JSON.parse(val));
+    }
+
+    return jsonResponse({ reports: reports, timestamp: new Date().toISOString() });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════
 
@@ -370,9 +563,16 @@ function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
     'Access-Control-Max-Age': '86400'
   };
+}
+
+function checkAdminKey(request, env) {
+  var adminKey = env.RIS_ADMIN_KEY || '';
+  if (!adminKey) return true; // No key configured = open access (backward compat)
+  var provided = request.headers.get('X-Admin-Key') || '';
+  return provided === adminKey;
 }
 
 function jsonResponse(data, status) {
