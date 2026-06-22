@@ -1048,7 +1048,7 @@ function renderAdminRooms(rooms) {
       '<div class="adm-act reload" onclick="sendCmd(\'' + ris.email + '\',\'reload\')">↻ Reload</div>' +
       '<div class="adm-act fullscreen" onclick="sendCmd(\'' + ris.email + '\',\'force_fullscreen\')">⛶ Fullscreen</div>' +
       '<div class="adm-act clear" onclick="sendCmd(\'' + ris.email + '\',\'clear_tokens\')">🔑 Clear tokens</div>' +
-      '<div class="adm-act reauth" onclick="sendCmd(\'' + ris.email + '\',\'re_auth\')">🔐 Re-auth</div>';
+      '<div class="adm-act reauth" onclick="sendCmd(\'' + ris.email + '\',\'re_auth_remote\')">🔐 Re-auth</div>';
 
     // Log toggle button
     if (r && r.log && r.log.length > 0) {
@@ -1165,7 +1165,7 @@ function renderSmartActions(rooms) {
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
   html += '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>';
   html += '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'needsReload\')">↻ Reload all</button>';
-  html += '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth\',\'all\')">🔐 Re-auth all</button>';
+  html += '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth_remote\',\'all\')">🔐 Re-auth all</button>';
   html += '</div>';
 
   // Smart recommendations
@@ -1181,7 +1181,7 @@ function renderSmartActions(rooms) {
     html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
     html += '<span style="color:var(--red);font-weight:700">🔐 AUTH EXPIRED</span> — ';
     html += issues.needsReauth.map(r => r.name).join(', ');
-    html += ' <span style="color:var(--muted);font-size:11px;margin-left:6px">⚠ Needs physical sign-in</span>';
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--red);color:#fff;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">Fix remotely</button>';
     html += '</div>';
   }
 

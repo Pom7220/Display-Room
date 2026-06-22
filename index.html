@@ -1552,6 +1552,26 @@ function executeCommand(cmd){
     reportIncident('remote_reauth','Admin triggered re-authentication',true);
     doReauth();
   }
+  else if(action==='inject_tokens'){
+    var tokens=cmd.tokens;
+    if(tokens&&tokens.access_token){
+      dbg('Injecting tokens from remote re-auth');
+      var prefix='msal.'+cfg.client+'.';
+      var expiresAt=Math.floor(Date.now()/1000)+(parseInt(tokens.expires_in)||3600);
+      try{
+        localStorage.setItem(prefix+'access_token',tokens.access_token);
+        localStorage.setItem(prefix+'token_expires',String(expiresAt));
+        if(tokens.refresh_token)localStorage.setItem(prefix+'refresh_token',tokens.refresh_token);
+        if(tokens.id_token)localStorage.setItem(prefix+'id_token',tokens.id_token);
+      }catch(e){}
+      saveToken(tokens.access_token,expiresAt*1000);
+      dbg('Remote tokens injected — access:'+Math.round((expiresAt*1000-Date.now())/60000)+'m, refresh:'+(tokens.refresh_token?'yes':'no'));
+      reportIncident('remote_reauth_success','Tokens injected remotely via ROPC',true);
+      setTimeout(fetchCal,2000);
+    } else {
+      dbg('inject_tokens: no access_token in payload');
+    }
+  }
   else{
     dbg('Unknown command: '+action);
   }
