@@ -150,7 +150,7 @@ public class MainActivity extends Activity {
 
         // Version
         TextView ver = new TextView(this);
-        ver.setText("\nRIS Kiosk Launcher v1.8\nth.co.central.ris.bootlauncher");
+        ver.setText("\nRIS Kiosk Launcher v1.9\nth.co.central.ris.bootlauncher");
         ver.setTextColor(Color.parseColor("#3a4d6b"));
         ver.setTextSize(10);
         ver.setGravity(Gravity.CENTER);

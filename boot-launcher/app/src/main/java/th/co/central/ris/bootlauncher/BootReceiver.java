@@ -8,10 +8,11 @@ import android.net.Uri;
 
 /**
  * v1.8 — Full kiosk boot launcher:
- * 1. Three-tier Chrome launch: PWA mode → shortcut mode → regular
+ * 1. Three-tier Chrome launch: PWA → shortcut → regular
  * 2. Double launch at 90s + 3min (beats Meet in Touch)
- * 3. CLEAR_TASK flag (single tab, no accumulation)
- * 4. Starts ForegroundWatchService (keeps Chrome on top 24/7)
+ * 3. CLEAR_TASK flag (single tab)
+ * 4. kiosk=1 URL param → triggers immediate fullscreen in index.html
+ * 5. Starts ForegroundWatchService
  */
 public class BootReceiver extends BroadcastReceiver {
 
@@ -29,12 +30,11 @@ public class BootReceiver extends BroadcastReceiver {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
 
-            // Start the foreground watchdog service
+            // Start foreground watchdog
             try {
                 context.startService(new Intent(context, ForegroundWatchService.class));
             } catch (Exception e) {}
 
-            // Launch Chrome with delay
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -51,13 +51,13 @@ public class BootReceiver extends BroadcastReceiver {
     private void launchKiosk(Context context) {
         String url = buildUrl(context);
 
-        // Try 1: PWA mode (standalone, auto-fullscreen)
+        // Try 1: PWA mode
         if (tryPwaLaunch(context, url)) return;
 
-        // Try 2: Shortcut mode (older Chrome class name)
+        // Try 2: Shortcut mode
         if (tryShortcutLaunch(context, url)) return;
 
-        // Try 3: Regular Chrome (browser mode)
+        // Try 3: Regular Chrome with kiosk=1
         launchRegularChrome(context, url);
     }
 
@@ -113,6 +113,7 @@ public class BootReceiver extends BroadcastReceiver {
 
         StringBuilder url = new StringBuilder(BASE_URL);
         url.append("?nocache=").append(System.currentTimeMillis());
+        url.append("&kiosk=1");  // triggers immediate fullscreen in index.html
         if (roomEmail.length() > 0) {
             url.append("&room=").append(Uri.encode(roomEmail));
         }
