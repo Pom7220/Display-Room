@@ -332,6 +332,8 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg resolve</div></div>
   </div>
 
+  <div id="adm-smart-actions" style="margin-bottom:16px"></div>
+
   <div class="adm-section">Tablet health — 12 rooms</div>
   <div class="adm-grid" id="adm-room-grid">
     <div class="adm-empty">Loading status…</div>
@@ -340,6 +342,11 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   <div class="adm-section">Recent incidents</div>
   <div class="adm-incidents" id="adm-incident-list">
     <div class="adm-empty">Loading incidents…</div>
+  </div>
+
+  <div class="adm-section">Daily reports (last 7 days)</div>
+  <div id="adm-reports">
+    <div class="adm-empty">Loading reports…</div>
   </div>
 </div>
 
@@ -973,9 +980,12 @@ async function refreshAdmin() {
     }
     const incData = await incResp.json();
 
+    _lastAnalyzedRooms = statusData.rooms || [];
     renderAdminRooms(statusData.rooms || []);
+    renderSmartActions(statusData.rooms || []);
     renderAdminStats(statusData.rooms || [], incData.stats || {});
     renderAdminIncidents(incData.incidents || []);
+    fetchReports();
 
     document.getElementById('adm-last-refresh').textContent =
       'Updated: ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -1103,6 +1113,205 @@ async function sendCmd(room, command) {
 function toggleLog(logId) {
   const el = document.getElementById(logId);
   if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+
+// ── SMART ISSUE DETECTION + BULK ACTIONS ──
+
+function analyzeRooms(rooms) {
+  const issues = {
+    needsFullscreen: [],
+    needsReauth: [],
+    needsReload: [],
+    offlineLong: [],
+    offlineRecent: [],
+    tokenExpiring: [],
+    healthy: []
+  };
+
+  RIS_ROOMS.forEach(ris => {
+    const r = rooms.find(rm => rm.room === ris.email);
+    if (!r) return; // no heartbeat yet — skip
+
+    const logText = (r.log || []).join(' ').toLowerCase();
+
+    if (!r.isOnline && r.lastSeenMinutes > 60) {
+      issues.offlineLong.push(ris);
+    } else if (!r.isOnline && r.lastSeenMinutes > 15) {
+      issues.offlineRecent.push(ris);
+    } else if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') {
+      issues.needsReauth.push(ris);
+    } else if (logText.indexOf('fullscreen denied') > -1) {
+      issues.needsFullscreen.push(ris);
+    } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
+      issues.needsReload.push(ris);
+    } else if (r.tokenMinsLeft > 0 && r.tokenMinsLeft < 10) {
+      issues.tokenExpiring.push(ris);
+    } else {
+      issues.healthy.push(ris);
+    }
+  });
+
+  return issues;
+}
+
+function renderSmartActions(rooms) {
+  const container = document.getElementById('adm-smart-actions');
+  if (!container) return;
+
+  const issues = analyzeRooms(rooms);
+  let html = '';
+
+  // Bulk actions bar
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  html += '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>';
+  html += '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'needsReload\')">↻ Reload all</button>';
+  html += '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth\',\'all\')">🔐 Re-auth all</button>';
+  html += '</div>';
+
+  // Smart recommendations
+  if (issues.needsFullscreen.length > 0) {
+    html += '<div style="background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--green);font-weight:700">⛶ NOT FULLSCREEN</span> — ';
+    html += issues.needsFullscreen.map(r => r.name).join(', ');
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--green);color:#000;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">Fix all</button>';
+    html += '</div>';
+  }
+
+  if (issues.needsReauth.length > 0) {
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--red);font-weight:700">🔐 AUTH EXPIRED</span> — ';
+    html += issues.needsReauth.map(r => r.name).join(', ');
+    html += ' <span style="color:var(--muted);font-size:11px;margin-left:6px">⚠ Needs physical sign-in</span>';
+    html += '</div>';
+  }
+
+  if (issues.needsReload.length > 0) {
+    html += '<div style="background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--amber);font-weight:700">↻ NEEDS RELOAD</span> — ';
+    html += issues.needsReload.map(r => r.name).join(', ');
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--amber);color:#000;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'reload\',\'needsReload\')">Fix all</button>';
+    html += '</div>';
+  }
+
+  if (issues.offlineLong.length > 0) {
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--red);font-weight:700">⚫ OFFLINE &gt;1 HOUR</span> — ';
+    html += issues.offlineLong.map(r => r.name).join(', ');
+    html += ' <span style="color:var(--muted);font-size:11px;margin-left:6px">⚠ Check power / WiFi physically</span>';
+    html += '</div>';
+  }
+
+  if (issues.offlineRecent.length > 0) {
+    html += '<div style="background:rgba(255,149,0,.06);border:1px solid rgba(255,149,0,.2);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--amber);font-weight:700">⏳ RECENTLY OFFLINE</span> — ';
+    html += issues.offlineRecent.map(r => r.name).join(', ');
+    html += ' <span style="color:var(--muted);font-size:11px;margin-left:6px">Waiting — may recover</span>';
+    html += '</div>';
+  }
+
+  if (issues.needsFullscreen.length === 0 && issues.needsReauth.length === 0 && 
+      issues.needsReload.length === 0 && issues.offlineLong.length === 0 && 
+      issues.offlineRecent.length === 0 && issues.healthy.length > 0) {
+    html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span> — ';
+    html += issues.healthy.length + ' rooms running normally';
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+let _lastAnalyzedRooms = [];
+
+async function bulkCommand(command, group) {
+  let targets = [];
+  
+  if (group === 'all') {
+    targets = RIS_ROOMS.filter(r => _lastAnalyzedRooms.find(rm => rm.room === r.email && rm.isOnline));
+  } else if (group === 'needsFullscreen' || group === 'needsReload' || group === 'needsReauth') {
+    const issues = analyzeRooms(_lastAnalyzedRooms);
+    targets = issues[group] || [];
+  }
+
+  if (targets.length === 0) {
+    showToast('No rooms need this action', 'warn');
+    return;
+  }
+
+  if (!confirm('Send "' + command + '" to ' + targets.length + ' rooms?')) return;
+
+  let sent = 0;
+  for (let i = 0; i < targets.length; i++) {
+    try {
+      const resp = await fetch(MONITOR_URL + 'command', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+        body: JSON.stringify({room: targets[i].email, command: command, sentBy: 'admin-bulk'})
+      });
+      if (resp.ok) sent++;
+    } catch(e) {}
+  }
+
+  showToast('✓ Sent "' + command + '" to ' + sent + '/' + targets.length + ' rooms');
+  setTimeout(refreshAdmin, 5000);
+}
+
+// ── DAILY REPORTS ──
+
+async function fetchReports() {
+  try {
+    const resp = await fetch(MONITOR_URL + 'reports?limit=7', {
+      headers: {'X-Admin-Key': adminKey}
+    });
+    if (resp.status === 401) return;
+    const data = await resp.json();
+    renderReports(data.reports || []);
+  } catch(e) {}
+}
+
+function renderReports(reports) {
+  const container = document.getElementById('adm-reports');
+  if (!container) return;
+
+  if (!reports.length) {
+    container.innerHTML = '<div class="adm-empty">No reports yet — first report generates at 20:00 today</div>';
+    return;
+  }
+
+  let html = '';
+  reports.forEach(rpt => {
+    const online = rpt.tabletsOnline || 0;
+    const deployed = rpt.tabletsDeployed || 0;
+    const inc = rpt.incidents || {};
+    const uptimeList = (rpt.rooms || []).map(r => 
+      (r.roomname || r.room.split('@')[0]) + ': ' + (r.uptime || 0) + 'm'
+    ).join(' · ');
+
+    html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    html += '<span style="font-size:14px;font-weight:700;color:#fff">' + rpt.date + '</span>';
+    
+    const allGood = (inc.open || 0) === 0 && online === deployed;
+    html += '<span style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600;' + 
+      (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">' + '✓ ALL GOOD' : 
+      'background:rgba(255,149,0,.15);color:var(--amber)">' + '⚠ ISSUES') + '</span>';
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;font-size:11px">';
+    html += '<div style="color:var(--muted)">Tablets: <span style="color:#fff;font-weight:600">' + online + '/' + deployed + '</span></div>';
+    html += '<div style="color:var(--muted)">Incidents: <span style="color:#fff;font-weight:600">' + (inc.total || 0) + '</span></div>';
+    html += '<div style="color:var(--muted)">Auto-fixed: <span style="color:var(--green);font-weight:600">' + (inc.autoResolved || 0) + '</span></div>';
+    html += '<div style="color:var(--muted)">Open: <span style="color:' + ((inc.open || 0) > 0 ? 'var(--red)' : 'var(--green)') + ';font-weight:600">' + (inc.open || 0) + '</span></div>';
+    html += '</div>';
+
+    if (uptimeList) {
+      html += '<div style="font-size:10px;color:var(--hint);margin-top:6px">Uptime: ' + uptimeList + '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
 }
 
 function showToast(msg, type) {
