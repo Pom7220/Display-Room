@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 18,
+  patch: 19,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1455,10 +1455,23 @@ function getMonitorStatus(){
   else if(_tokenExpiry>0&&_tokenExpiry<Date.now()&&!hasRefresh)status='token_expired_no_refresh';
   else if(_tokenExpiry>0&&_tokenExpiry<Date.now())status='token_expired';
 
+  // Detect launch mode
+  var launchMode='browser';
+  try{
+    var isStandalone=window.matchMedia('(display-mode: standalone)').matches
+      ||window.matchMedia('(display-mode: fullscreen)').matches
+      ||window.navigator.standalone===true;
+    if(isStandalone)launchMode='pwa';
+  }catch(e){}
+  var isFullscreen=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  if(isFullscreen)launchMode='fullscreen';
+
   return {
     room: cfg.roomemail||'',
     roomname: cfg.roomname||'',
     status: status,
+    launchMode: launchMode,
+    isFullscreen: isFullscreen,
     tokenMinsLeft: tokenMinsLeft,
     hasRefreshToken: hasRefresh,
     version: APP_VERSION.label(),
@@ -1524,7 +1537,7 @@ function executeCommand(cmd){
 
   if(action==='reload'){
     reportIncident('remote_reload','Admin triggered reload',true);
-    setTimeout(function(){location.reload();},1000);
+    setTimeout(function(){location.href=location.protocol+'//'+location.host+location.pathname+'?nocache='+Date.now();},1000);
   }
   else if(action==='clear_tokens'){
     reportIncident('remote_clear_tokens','Admin cleared auth tokens',true);

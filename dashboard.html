@@ -263,7 +263,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.3 (2026-06-22)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.4 (2026-06-22)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -1026,6 +1026,10 @@ function renderAdminRooms(rooms) {
     const tokenText = !r ? '' :
       (r.hasRefreshToken ? '🔑 Token: ' + (r.tokenMinsLeft > 0 ? r.tokenMinsLeft + 'm left' : 'expired') + ' · refresh ✓'
         : '⚠ No refresh token');
+    const modeText = !r ? '' :
+      (r.launchMode === 'pwa' ? '📱 PWA standalone' :
+       r.launchMode === 'fullscreen' ? '⛶ Fullscreen' :
+       '🌐 Browser mode (not PWA)');
     const versionText = r ? 'v' + r.version : '';
     const uptimeText = r ? '⏱ ' + r.uptime + 'm uptime' : '';
     const meetText = r ? '📅 ' + r.meetingCount + ' meetings' : '';
@@ -1035,7 +1039,7 @@ function renderAdminRooms(rooms) {
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
       '<div class="adm-room-name">' + ris.name + '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
-      '<div class="adm-room-meta">' + [tokenText, versionText, uptimeText, meetText].filter(Boolean).join('<br>') + '</div>';
+      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText, meetText].filter(Boolean).join('<br>') + '</div>';
 
     // Log toggle
     if (r && r.log && r.log.length > 0) {
@@ -1140,7 +1144,7 @@ function analyzeRooms(rooms) {
       issues.offlineRecent.push(ris);
     } else if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') {
       issues.needsReauth.push(ris);
-    } else if (logText.indexOf('fullscreen denied') > -1) {
+    } else if (r.launchMode === 'browser' || (logText.indexOf('fullscreen denied') > -1 && !r.isFullscreen)) {
       issues.needsFullscreen.push(ris);
     } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
       issues.needsReload.push(ris);
@@ -1174,6 +1178,7 @@ function renderSmartActions(rooms) {
     html += '<span style="color:var(--green);font-weight:700">⛶ NOT FULLSCREEN</span> — ';
     html += issues.needsFullscreen.map(r => r.name).join(', ');
     html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--green);color:#000;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">Fix all</button>';
+    html += '<div style="font-size:10px;color:var(--hint);margin-top:4px">Running in browser mode (not PWA). Fix: on tablet, Chrome menu → Add to Home Screen → reboot</div>';
     html += '</div>';
   }
 
