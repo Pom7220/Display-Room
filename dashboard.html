@@ -928,6 +928,7 @@ setInterval(fetchAllRooms,60000);
 const MONITOR_URL = 'https://ris-display.ris-display.workers.dev/api/';
 let adminVisible = false;
 let adminRefreshInterval = null;
+let _lastAnalyzedRooms = [];
 
 let adminKey = localStorage.getItem('ris_admin_key') || '';
 
@@ -1040,17 +1041,9 @@ function renderAdminRooms(rooms) {
     const uptimeText = r ? '⏱ ' + r.uptime + 'm' : '';
     const logId = 'log-' + ris.name.toLowerCase().replace(/[^a-z]/g, '');
 
-    let card = '<div class="adm-room">' +
-      '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
-      '<div class="adm-room-name">' + ris.name + '</div>' +
-      '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
-      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText].filter(Boolean).join(' · ') + '</div>' +
-      (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
-
     // Show last meaningful log line in card meta
     let lastLogLine = '';
     if (r && r.log && r.log.length > 0) {
-      // Find last non-trivial log line
       for (var li = r.log.length - 1; li >= 0; li--) {
         const line = r.log[li] || '';
         if (line.length > 5 && line.indexOf('Heartbeat') === -1) {
@@ -1058,6 +1051,16 @@ function renderAdminRooms(rooms) {
           break;
         }
       }
+    }
+
+    let card = '<div class="adm-room">' +
+      '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
+      '<div class="adm-room-name">' + ris.name + '</div>' +
+      '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
+      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText].filter(Boolean).join(' · ') + '</div>' +
+      (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
+
+    if (r && r.log && r.log.length > 0) {
       card += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
     }
 
@@ -1294,8 +1297,6 @@ async function fetchReports() {
   } catch(e) {}
 }
 
-let _lastAnalyzedRooms = [];
-
 
 async function generateReport() {
   try {
@@ -1438,6 +1439,11 @@ function renderReports(reports) {
 }
 
 
+
+function toggleLog(logId) {
+  var el = document.getElementById(logId);
+  if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
 
 function showToast(msg, type) {
   const t = document.getElementById('toast');
