@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
         "https://ris-display.ris-display.workers.dev/";
     private static final String CHROME_PACKAGE = "com.android.chrome";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
+    private android.widget.EditText adminKeyInput = null;
 
     // All 12 RIS rooms
     private static final String[][] ROOMS = {
@@ -128,6 +129,29 @@ public class MainActivity extends Activity {
         officeGrid.setPadding(0, 0, 0, dp(20));
         root.addView(officeGrid);
 
+        // Admin key input
+        TextView adminKeyLabel = new TextView(this);
+        adminKeyLabel.setText("Admin Key (required for zero-touch auth):");
+        adminKeyLabel.setTextColor(Color.parseColor("#6b82a8"));
+        adminKeyLabel.setTextSize(11);
+        adminKeyLabel.setPadding(dp(4), dp(16), dp(4), dp(4));
+        root.addView(adminKeyLabel);
+
+        adminKeyInput = new android.widget.EditText(this);
+        adminKeyInput.setHint("Enter RIS_ADMIN_KEY");
+        adminKeyInput.setTextColor(Color.parseColor("#ffffff"));
+        adminKeyInput.setHintTextColor(Color.parseColor("#3a4d6b"));
+        adminKeyInput.setBackgroundColor(Color.parseColor("#1a1a2e"));
+        adminKeyInput.setPadding(dp(12), dp(10), dp(12), dp(10));
+        adminKeyInput.setTextSize(13);
+        adminKeyInput.setSingleLine(true);
+        adminKeyInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+            android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        // Pre-fill saved key
+        String savedKey = prefs.getString("admin_key", "");
+        if (savedKey.length() > 0) adminKeyInput.setText(savedKey);
+        root.addView(adminKeyInput);
+
         // Launch button
         launchBtn = new Button(this);
         launchBtn.setText("\uD83D\uDE80  Launch Room Display");
@@ -150,7 +174,7 @@ public class MainActivity extends Activity {
 
         // Version
         TextView ver = new TextView(this);
-        ver.setText("\nRIS Kiosk Launcher v1.9\nth.co.central.ris.bootlauncher");
+        ver.setText("\nRIS Kiosk Launcher v3.0\nth.co.central.ris.bootlauncher");
         ver.setTextColor(Color.parseColor("#3a4d6b"));
         ver.setTextSize(10);
         ver.setGravity(Gravity.CENTER);
@@ -269,37 +293,21 @@ public class MainActivity extends Activity {
     }
 
     private void launchChrome() {
-        // Launch KioskWebViewActivity — fullscreen WebView, no address bar
+        // Save admin key if entered
+        if (adminKeyInput != null) {
+            String key = adminKeyInput.getText().toString().trim();
+            if (key.length() > 0) {
+                prefs.edit().putString("admin_key", key).apply();
+            }
+        }
+        // Launch KioskWebViewActivity — fullscreen, ROPC token injection
         try {
             Intent intent = new Intent(this, KioskWebViewActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
             finish();
-            return;
-        } catch (Exception e) {}
-
-        // Fallback: Chrome browser
-        StringBuilder url = new StringBuilder(BASE_URL);
-        url.append("?nocache=").append(System.currentTimeMillis());
-        url.append("&room=").append(Uri.encode(selectedEmail));
-        url.append("&roomname=").append(Uri.encode(selectedName));
-        try {
-            Intent chromeIntent = new Intent(Intent.ACTION_VIEW);
-            chromeIntent.setData(Uri.parse(url.toString()));
-            chromeIntent.setPackage(CHROME_PACKAGE);
-            chromeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(chromeIntent);
-            finish();
         } catch (Exception e) {
-            try {
-                Intent fallback = new Intent(Intent.ACTION_VIEW);
-                fallback.setData(Uri.parse(url.toString()));
-                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(fallback);
-                finish();
-            } catch (Exception e2) {
-                Toast.makeText(this, "No browser found", Toast.LENGTH_SHORT).show();
-            }
+            Toast.makeText(this, "Launch failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
