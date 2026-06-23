@@ -269,18 +269,25 @@ public class MainActivity extends Activity {
     }
 
     private void launchChrome() {
+        // Launch KioskWebViewActivity — fullscreen WebView, no address bar
+        try {
+            Intent intent = new Intent(this, KioskWebViewActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+            return;
+        } catch (Exception e) {}
+
+        // Fallback: Chrome browser
         StringBuilder url = new StringBuilder(BASE_URL);
         url.append("?nocache=").append(System.currentTimeMillis());
         url.append("&room=").append(Uri.encode(selectedEmail));
         url.append("&roomname=").append(Uri.encode(selectedName));
-
-
         try {
             Intent chromeIntent = new Intent(Intent.ACTION_VIEW);
             chromeIntent.setData(Uri.parse(url.toString()));
             chromeIntent.setPackage(CHROME_PACKAGE);
-            chromeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            chromeIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            chromeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(chromeIntent);
             finish();
         } catch (Exception e) {
