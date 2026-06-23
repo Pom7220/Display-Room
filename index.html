@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 22,
+  patch: 23,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2665,6 +2665,33 @@ if(window!==window.top){
 })();
 
 loadCfg();
+
+// ── WEBVIEW BRIDGE TOKEN INJECTION ──
+// When running in native WebView kiosk (APK v3.0+), the APK passes tokens
+// via window.RISKiosk JavascriptInterface — no PKCE/redirect needed.
+// This runs before initMsal() so tokens are ready when MSAL checks.
+(function(){
+  try{
+    if(typeof window.RISKiosk!=='undefined'&&window.RISKiosk.hasTokens()){
+      var clientId=window.RISKiosk.getClientId();
+      var accessToken=window.RISKiosk.getAccessToken();
+      var refreshToken=window.RISKiosk.getRefreshToken();
+      var idToken=window.RISKiosk.getIdToken();
+      var expiresIn=window.RISKiosk.getExpiresIn()||3600;
+      var expiresAt=Math.floor(Date.now()/1000)+expiresIn;
+      var prefix='msal.'+clientId+'.';
+      localStorage.setItem(prefix+'access_token',accessToken);
+      localStorage.setItem(prefix+'token_expires',String(expiresAt));
+      if(refreshToken)localStorage.setItem(prefix+'refresh_token',refreshToken);
+      if(idToken)localStorage.setItem(prefix+'id_token',idToken);
+      // Also set roomdisplay_token cache
+      localStorage.setItem('roomdisplay_token',JSON.stringify({
+        token:accessToken,expiry:expiresAt*1000
+      }));
+      dbg('WebView bridge: tokens injected from APK (expires '+Math.round(expiresIn/60)+'m)');
+    }
+  }catch(e){dbg('Bridge inject error: '+e.message);}
+})();
 
 // ── URL PARAM CONFIG INJECTION ──
 // When the APK boot launcher passes room config via URL params (?room=...&roomname=...),
