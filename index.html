@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 21,
+  patch: 22,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1084,7 +1084,7 @@ var _lastCalSuccess=0;
 var _monitorUrl='https://ris-display.ris-display.workers.dev/api/';
 function dbg(msg){
   dbgLines.push(msg);
-  if(dbgLines.length>15)dbgLines.shift();
+  if(dbgLines.length>20)dbgLines.shift();
   try{console.log('DBG:',msg);}catch(ex){}
   if(!dbgEnabled)return;
   var d=el('debug-overlay');
@@ -1478,7 +1478,7 @@ function getMonitorStatus(){
     lastCal: _lastCalSuccess||0,
     meetingCount: (typeof meetings!=='undefined')?meetings.length:0,
     uptime: Math.round((Date.now()-_bootTime)/60000),
-    log: dbgLines.slice(-10)
+    log: dbgLines.slice(-15)
   };
 }
 
@@ -1497,8 +1497,10 @@ function sendHeartbeat(){
             var resp=JSON.parse(xhr.responseText);
             // Heartbeat response may include a pending command
             if(resp.command&&resp.command.command){
-              dbg('Command from heartbeat: '+resp.command.command);
+              dbg('CMD received via heartbeat: '+resp.command.command);
               executeCommand(resp.command);
+            } else {
+              dbg('Heartbeat OK — no pending command');
             }
           }catch(e){}
         }
@@ -1520,8 +1522,10 @@ function pollCommand(){
         try{
           var resp=JSON.parse(xhr.responseText);
           if(resp.command&&resp.command.command){
-            dbg('Remote command received: '+resp.command.command);
+            dbg('CMD received via poll: '+resp.command.command);
             executeCommand(resp.command);
+          } else {
+            dbg('Poll OK — no pending command');
           }
         }catch(e){}
       }
@@ -1567,9 +1571,10 @@ function executeCommand(cmd){
     doReauth();
   }
   else if(action==='inject_tokens'){
+    dbg('inject_tokens received from Worker');
     var tokens=cmd.tokens;
     if(tokens&&tokens.access_token){
-      dbg('Injecting tokens from remote re-auth');
+      dbg('inject_tokens: access_token present, expires_in='+tokens.expires_in);
       var prefix='msal.'+cfg.client+'.';
       var expiresAt=Math.floor(Date.now()/1000)+(parseInt(tokens.expires_in)||3600);
       try{
