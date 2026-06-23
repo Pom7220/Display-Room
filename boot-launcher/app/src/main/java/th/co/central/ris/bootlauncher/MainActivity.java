@@ -300,6 +300,17 @@ public class MainActivity extends Activity {
                 prefs.edit().putString("admin_key", key).apply();
             }
         }
+        // Check admin key is set
+        String savedKey = prefs.getString("admin_key", "");
+        if (savedKey.length() == 0) {
+            Toast.makeText(this, "Enter Admin Key first", Toast.LENGTH_LONG).show();
+            return;
+        }
+        // Check room is selected
+        if (selectedEmail.length() == 0) {
+            Toast.makeText(this, "Tap a room card first", Toast.LENGTH_LONG).show();
+            return;
+        }
         // Launch KioskWebViewActivity — fullscreen, ROPC token injection
         try {
             Intent intent = new Intent(this, KioskWebViewActivity.class);
