@@ -8,8 +8,8 @@ android {
         applicationId "th.co.central.ris.bootlauncher"
         minSdkVersion 19
         targetSdkVersion 19
-        versionCode 15
-        versionName "2.2"
+        versionCode 16
+        versionName "2.3"
     }
 
     buildTypes {
