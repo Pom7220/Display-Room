@@ -263,7 +263,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.5 (2026-06-22)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.6 (2026-06-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -983,7 +983,7 @@ async function refreshAdmin() {
     _lastAnalyzedRooms = statusData.rooms || [];
     renderAdminRooms(statusData.rooms || []);
     renderSmartActions(statusData.rooms || []);
-    renderAdminStats(statusData.rooms || [], incData.stats || {});
+    renderAdminStats(statusData.rooms || [], incData.stats || {}, incData.incidents || []);
     renderAdminIncidents(incData.incidents || []);
     fetchReports();
 
@@ -995,13 +995,15 @@ async function refreshAdmin() {
   }
 }
 
-function renderAdminStats(rooms, stats) {
+function renderAdminStats(rooms, stats, incidents) {
   const online = rooms.filter(r => r.isOnline).length;
   const offline = rooms.length > 0 ? rooms.filter(r => !r.isOnline).length : 0;
 
   document.getElementById('adm-online').textContent = online;
   document.getElementById('adm-offline').textContent = offline;
-  document.getElementById('adm-incidents-open').textContent = stats.open || 0;
+  // Count open incidents directly from the incidents array if provided
+  const openCount = incidents ? incidents.filter(i => !i.resolvedAt).length : (stats.open || 0);
+  document.getElementById('adm-incidents-open').textContent = openCount;
 
   const avg = stats.avgResolutionMinutes;
   document.getElementById('adm-avg-resolve').textContent =
@@ -1388,7 +1390,8 @@ async function resolveAllIncidents() {
     } catch(e) {}
   }
   showToast('✓ Resolved ' + resolved + ' incidents');
-  setTimeout(refreshAdmin, 1000);
+  // Force full refresh to update stats counter
+  setTimeout(refreshAdmin, 1500);
 }
 
 function showToast(msg, type) {
