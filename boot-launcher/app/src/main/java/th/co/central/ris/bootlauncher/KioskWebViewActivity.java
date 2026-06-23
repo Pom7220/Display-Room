@@ -238,9 +238,13 @@ public class KioskWebViewActivity extends Activity {
      */
     public class RISKioskBridge {
         private TokenFetcher.TokenResult tokens;
+        private String roomEmail;
+        private String roomName;
 
-        public RISKioskBridge(TokenFetcher.TokenResult t) {
+        public RISKioskBridge(TokenFetcher.TokenResult t, String email, String name) {
             tokens = t;
+            roomEmail = email != null ? email : "";
+            roomName = name != null ? name : "";
         }
 
         @android.webkit.JavascriptInterface
@@ -272,5 +276,11 @@ public class KioskWebViewActivity extends Activity {
         public boolean hasTokens() {
             return tokens != null && tokens.isValid();
         }
+
+        @android.webkit.JavascriptInterface
+        public String getRoomEmail() { return roomEmail; }
+
+        @android.webkit.JavascriptInterface
+        public String getRoomName() { return roomName; }
     }
 }
