@@ -688,7 +688,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 26,
+  patch: 27,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2705,13 +2705,21 @@ if(window!==window.top){
     var hash=location.hash||'';
     if(hash.indexOf('#t=')!==0)return; // not a token hash
     var b64=hash.slice(3);
-    // base64 decode
+    // base64 decode — pipe-separated: ACCESS|REFRESH|ID|CLIENTID|EXPIRESIN
     while(b64.length%4!==0)b64+='=';
-    var json=atob(b64);
-    var t=JSON.parse(json);
+    var decoded=atob(b64);
+    var parts=decoded.split('|');
+    if(parts.length<4)return; // invalid format
+    var t={
+      a:parts[0],      // access_token
+      r:parts[1]||'',  // refresh_token
+      i:parts[2]||'',  // id_token
+      c:parts[3],      // client_id
+      e:parseInt(parts[4])||3600  // expires_in
+    };
     if(!t.a||!t.c)return; // no access token or client id
     var prefix='msal.'+t.c+'.';
-    var expiresAt=Math.floor(Date.now()/1000)+(t.e||3600);
+    var expiresAt=Math.floor(Date.now()/1000)+t.e;
     // Store tokens
     localStorage.setItem(prefix+'access_token',t.a);
     localStorage.setItem(prefix+'token_expires',String(expiresAt));
