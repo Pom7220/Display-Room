@@ -564,7 +564,7 @@ async function fetchRoom(room, tok){
 async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
   // Show spinner on refresh button during fetch
-  const refBtn=document.querySelector('.ref-btn');
+  var refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
   const tok = await getToken();
   const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
@@ -579,7 +579,7 @@ async function fetchAllRooms(){
 
 function showSignInBar(){
   el('ref-txt').textContent='Session expired — sign in to reload';
-  const refBtn=document.querySelector('.ref-btn');
+  var refBtn=document.querySelector('.ref-btn');
   if(refBtn){
     refBtn.textContent='🔐 Sign in';
     refBtn.style.background='rgba(255,149,0,.15)';
@@ -607,7 +607,7 @@ function showSignInBar(){
 
 function refreshAll(){
   // Reset refresh button to normal state
-  const refBtn=document.querySelector('.ref-btn');
+  var refBtn=document.querySelector('.ref-btn');
   if(refBtn){
     refBtn.textContent='↻ Refresh';
     refBtn.style.background='';
