@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 23,
+  patch: 24,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2669,27 +2669,73 @@ loadCfg();
 // ── WEBVIEW BRIDGE TOKEN INJECTION ──
 // When running in native WebView kiosk (APK v3.0+), the APK passes tokens
 // via window.RISKiosk JavascriptInterface — no PKCE/redirect needed.
-// This runs before initMsal() so tokens are ready when MSAL checks.
+// Injects tokens AND account object so MSAL skips sign-in entirely.
 (function(){
   try{
-    if(typeof window.RISKiosk!=='undefined'&&window.RISKiosk.hasTokens()){
-      var clientId=window.RISKiosk.getClientId();
-      var accessToken=window.RISKiosk.getAccessToken();
-      var refreshToken=window.RISKiosk.getRefreshToken();
-      var idToken=window.RISKiosk.getIdToken();
-      var expiresIn=window.RISKiosk.getExpiresIn()||3600;
-      var expiresAt=Math.floor(Date.now()/1000)+expiresIn;
-      var prefix='msal.'+clientId+'.';
-      localStorage.setItem(prefix+'access_token',accessToken);
-      localStorage.setItem(prefix+'token_expires',String(expiresAt));
-      if(refreshToken)localStorage.setItem(prefix+'refresh_token',refreshToken);
-      if(idToken)localStorage.setItem(prefix+'id_token',idToken);
-      // Also set roomdisplay_token cache
-      localStorage.setItem('roomdisplay_token',JSON.stringify({
-        token:accessToken,expiry:expiresAt*1000
-      }));
-      dbg('WebView bridge: tokens injected from APK (expires '+Math.round(expiresIn/60)+'m)');
-    }
+    if(typeof window.RISKiosk==='undefined')return;
+    if(!window.RISKiosk.hasTokens())return;
+    var clientId=window.RISKiosk.getClientId();
+    var accessToken=window.RISKiosk.getAccessToken();
+    var refreshToken=window.RISKiosk.getRefreshToken();
+    var idToken=window.RISKiosk.getIdToken();
+    var expiresIn=window.RISKiosk.getExpiresIn()||3600;
+    var expiresAt=Math.floor(Date.now()/1000)+expiresIn;
+    var prefix='msal.'+clientId+'.';
+
+    // Store tokens
+    localStorage.setItem(prefix+'access_token',accessToken);
+    localStorage.setItem(prefix+'token_expires',String(expiresAt));
+    if(refreshToken)localStorage.setItem(prefix+'refresh_token',refreshToken);
+    if(idToken)localStorage.setItem(prefix+'id_token',idToken);
+
+    // Decode id_token to build account object (MSAL needs this for getAccount())
+    var account={name:'RIS Service',userName:'rismeetingroomsystem@central.co.th',
+      homeAccountId:'',environment:'login.microsoftonline.com',tenantId:''};
+    try{
+      if(idToken){
+        var parts=idToken.split('.');
+        if(parts.length>=2){
+          var b64=parts[1].replace(/-/g,'+').replace(/_/g,'/');
+          while(b64.length%4)b64+='=';
+          var payload=JSON.parse(atob(b64));
+          account.userName=payload.upn||payload.unique_name||payload.preferred_username||account.userName;
+          account.name=payload.name||account.name;
+          account.homeAccountId=payload.oid||'';
+          account.tenantId=payload.tid||'';
+        }
+      }
+    }catch(e){}
+
+    // Store account object — this is what MSAL getAccount() reads
+    localStorage.setItem(prefix+'account',JSON.stringify(account));
+
+    // Store login hint for future re-auth
+    localStorage.setItem('roomdisplay_loginhint',account.userName);
+
+    // Store roomdisplay_token cache
+    localStorage.setItem('roomdisplay_token',JSON.stringify({
+      token:accessToken,expiry:expiresAt*1000
+    }));
+
+    // Store room config from bridge if available
+    try{
+      if(typeof window.RISKiosk.getRoomEmail==='function'){
+        var roomEmail=window.RISKiosk.getRoomEmail();
+        var roomName=window.RISKiosk.getRoomName();
+        if(roomEmail&&roomEmail.length>0){
+          if(!cfg.roomemail){
+            cfg.roomemail=roomEmail;
+            if(roomName)cfg.roomname=roomName;
+            if(!cfg.tenant)cfg.tenant='817e531d-191b-4cf5-8812-f0061d89b53d';
+            if(!cfg.client)cfg.client=clientId||'80648895-4acf-4ac5-b4a3-c5bf6bc98983';
+            cfg.booking=true;
+            try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
+          }
+        }
+      }
+    }catch(e){}
+
+    dbg('WebView bridge: tokens+account injected ('+account.userName+', '+Math.round(expiresIn/60)+'m)');
   }catch(e){dbg('Bridge inject error: '+e.message);}
 })();
 
