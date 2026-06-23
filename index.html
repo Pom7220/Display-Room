@@ -688,7 +688,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 27,
+  patch: 28,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1596,6 +1596,19 @@ function executeCommand(cmd){
   else if(action==='force_fullscreen'){
     doFullscreen();
     dbg('Fullscreen forced by admin — no incident logged');
+  }
+  else if(action==='auto_tap'){
+    // Trigger accessibility service tap via Android intent
+    dbg('Auto-tap command received');
+    try{
+      // Send broadcast to trigger accessibility tap
+      var script=document.createElement('script');
+      script.textContent='if(window.RISKiosk&&window.RISKiosk.triggerTap)window.RISKiosk.triggerTap();';
+      document.head.appendChild(script);
+    }catch(e){}
+    // Also try fullscreen as fallback
+    setTimeout(function(){doFullscreen();},500);
+    dbg('Auto-tap triggered');
   }
   else if(action==='re_auth'){
     reportIncident('remote_reauth','Admin triggered re-authentication',true);
