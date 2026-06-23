@@ -263,7 +263,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.7 (2026-06-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.4 (2026-06-22)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -344,7 +344,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="adm-empty">Loading incidents…</div>
   </div>
 
-  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Daily reports (last 7 days) <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Generate now</button></div>
+  <div class="adm-section">Daily reports (last 7 days)</div>
   <div id="adm-reports">
     <div class="adm-empty">Loading reports…</div>
   </div>
@@ -983,7 +983,7 @@ async function refreshAdmin() {
     _lastAnalyzedRooms = statusData.rooms || [];
     renderAdminRooms(statusData.rooms || []);
     renderSmartActions(statusData.rooms || []);
-    renderAdminStats(statusData.rooms || [], incData.stats || {}, incData.incidents || []);
+    renderAdminStats(statusData.rooms || [], incData.stats || {});
     renderAdminIncidents(incData.incidents || []);
     fetchReports();
 
@@ -995,15 +995,13 @@ async function refreshAdmin() {
   }
 }
 
-function renderAdminStats(rooms, stats, incidents) {
+function renderAdminStats(rooms, stats) {
   const online = rooms.filter(r => r.isOnline).length;
   const offline = rooms.length > 0 ? rooms.filter(r => !r.isOnline).length : 0;
 
   document.getElementById('adm-online').textContent = online;
   document.getElementById('adm-offline').textContent = offline;
-  // Count open incidents directly from the incidents array if provided
-  const openCount = incidents ? incidents.filter(i => !i.resolvedAt).length : (stats.open || 0);
-  document.getElementById('adm-incidents-open').textContent = openCount;
+  document.getElementById('adm-incidents-open').textContent = stats.open || 0;
 
   const avg = stats.avgResolutionMinutes;
   document.getElementById('adm-avg-resolve').textContent =
@@ -1069,12 +1067,6 @@ function renderAdminRooms(rooms) {
 }
 
 function renderAdminIncidents(incidents) {
-  // Cache all incidents for easy key lookup
-  _incidentCache = {};
-  incidents.forEach(inc => {
-    const cached = _incidentCache[inc.id]; const key = (cached && cached.key) || inc.key || ('incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || ''));
-    _incidentCache[inc.id] = { inc: inc, key: key };
-  });
   const list = document.getElementById('adm-incident-list');
   if (!incidents.length) {
     list.innerHTML = '<div class="adm-empty">No incidents recorded</div>';
@@ -1235,7 +1227,6 @@ function renderSmartActions(rooms) {
 }
 
 let _lastAnalyzedRooms = [];
-let _incidentCache = {};  // id -> incident record with key
 
 async function bulkCommand(command, group) {
   let targets = [];
@@ -1271,24 +1262,6 @@ async function bulkCommand(command, group) {
 }
 
 // ── DAILY REPORTS ──
-
-async function generateReport() {
-  try {
-    const resp = await fetch(MONITOR_URL + 'reports/generate', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey}
-    });
-    const data = await resp.json();
-    if (data.ok) {
-      showToast('✓ Report generated');
-      setTimeout(fetchReports, 1000);
-    } else {
-      showToast('✗ ' + (data.error || 'Failed'), 'error');
-    }
-  } catch(e) {
-    showToast('✗ ' + e.message, 'error');
-  }
-}
 
 async function fetchReports() {
   try {
@@ -1347,10 +1320,6 @@ function renderReports(reports) {
 }
 
 async function resolveIncidentRemote(incId, incKey) {
-  // Use cached key if available (more reliable than reconstructed key)
-  if (_incidentCache[incId] && _incidentCache[incId].key) {
-    incKey = _incidentCache[incId].key;
-  }
   try {
     const resp = await fetch(MONITOR_URL + 'incident', {
       method: 'POST',
@@ -1384,7 +1353,7 @@ async function resolveAllIncidents() {
   const open = (incData.incidents || []).filter(i => !i.resolvedAt);
   let resolved = 0;
   for (const inc of open) {
-    const cached = _incidentCache[inc.id]; const key = (cached && cached.key) || inc.key || ('incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || ''));
+    const key = 'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '');
     try {
       const resp = await fetch(MONITOR_URL + 'incident', {
         method: 'POST',
@@ -1401,8 +1370,7 @@ async function resolveAllIncidents() {
     } catch(e) {}
   }
   showToast('✓ Resolved ' + resolved + ' incidents');
-  // Force full refresh to update stats counter
-  setTimeout(refreshAdmin, 1500);
+  setTimeout(refreshAdmin, 1000);
 }
 
 function showToast(msg, type) {
