@@ -236,6 +236,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="sum-card" style="border-color:var(--amber)"><div class="sum-n" id="sum-soon" style="color:var(--amber)">--</div><div class="sum-l">Soon</div></div>
   </div>
 
+  <div id="main-app-content">
   <!-- Hint + refresh merged into one bar -->
   <div class="hint-bar">
     <span style="font-size:13px">👇</span>
@@ -263,7 +264,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.4 (2026-06-22)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.8 (2026-06-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -315,6 +316,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 </div>
 
+  </div><!-- /main-app-content -->
 <div id="toast" class="hidden"></div>
 
 <!-- ADMIN PANEL -->
@@ -552,7 +554,7 @@ async function fetchRoom(room, tok){
 async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
   // Show spinner on refresh button during fetch
-  const refBtn=document.querySelector('.ref-btn');
+  var refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
   const tok = await getToken();
   const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
@@ -567,7 +569,7 @@ async function fetchAllRooms(){
 
 function showSignInBar(){
   el('ref-txt').textContent='Session expired — sign in to reload';
-  const refBtn=document.querySelector('.ref-btn');
+  var refBtn=document.querySelector('.ref-btn');
   if(refBtn){
     refBtn.textContent='🔐 Sign in';
     refBtn.style.background='rgba(255,149,0,.15)';
@@ -595,7 +597,7 @@ function showSignInBar(){
 
 function refreshAll(){
   // Reset refresh button to normal state
-  const refBtn=document.querySelector('.ref-btn');
+  var refBtn=document.querySelector('.ref-btn');
   if(refBtn){
     refBtn.textContent='↻ Refresh';
     refBtn.style.background='';
@@ -944,19 +946,19 @@ function toggleAdmin() {
   const btn = document.getElementById('admin-toggle');
   const mainApp = document.getElementById('main-app');
 
+  const mainContent = document.getElementById('main-app-content');
   if (adminVisible) {
     panel.classList.add('visible');
     btn.classList.add('active');
     btn.textContent = 'ROOMS';
-    // Hide room grid and detail card, keep header
-    document.querySelectorAll('.zone-wrap,.zone-div,.legend,.dc-wrap,.sum-row,.hint-bar').forEach(el => el.style.display = 'none');
+    if (mainContent) mainContent.style.display = 'none';
     refreshAdmin();
     adminRefreshInterval = setInterval(refreshAdmin, 60000);
   } else {
     panel.classList.remove('visible');
     btn.classList.remove('active');
     btn.textContent = 'ADMIN';
-    document.querySelectorAll('.zone-wrap,.zone-div,.legend,.dc-wrap,.sum-row,.hint-bar').forEach(el => el.style.display = '');
+    if (mainContent) mainContent.style.display = '';
     if (adminRefreshInterval) { clearInterval(adminRefreshInterval); adminRefreshInterval = null; }
   }
 }
@@ -1095,7 +1097,12 @@ function renderAdminIncidents(incidents) {
   list.innerHTML = html;
 }
 
+const _pendingCmds = {};
 async function sendCmd(room, command) {
+  const key = room + ':' + command;
+  if (_pendingCmds[key]) { showToast('Already pending...'); return; }
+  _pendingCmds[key] = true;
+  setTimeout(function() { delete _pendingCmds[key]; }, 10000);
   if (!confirm('Send "' + command + '" to ' + room + '?')) return;
   try {
     const resp = await fetch(MONITOR_URL + 'command', {
@@ -1105,11 +1112,13 @@ async function sendCmd(room, command) {
     });
     const data = await resp.json();
     if (data.ok) {
-      showToast('✓ Command sent: ' + command);
+      showToast('✓ ' + command);
     } else {
+      delete _pendingCmds[key];
       showToast('✗ ' + (data.error || 'Failed'), 'error');
     }
   } catch (e) {
+    delete _pendingCmds[key];
     showToast('✗ ' + e.message, 'error');
   }
 }
