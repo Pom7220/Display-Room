@@ -347,7 +347,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="adm-empty">Loading incidents…</div>
   </div>
 
-  <div class="adm-section">Daily reports (last 7 days)</div>
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Daily reports <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Now</button></div>
   <div id="adm-reports">
     <div class="adm-empty">Loading reports…</div>
   </div>
@@ -1044,9 +1044,20 @@ function renderAdminRooms(rooms) {
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
       '<div class="adm-room-name">' + ris.name + '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
-      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText].filter(Boolean).join(' · ') + '</div>';
+      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText].filter(Boolean).join(' · ') + '</div>' +
+      (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
 
+    // Show last meaningful log line in card meta
+    let lastLogLine = '';
     if (r && r.log && r.log.length > 0) {
+      // Find last non-trivial log line
+      for (var li = r.log.length - 1; li >= 0; li--) {
+        const line = r.log[li] || '';
+        if (line.length > 5 && line.indexOf('Heartbeat') === -1) {
+          lastLogLine = line.substring(0, 50);
+          break;
+        }
+      }
       card += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
     }
 
@@ -1065,7 +1076,7 @@ function renderAdminRooms(rooms) {
     }
     card += '</div></div>';
 
-    if (roomIdx <= 6) lobbyHtml += card;
+    if (ris.zone === 'lobby') lobbyHtml += card;
     else officeHtml += card;
   });
 
@@ -1154,7 +1165,7 @@ async function resolveIncidentRemote(incId, incKey) {
   }
 }
 
-async async function resolveAllIncidents() {
+async function resolveAllIncidents() {
   if (!confirm('Resolve all open incidents?')) return;
   const incResp = await fetch(MONITOR_URL + 'incidents?limit=50', {
     headers: {'X-Admin-Key': adminKey}
@@ -1284,6 +1295,63 @@ async function fetchReports() {
 }
 
 let _lastAnalyzedRooms = [];
+
+
+async function generateReport() {
+  try {
+    const resp = await fetch(MONITOR_URL + 'reports/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey}
+    });
+    const data = await resp.json();
+    if (data.ok) { showToast('✓ Report generated'); setTimeout(fetchReports, 1000); }
+    else showToast('✗ ' + (data.error||'Failed'), 'error');
+  } catch(e) { showToast('✗ ' + e.message, 'error'); }
+}
+
+
+const _pendingCmds = {};
+
+async function sendCmd(room, command) {
+  if (command === 're_auth_remote') { return sendReauth(room); }
+  const key = room + ':' + command;
+  if (_pendingCmds[key]) { showToast('Already pending...'); return; }
+  _pendingCmds[key] = true;
+  setTimeout(function() { delete _pendingCmds[key]; }, 10000);
+  try {
+    const resp = await fetch(MONITOR_URL + 'command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({room: room, command: command, sentBy: 'admin-dashboard'})
+    });
+    const data = await resp.json();
+    if (data.ok) showToast('✓ ' + command + ' → ' + room.split('@')[0]);
+    else { delete _pendingCmds[key]; showToast('✗ ' + (data.error||'Failed'), 'error'); }
+  } catch(e) { delete _pendingCmds[key]; showToast('✗ ' + e.message, 'error'); }
+}
+
+async function sendReauth(room) {
+  const key = room + ':reauth';
+  if (_pendingCmds[key]) { showToast('Re-auth already in progress...'); return; }
+  _pendingCmds[key] = true;
+  const roomName = (RIS_ROOMS.find(function(r){return r.email===room;})||{}).name || room.split('@')[0];
+  showToast('🔐 Sending re-auth to ' + roomName + '...');
+  try {
+    const resp = await fetch(MONITOR_URL + 'command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({room: room, command: 're_auth_remote', sentBy: 'admin-dashboard'})
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      delete _pendingCmds[key];
+      showToast('✗ Re-auth failed: ' + (data.error||'Unknown'), 'error');
+      return;
+    }
+    showToast('✓ Re-auth sent — auto-refresh in 15s');
+    setTimeout(function() { delete _pendingCmds[key]; refreshAdmin(); }, 15000);
+  } catch(e) { delete _pendingCmds[key]; showToast('✗ ' + e.message, 'error'); }
+}
 
 
 function showToast(msg, type) {
