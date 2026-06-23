@@ -2796,6 +2796,10 @@ loadCfg();
 })();
 // Restore debug state
 try{dbgEnabled=localStorage.getItem('roomdisplay_debug')==='1';}catch(e){}
+dbg('Boot check: tenant='+(cfg.tenant?'ok':'MISSING')+
+  ' client='+(cfg.client?'ok':'MISSING')+
+  ' roomname='+(cfg.roomname||'MISSING')+
+  ' roomemail='+(cfg.roomemail||'MISSING'));
 if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail)initMsal();
 else{showConfig();el('cfg-sticky-bar').style.display='block';}
 } // end normal boot
