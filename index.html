@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 20,
+  patch: 21,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1762,23 +1762,36 @@ function enterKiosk(){
   },800);
 }
 
-// Re-enter fullscreen if user exits (e.g. swipe from edge)
-document.addEventListener('fullscreenchange',function(){
+// Re-enter fullscreen if user exits — only show overlay once per session
+// Prevents infinite loop on Chrome 42 tablets that immediately exit fullscreen
+var _fsOverlayShown=false;
+var _fsChangeCount=0;
+function handleFsChange(){
   if(!document.fullscreenElement&&!document.webkitFullscreenElement){
     if(!el('app').classList.contains('hidden')){
+      _fsChangeCount++;
+      // If fullscreen exits immediately after being granted (Chrome 42 hardware limit),
+      // don't show overlay again — just hide it and accept browser mode
+      if(_fsChangeCount>3){
+        dbg('Chrome 42 rejects fullscreen repeatedly — staying in browser mode');
+        var ov=el('fs-overlay');if(ov)ov.style.display='none';
+        return;
+      }
+      // Only show overlay if not already showing
       var ov=el('fs-overlay');
-      if(ov){ov.style.display='-webkit-box';ov.style.display='-webkit-flex';ov.style.display='flex';}
+      if(ov&&ov.style.display==='none'&&!_fsOverlayShown){
+        _fsOverlayShown=true;
+        ov.style.display='-webkit-flex';ov.style.display='flex';
+      }
     }
+  } else {
+    // Fullscreen active — reset counter
+    _fsChangeCount=0;
+    _fsOverlayShown=false;
   }
-});
-document.addEventListener('webkitfullscreenchange',function(){
-  if(!document.fullscreenElement&&!document.webkitFullscreenElement){
-    if(!el('app').classList.contains('hidden')){
-      var ov=el('fs-overlay');
-      if(ov){ov.style.display='-webkit-box';ov.style.display='-webkit-flex';ov.style.display='flex';}
-    }
-  }
-});
+}
+document.addEventListener('fullscreenchange',handleFsChange);
+document.addEventListener('webkitfullscreenchange',handleFsChange);
 
 // ══════════════════════════════════════
 // ROOM SWITCHER
@@ -2672,15 +2685,9 @@ loadCfg();
         try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
         dbg('URL param config injected: '+room+' ('+roomname+')');
       }
-      // kiosk=1 means launched from APK intent — attempt immediate fullscreen
-      // Chrome 42 allows fullscreen during programmatic navigation (no gesture needed)
+      // kiosk=1 means launched from APK — note it in log
       if(kiosk==='1'){
-        dbg('APK kiosk launch detected — requesting immediate fullscreen');
-        try{
-          var de=document.documentElement;
-          if(de.webkitRequestFullScreen)de.webkitRequestFullScreen();
-          else if(de.requestFullscreen)de.requestFullscreen();
-        }catch(e){dbg('Immediate fullscreen error: '+e.message);}
+        dbg('APK kiosk launch detected');
       }
     }
   }catch(e){dbg('URL param parse error: '+e);}
