@@ -657,7 +657,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 24,
+  patch: 25,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2664,80 +2664,59 @@ if(window!==window.top){
   dbg('Chrome: '+((/Chrome\/([\d]+)/.exec(navigator.userAgent)||['','?'])[1]));
 })();
 
-loadCfg();
-
-// ── WEBVIEW BRIDGE TOKEN INJECTION ──
-// When running in native WebView kiosk (APK v3.0+), the APK passes tokens
-// via window.RISKiosk JavascriptInterface — no PKCE/redirect needed.
-// Injects tokens AND account object so MSAL skips sign-in entirely.
+// ── WEBVIEW APK TOKEN INJECTION ──
+// When APK v3.0+ launches the WebView, it appends tokens in URL hash:
+// #t=base64({"a":access,"r":refresh,"i":id,"c":clientId,"e":expiresIn})
+// This runs FIRST — before loadCfg() — so MSAL finds tokens immediately.
+// Uses URL hash (not JavascriptInterface) — works on Chrome 30 WebView.
 (function(){
   try{
-    if(typeof window.RISKiosk==='undefined')return;
-    if(!window.RISKiosk.hasTokens())return;
-    var clientId=window.RISKiosk.getClientId();
-    var accessToken=window.RISKiosk.getAccessToken();
-    var refreshToken=window.RISKiosk.getRefreshToken();
-    var idToken=window.RISKiosk.getIdToken();
-    var expiresIn=window.RISKiosk.getExpiresIn()||3600;
-    var expiresAt=Math.floor(Date.now()/1000)+expiresIn;
-    var prefix='msal.'+clientId+'.';
-
+    var hash=location.hash||'';
+    if(hash.indexOf('#t=')!==0)return; // not a token hash
+    var b64=hash.slice(3);
+    // base64 decode
+    while(b64.length%4!==0)b64+='=';
+    var json=atob(b64);
+    var t=JSON.parse(json);
+    if(!t.a||!t.c)return; // no access token or client id
+    var prefix='msal.'+t.c+'.';
+    var expiresAt=Math.floor(Date.now()/1000)+(t.e||3600);
     // Store tokens
-    localStorage.setItem(prefix+'access_token',accessToken);
+    localStorage.setItem(prefix+'access_token',t.a);
     localStorage.setItem(prefix+'token_expires',String(expiresAt));
-    if(refreshToken)localStorage.setItem(prefix+'refresh_token',refreshToken);
-    if(idToken)localStorage.setItem(prefix+'id_token',idToken);
-
-    // Decode id_token to build account object (MSAL needs this for getAccount())
-    var account={name:'RIS Service',userName:'rismeetingroomsystem@central.co.th',
+    if(t.r)localStorage.setItem(prefix+'refresh_token',t.r);
+    if(t.i)localStorage.setItem(prefix+'id_token',t.i);
+    // Build and store account object from id_token
+    var acct={name:'RIS Service',
+      userName:'rismeetingroomsystem@central.co.th',
       homeAccountId:'',environment:'login.microsoftonline.com',tenantId:''};
     try{
-      if(idToken){
-        var parts=idToken.split('.');
+      if(t.i){
+        var parts=t.i.split('.');
         if(parts.length>=2){
-          var b64=parts[1].replace(/-/g,'+').replace(/_/g,'/');
-          while(b64.length%4)b64+='=';
-          var payload=JSON.parse(atob(b64));
-          account.userName=payload.upn||payload.unique_name||payload.preferred_username||account.userName;
-          account.name=payload.name||account.name;
-          account.homeAccountId=payload.oid||'';
-          account.tenantId=payload.tid||'';
+          var b64p=parts[1].replace(/-/g,'+').replace(/_/g,'/');
+          while(b64p.length%4!==0)b64p+='=';
+          var p=JSON.parse(atob(b64p));
+          acct.userName=p.upn||p.unique_name||p.preferred_username||acct.userName;
+          acct.name=p.name||acct.name;
+          acct.homeAccountId=p.oid||'';
+          acct.tenantId=p.tid||'';
         }
       }
     }catch(e){}
-
-    // Store account object — this is what MSAL getAccount() reads
-    localStorage.setItem(prefix+'account',JSON.stringify(account));
-
-    // Store login hint for future re-auth
-    localStorage.setItem('roomdisplay_loginhint',account.userName);
-
-    // Store roomdisplay_token cache
+    localStorage.setItem(prefix+'account',JSON.stringify(acct));
+    localStorage.setItem('roomdisplay_loginhint',acct.userName);
     localStorage.setItem('roomdisplay_token',JSON.stringify({
-      token:accessToken,expiry:expiresAt*1000
+      token:t.a,expiry:expiresAt*1000
     }));
-
-    // Store room config from bridge if available
-    try{
-      if(typeof window.RISKiosk.getRoomEmail==='function'){
-        var roomEmail=window.RISKiosk.getRoomEmail();
-        var roomName=window.RISKiosk.getRoomName();
-        if(roomEmail&&roomEmail.length>0){
-          if(!cfg.roomemail){
-            cfg.roomemail=roomEmail;
-            if(roomName)cfg.roomname=roomName;
-            if(!cfg.tenant)cfg.tenant='817e531d-191b-4cf5-8812-f0061d89b53d';
-            if(!cfg.client)cfg.client=clientId||'80648895-4acf-4ac5-b4a3-c5bf6bc98983';
-            cfg.booking=true;
-            try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
-          }
-        }
-      }
-    }catch(e){}
-
-    dbg('WebView bridge: tokens+account injected ('+account.userName+', '+Math.round(expiresIn/60)+'m)');
-  }catch(e){dbg('Bridge inject error: '+e.message);}
+    // Clear hash immediately to prevent MSAL from processing it
+    try{window.history.replaceState({},'',location.pathname+location.search);}catch(e){}
+    dbg('APK token hash injected: '+acct.userName+' ('+Math.round((t.e||3600)/60)+'m)');
+  }catch(e){dbg('Token hash error: '+e.message);}
 })();
+
+
+loadCfg();
 
 // ── URL PARAM CONFIG INJECTION ──
 // When the APK boot launcher passes room config via URL params (?room=...&roomname=...),
