@@ -1001,7 +1001,6 @@ async function refreshAdmin() {
     renderSmartActions(statusData.rooms || []);
     renderAdminStats(statusData.rooms || [], incData.stats || {}, incData.incidents || []);
     renderAdminIncidents(incData.incidents || []);
-    fetchReports();
 
     document.getElementById('adm-last-refresh').textContent =
       'Updated: ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
