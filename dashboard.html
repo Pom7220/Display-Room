@@ -263,7 +263,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.7 (2026-06-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.8 (2026-06-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -1001,9 +1001,12 @@ function renderAdminStats(rooms, stats, incidents) {
 
   document.getElementById('adm-online').textContent = online;
   document.getElementById('adm-offline').textContent = offline;
-  // Count open incidents directly from the incidents array if provided
-  const openCount = incidents ? incidents.filter(i => !i.resolvedAt).length : (stats.open || 0);
-  document.getElementById('adm-incidents-open').textContent = openCount;
+  // Count ONLY today's open incidents — not historical
+  const today = new Date().toISOString().slice(0,10);
+  const todayOpenCount = incidents
+    ? incidents.filter(i => !i.resolvedAt && (i.reportedAt||'').startsWith(today)).length
+    : (stats.open || 0);
+  document.getElementById('adm-incidents-open').textContent = todayOpenCount;
 
   const avg = stats.avgResolutionMinutes;
   document.getElementById('adm-avg-resolve').textContent =
@@ -1176,6 +1179,7 @@ function renderSmartActions(rooms) {
   // Bulk actions bar
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
   html += '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>';
+  html += '<button class="adm-refresh-btn" style="background:#9c27b0" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">👆 Auto-tap all</button>';
   html += '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'needsReload\')">↻ Reload all</button>';
   html += '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth_remote\',\'all\')">🔐 Re-auth all</button>';
   html += '</div>';
