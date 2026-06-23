@@ -263,7 +263,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.6 (2026-06-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.7 (2026-06-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -1069,6 +1069,12 @@ function renderAdminRooms(rooms) {
 }
 
 function renderAdminIncidents(incidents) {
+  // Cache all incidents for easy key lookup
+  _incidentCache = {};
+  incidents.forEach(inc => {
+    const cached = _incidentCache[inc.id]; const key = (cached && cached.key) || inc.key || ('incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || ''));
+    _incidentCache[inc.id] = { inc: inc, key: key };
+  });
   const list = document.getElementById('adm-incident-list');
   if (!incidents.length) {
     list.innerHTML = '<div class="adm-empty">No incidents recorded</div>';
@@ -1229,6 +1235,7 @@ function renderSmartActions(rooms) {
 }
 
 let _lastAnalyzedRooms = [];
+let _incidentCache = {};  // id -> incident record with key
 
 async function bulkCommand(command, group) {
   let targets = [];
@@ -1340,6 +1347,10 @@ function renderReports(reports) {
 }
 
 async function resolveIncidentRemote(incId, incKey) {
+  // Use cached key if available (more reliable than reconstructed key)
+  if (_incidentCache[incId] && _incidentCache[incId].key) {
+    incKey = _incidentCache[incId].key;
+  }
   try {
     const resp = await fetch(MONITOR_URL + 'incident', {
       method: 'POST',
@@ -1373,7 +1384,7 @@ async function resolveAllIncidents() {
   const open = (incData.incidents || []).filter(i => !i.resolvedAt);
   let resolved = 0;
   for (const inc of open) {
-    const key = 'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '');
+    const cached = _incidentCache[inc.id]; const key = (cached && cached.key) || inc.key || ('incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || ''));
     try {
       const resp = await fetch(MONITOR_URL + 'incident', {
         method: 'POST',
