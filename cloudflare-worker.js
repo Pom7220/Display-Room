@@ -83,6 +83,49 @@ export default {
         return handleReportsList(url, env);
       }
 
+      // GET /api/test-reauth — test ROPC credentials without sending to tablet
+      if (path === '/api/test-reauth' && method === 'GET') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        var svcUser = env.RIS_SVC_USER || '';
+        var svcPass = env.RIS_SVC_PASSWORD || '';
+        var tenantId = env.RIS_TENANT_ID || '';
+        var clientId = env.RIS_CLIENT_ID || '';
+        if (!svcUser || !svcPass || !tenantId || !clientId) {
+          return jsonResponse({ error: 'Missing secrets', have: {
+            RIS_SVC_USER: !!svcUser, RIS_SVC_PASSWORD: !!svcPass,
+            RIS_TENANT_ID: !!tenantId, RIS_CLIENT_ID: !!clientId
+          }});
+        }
+        try {
+          var tokenUrl = 'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token';
+          var body = 'client_id=' + encodeURIComponent(clientId)
+            + '&scope=' + encodeURIComponent('Calendars.ReadWrite openid offline_access')
+            + '&username=' + encodeURIComponent(svcUser)
+            + '&password=' + encodeURIComponent(svcPass)
+            + '&grant_type=password';
+          var resp = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body
+          });
+          var data = await resp.json();
+          if (data.error) {
+            return jsonResponse({ ok: false, error: data.error, description: data.error_description });
+          }
+          return jsonResponse({ ok: true, message: 'ROPC works', has_access_token: !!data.access_token, has_refresh_token: !!data.refresh_token });
+        } catch(e) {
+          return jsonResponse({ ok: false, error: e.message });
+        }
+      }
+
+      // POST /api/reports/generate — manually trigger report generation
+      if (path === '/api/reports/generate' && method === 'POST') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        if (!env.RIS_KV) return jsonResponse({ error: 'KV not configured' }, 500);
+        var report = await generateDailyReport(env);
+        return jsonResponse({ ok: true, report: report });
+      }
+
       return jsonResponse({ error: 'Not found' }, 404);
     }
 
