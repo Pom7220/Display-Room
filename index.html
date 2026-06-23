@@ -23,6 +23,36 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <script src="ris-shared.js?v=12"></script>
+<!-- Promise polyfill MUST load before msal-v1.min.js (Chrome 30 WebView) -->
+<script>
+if(typeof Promise==='undefined'){
+  Promise=function(fn){
+    var state=0,val,cbs=[],ebs=[];
+    function notify(){var c=state===1?cbs:ebs;setTimeout(function(){for(var i=0;i<c.length;i++)c[i](val);},0);cbs=[];ebs=[];}
+    function resolve(v){if(!state){state=1;val=v;notify();}}
+    function reject(v){if(!state){state=2;val=v;notify();}}
+    this.then=function(c,e){
+      if(state===1)setTimeout(function(){c(val);},0);
+      else if(state===2&&e)setTimeout(function(){e(val);},0);
+      else{if(c)cbs.push(c);if(e)ebs.push(e);}
+      return this;
+    };
+    this['catch']=function(e){return this.then(null,e);};
+    try{fn(resolve,reject);}catch(e){reject(e);}
+  };
+  Promise.resolve=function(v){return new Promise(function(r){r(v);});};
+  Promise.reject=function(v){return new Promise(function(r,j){j(v);});};
+  Promise.all=function(arr){
+    return new Promise(function(r,j){
+      if(!arr.length){r([]);return;}
+      var res=[],cnt=0;
+      for(var i=0;i<arr.length;i++){
+        (function(idx){Promise.resolve(arr[idx]).then(function(v){res[idx]=v;if(++cnt===arr.length)r(res);},j);})(i);
+      }
+    });
+  };
+}
+</script>
 <script src="msal-v1.min.js"></script>
 <!-- Polyfills for Chrome 42 / Android 4.4 -->
 <script>
@@ -40,6 +70,7 @@ if(!String.prototype.startsWith){String.prototype.startsWith=function(s){return 
 if(!String.prototype.endsWith){String.prototype.endsWith=function(s){return this.indexOf(s,this.length-s.length)>-1;};}
 // Object.assign polyfill
 if(!Object.assign){Object.assign=function(t){for(var i=1;i<arguments.length;i++){var s=arguments[i];for(var k in s){if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}}return t;};}
+// Promise polyfill loaded above before msal-v1.min.js
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,700;0,800;0,900&display=swap');
@@ -657,7 +688,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 25,
+  patch: 26,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
