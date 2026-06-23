@@ -236,7 +236,6 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="sum-card" style="border-color:var(--amber)"><div class="sum-n" id="sum-soon" style="color:var(--amber)">--</div><div class="sum-l">Soon</div></div>
   </div>
 
-  <div id="main-app-content">
   <!-- Hint + refresh merged into one bar -->
   <div class="hint-bar">
     <span style="font-size:13px">👇</span>
@@ -264,7 +263,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.0 (2026-06-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.7 (2026-06-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -315,51 +314,40 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     </div>
   </div>
 </div>
-  </div><!-- /main-app-content -->
 
 <div id="toast" class="hidden"></div>
 
 <!-- ADMIN PANEL -->
 <div id="admin-panel">
-  <!-- Header bar -->
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <button class="adm-refresh-btn" id="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh</button>
+  <div class="adm-refresh">
+    <button class="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh status</button>
     <span class="adm-last" id="adm-last-refresh">—</span>
-    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto: 60s</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 60s</span>
   </div>
 
-  <!-- Stats row -->
   <div class="adm-stats">
     <div class="adm-stat"><div class="adm-stat-n" id="adm-online" style="color:var(--green)">—</div><div class="adm-stat-l">Online</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-offline" style="color:var(--red)">—</div><div class="adm-stat-l">Offline</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Issues today</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg fix</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Open issues</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg resolve</div></div>
   </div>
 
-  <!-- Smart action banners -->
-  <div id="adm-smart-actions" style="margin-bottom:12px"></div>
+  <div id="adm-smart-actions" style="margin-bottom:16px"></div>
 
-  <!-- Lobby zone -->
-  <div class="adm-section">Lobby — rooms 1–6</div>
-  <div class="adm-grid" id="adm-room-grid-lobby"></div>
-
-  <!-- Office zone -->
-  <div class="adm-section">In-office — rooms 7–12</div>
-  <div class="adm-grid" id="adm-room-grid-office"></div>
-
-  <!-- Incidents -->
-  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">
-    Recent incidents
-    <button style="padding:3px 10px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveAllIncidents()">✓ Resolve all</button>
+  <div class="adm-section">Tablet health — 12 rooms</div>
+  <div class="adm-grid" id="adm-room-grid">
+    <div class="adm-empty">Loading status…</div>
   </div>
-  <div class="adm-incidents" id="adm-incident-list"><div class="adm-empty">Loading…</div></div>
 
-  <!-- Daily reports -->
-  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">
-    Daily reports
-    <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Generate now</button>
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Recent incidents <button style="padding:3px 10px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveAllIncidents()">✓ Resolve all</button></div>
+  <div class="adm-incidents" id="adm-incident-list">
+    <div class="adm-empty">Loading incidents…</div>
   </div>
-  <div id="adm-reports"><div class="adm-empty">Loading…</div></div>
+
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Daily reports (last 7 days) <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Generate now</button></div>
+  <div id="adm-reports">
+    <div class="adm-empty">Loading reports…</div>
+  </div>
 </div>
 
 <!-- SCHEDULE POPUP — white alert style -->
@@ -564,7 +552,7 @@ async function fetchRoom(room, tok){
 async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
   // Show spinner on refresh button during fetch
-  var refBtn=document.querySelector('.ref-btn');
+  const refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
   const tok = await getToken();
   const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
@@ -579,7 +567,7 @@ async function fetchAllRooms(){
 
 function showSignInBar(){
   el('ref-txt').textContent='Session expired — sign in to reload';
-  var refBtn=document.querySelector('.ref-btn');
+  const refBtn=document.querySelector('.ref-btn');
   if(refBtn){
     refBtn.textContent='🔐 Sign in';
     refBtn.style.background='rgba(255,149,0,.15)';
@@ -607,7 +595,7 @@ function showSignInBar(){
 
 function refreshAll(){
   // Reset refresh button to normal state
-  var refBtn=document.querySelector('.ref-btn');
+  const refBtn=document.querySelector('.ref-btn');
   if(refBtn){
     refBtn.textContent='↻ Refresh';
     refBtn.style.background='';
@@ -956,28 +944,24 @@ function toggleAdmin() {
   const btn = document.getElementById('admin-toggle');
   const mainApp = document.getElementById('main-app');
 
-  const mainContent = document.getElementById('main-app-content');
   if (adminVisible) {
     panel.classList.add('visible');
     btn.classList.add('active');
     btn.textContent = 'ROOMS';
-    if (mainContent) mainContent.style.display = 'none';
+    // Hide room grid and detail card, keep header
+    document.querySelectorAll('.zone-wrap,.zone-div,.legend,.dc-wrap,.sum-row,.hint-bar').forEach(el => el.style.display = 'none');
     refreshAdmin();
     adminRefreshInterval = setInterval(refreshAdmin, 60000);
   } else {
     panel.classList.remove('visible');
     btn.classList.remove('active');
     btn.textContent = 'ADMIN';
-    if (mainContent) mainContent.style.display = '';
+    document.querySelectorAll('.zone-wrap,.zone-div,.legend,.dc-wrap,.sum-row,.hint-bar').forEach(el => el.style.display = '');
     if (adminRefreshInterval) { clearInterval(adminRefreshInterval); adminRefreshInterval = null; }
   }
 }
 
 async function refreshAdmin() {
-  // Update button state
-  const btn = document.getElementById('adm-refresh-btn');
-  if (btn) { btn.textContent = '↻ Refreshing...'; btn.disabled = true; }
-
   try {
     // Fetch room status
     const statusResp = await fetch(MONITOR_URL + 'status');
@@ -1001,14 +985,13 @@ async function refreshAdmin() {
     renderSmartActions(statusData.rooms || []);
     renderAdminStats(statusData.rooms || [], incData.stats || {}, incData.incidents || []);
     renderAdminIncidents(incData.incidents || []);
+    fetchReports();
 
     document.getElementById('adm-last-refresh').textContent =
       'Updated: ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   } catch (e) {
-    const lobbyGrid = document.getElementById('adm-room-grid-lobby');
-    if (lobbyGrid) lobbyGrid.innerHTML = '<div class="adm-empty" style="color:var(--red)">Error: ' + e.message + '</div>';
-  } finally {
-    if (btn) { btn.textContent = '↻ Refresh'; btn.disabled = false; }
+    document.getElementById('adm-room-grid').innerHTML =
+      '<div class="adm-empty" style="color:var(--red)">Error loading: ' + e.message + '</div>';
   }
 }
 
@@ -1018,12 +1001,9 @@ function renderAdminStats(rooms, stats, incidents) {
 
   document.getElementById('adm-online').textContent = online;
   document.getElementById('adm-offline').textContent = offline;
-  // Count ONLY today's open incidents — not historical
-  const today = new Date().toISOString().slice(0,10);
-  const todayOpenCount = incidents
-    ? incidents.filter(i => !i.resolvedAt && (i.reportedAt||'').startsWith(today)).length
-    : (stats.open || 0);
-  document.getElementById('adm-incidents-open').textContent = todayOpenCount;
+  // Count open incidents directly from the incidents array if provided
+  const openCount = incidents ? incidents.filter(i => !i.resolvedAt).length : (stats.open || 0);
+  document.getElementById('adm-incidents-open').textContent = openCount;
 
   const avg = stats.avgResolutionMinutes;
   document.getElementById('adm-avg-resolve').textContent =
@@ -1031,19 +1011,15 @@ function renderAdminStats(rooms, stats, incidents) {
 }
 
 function renderAdminRooms(rooms) {
-  const lobbyGrid = document.getElementById('adm-room-grid-lobby');
-  const officeGrid = document.getElementById('adm-room-grid-office');
-  if (!lobbyGrid || !officeGrid) return;
+  const grid = document.getElementById('adm-room-grid');
 
+  // Build a map of rooms from heartbeat data
   const roomMap = {};
   rooms.forEach(r => { roomMap[r.room] = r; });
 
-  let lobbyHtml = '';
-  let officeHtml = '';
-  let roomIndex = 0;
-
+  // Show all 12 RIS rooms (even if no heartbeat yet)
+  let html = '';
   RIS_ROOMS.forEach(ris => {
-    roomIndex++;
     const r = roomMap[ris.email] || null;
     const isOnline = r && r.isOnline;
     const dotColor = !r ? '#555' : (isOnline ? '#00d68f' : '#ff3333');
@@ -1053,157 +1029,82 @@ function renderAdminRooms(rooms) {
       (r.hasRefreshToken ? '🔑 Token: ' + (r.tokenMinsLeft > 0 ? r.tokenMinsLeft + 'm left' : 'expired') + ' · refresh ✓'
         : '⚠ No refresh token');
     const modeText = !r ? '' :
-      (r.launchMode === 'pwa' ? '📱 PWA' :
+      (r.launchMode === 'pwa' ? '📱 PWA standalone' :
        r.launchMode === 'fullscreen' ? '⛶ Fullscreen' :
-       r.isOnline ? '🌐 Browser' : '');
+       '🌐 Browser mode (not PWA)');
     const versionText = r ? 'v' + r.version : '';
-    const uptimeText = r ? '⏱ ' + r.uptime + 'm' : '';
-    const meetText = r ? '📅 ' + r.meetingCount : '';
+    const uptimeText = r ? '⏱ ' + r.uptime + 'm uptime' : '';
+    const meetText = r ? '📅 ' + r.meetingCount + ' meetings' : '';
+    const lastLog = (r && r.log && r.log.length > 0) ? r.log[r.log.length - 1] : '';
 
-    const isOffline = !r || !r.isOnline;
-    const needsAuth = r && (r.status === 'no_auth' || r.status === 'token_expired_no_refresh');
-    const needsScreen = r && r.isOnline && r.launchMode === 'browser';
-    const cardBorder = !r ? '' :
-      (!r.isOnline ? 'border-color:rgba(255,51,51,.4)' :
-       needsAuth ? 'border-color:rgba(255,149,0,.4)' :
-       'border-color:rgba(0,214,143,.2)');
-
-    let roomCard = '<div class="adm-room" style="' + cardBorder + '">' +
+    html += '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
       '<div class="adm-room-name">' + ris.name + '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
-      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText, meetText].filter(Boolean).join(' · ') + '</div>';
+      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText, meetText].filter(Boolean).join('<br>') + '</div>';
 
+    // Log toggle
     if (r && r.log && r.log.length > 0) {
-      const logId = 'log-' + ris.name.toLowerCase().replace(/\s/g,'');
-      roomCard += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
+      const logId = 'log-' + ris.name.toLowerCase();
+      html += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
     }
 
-    roomCard += '<div class="adm-room-actions">';
-    roomCard += '<div class="adm-act reload" onclick="sendCmdOnce(\'' + ris.email + '\',\'reload\')">↻</div>';
-    if (needsScreen) {
-      roomCard += '<div class="adm-act fullscreen" onclick="sendCmdOnce(\'' + ris.email + '\',\'auto_tap\')">👆</div>';
-    }
-    if (needsAuth) {
-      roomCard += '<div class="adm-act reauth" onclick="sendCmdOnce(\'' + ris.email + '\',\'re_auth_remote\')">🔐 Re-auth</div>';
-    } else if (!isOffline) {
-      roomCard += '<div class="adm-act fullscreen" onclick="sendCmdOnce(\'' + ris.email + '\',\'force_fullscreen\')">⛶</div>';
-    }
+    // Action buttons
+    html += '<div class="adm-room-actions">' +
+      '<div class="adm-act reload" onclick="sendCmd(\'' + ris.email + '\',\'reload\')">↻ Reload</div>' +
+      '<div class="adm-act fullscreen" onclick="sendCmd(\'' + ris.email + '\',\'force_fullscreen\')">⛶ Fullscreen</div>' +
+      '<div class="adm-act clear" onclick="sendCmd(\'' + ris.email + '\',\'clear_tokens\')">🔑 Clear tokens</div>' +
+      '<div class="adm-act reauth" onclick="sendCmd(\'' + ris.email + '\',\'re_auth_remote\')">🔐 Re-auth</div>';
+
+    // Log toggle button
     if (r && r.log && r.log.length > 0) {
-      const logId = 'log-' + ris.name.toLowerCase().replace(/\s/g,'');
-      roomCard += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋</div>';
+      const logId = 'log-' + ris.name.toLowerCase();
+      html += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋 Log</div>';
     }
-    roomCard += '</div></div>';
 
-    if (roomIndex <= 6) lobbyHtml += roomCard;
-    else officeHtml += roomCard;
+    html += '</div></div>';
   });
 
-  lobbyGrid.innerHTML = lobbyHtml || '<div class="adm-empty">No heartbeat yet</div>';
-  officeGrid.innerHTML = officeHtml || '<div class="adm-empty">No heartbeat yet</div>';
-}
-
-function renderAdminStats(rooms, stats, incidents) {
-  const online = rooms.filter(r => r.isOnline).length;
-  const offline = rooms.length > 0 ? rooms.filter(r => !r.isOnline).length : 0;
-  document.getElementById('adm-online').textContent = online;
-  document.getElementById('adm-offline').textContent = offline;
-  const today = new Date().toISOString().slice(0,10);
-  const todayOpenCount = incidents
-    ? incidents.filter(i => !i.resolvedAt && (i.reportedAt||'').startsWith(today)).length
-    : (stats.open || 0);
-  document.getElementById('adm-incidents-open').textContent = todayOpenCount;
-  const avg = stats.avgResolutionMinutes;
-  document.getElementById('adm-avg-resolve').textContent =
-    avg > 0 ? (avg < 60 ? avg + 'm' : Math.round(avg/60) + 'h') : '—';
+  grid.innerHTML = html;
 }
 
 function renderAdminIncidents(incidents) {
+  // Cache all incidents for easy key lookup
   _incidentCache = {};
   incidents.forEach(inc => {
-    const key = inc.key || ('incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || ''));
+    const cached = _incidentCache[inc.id]; const key = (cached && cached.key) || inc.key || ('incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || ''));
     _incidentCache[inc.id] = { inc: inc, key: key };
   });
   const list = document.getElementById('adm-incident-list');
-  if (!incidents.length) { list.innerHTML = '<div class="adm-empty">No incidents</div>'; return; }
+  if (!incidents.length) {
+    list.innerHTML = '<div class="adm-empty">No incidents recorded</div>';
+    return;
+  }
 
-  const byDay = {};
-  const today = new Date().toISOString().slice(0,10);
-  incidents.forEach(inc => {
-    const day = (inc.reportedAt || '').slice(0,10);
-    if (!byDay[day]) byDay[day] = [];
-    byDay[day].push(inc);
-  });
-
-  const days = Object.keys(byDay).sort().reverse().slice(0,7);
   let html = '';
-  days.forEach(day => {
-    const dayIncs = byDay[day];
-    const openCount = dayIncs.filter(i => !i.resolvedAt).length;
-    const dayLabel = day === today ? 'Today' : day;
-    html += '<div style="margin-bottom:12px">';
-    html += '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:6px">';
-    html += '<span>' + dayLabel + '</span>';
-    html += '<span style="color:' + (openCount > 0 ? 'var(--red)' : 'var(--green)') + '">' + openCount + ' open · ' + dayIncs.length + ' total</span>';
-    html += '</div>';
-    dayIncs.forEach(inc => {
-      const isOpen = !inc.resolvedAt;
-      const dotColor = isOpen ? '#ff3333' : '#00d68f';
-      const time = new Date(inc.reportedAt).toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'});
-      const incKey = (_incidentCache[inc.id] && _incidentCache[inc.id].key) ||
-        ('incident:' + (inc.reportedAt||'').slice(0,10) + ':' + (inc.id||''));
-      const durHtml = isOpen
-        ? '<span class="adm-inc-dur open">OPEN</span><button style="margin-left:4px;padding:2px 6px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;cursor:pointer" onclick="resolveIncidentRemote('' + (inc.id||'') + '','' + incKey + '')">✓</button>'
-        : '<span class="adm-inc-dur resolved">' + (inc.durationMinutes||0) + 'm</span>';
-      html += '<div class="adm-inc"><div class="adm-inc-dot" style="background:' + dotColor + '"></div><div class="adm-inc-room">' + (inc.roomname||inc.room) + '</div><div class="adm-inc-type">' + inc.type + '</div><div class="adm-inc-time">' + time + durHtml + '</div></div>';
+  incidents.forEach(inc => {
+    const isOpen = !inc.resolvedAt;
+    const dotColor = isOpen ? '#ff3333' : '#00d68f';
+    const time = new Date(inc.reportedAt).toLocaleString('en-US', {
+      month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
     });
-    html += '</div>';
+    const durHtml = isOpen
+      ? '<span class="adm-inc-dur open">OPEN</span><button style="margin-left:4px;padding:2px 8px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveIncidentRemote(\'' + (inc.id || '') + '\',\'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '') + '\')">✓ Resolve</button>'
+      : '<span class="adm-inc-dur resolved">' + (inc.durationMinutes || 0) + 'm</span>';
+
+    html += '<div class="adm-inc">' +
+      '<div class="adm-inc-dot" style="background:' + dotColor + '"></div>' +
+      '<div class="adm-inc-room">' + (inc.roomname || inc.room) + '</div>' +
+      '<div class="adm-inc-type">' + inc.type + (inc.detail ? ' — ' + inc.detail.substring(0, 40) : '') + '</div>' +
+      '<div class="adm-inc-time">' + time + durHtml + '</div>' +
+      '</div>';
   });
+
   list.innerHTML = html;
 }
 
-async function resolveIncidentRemote(incId, incKey) {
-  if (_incidentCache[incId] && _incidentCache[incId].key) incKey = _incidentCache[incId].key;
-  try {
-    const resp = await fetch(MONITOR_URL + 'incident', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
-      body: JSON.stringify({room: 'admin', action: 'resolve', incidentKey: incKey, resolvedBy: 'admin-dashboard', resolution: 'Manually resolved'})
-    });
-    if (resp.ok) { showToast('✓ Incident resolved'); setTimeout(refreshAdmin, 1000); }
-    else showToast('✗ Failed', 'error');
-  } catch(e) { showToast('✗ ' + e.message, 'error'); }
-}
-
-async function resolveAllIncidents() {
-  if (!confirm('Resolve all open incidents?')) return;
-  const incResp = await fetch(MONITOR_URL + 'incidents?limit=50', {headers: {'X-Admin-Key': adminKey}});
-  const incData = await incResp.json();
-  const open = (incData.incidents || []).filter(i => !i.resolvedAt);
-  let resolved = 0;
-  for (const inc of open) {
-    const cached = _incidentCache[inc.id];
-    const key = (cached && cached.key) || inc.key || ('incident:' + (inc.reportedAt||'').slice(0,10) + ':' + (inc.id||''));
-    try {
-      const resp = await fetch(MONITOR_URL + 'incident', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
-        body: JSON.stringify({room: inc.room, action: 'resolve', incidentKey: key, resolvedBy: 'admin-dashboard', resolution: 'Bulk resolved'})
-      });
-      if (resp.ok) resolved++;
-    } catch(e) {}
-  }
-  showToast('✓ Resolved ' + resolved + ' incidents');
-  setTimeout(refreshAdmin, 1500);
-}
-
-const _pendingCmds = new Set();
-
-async function sendCmdOnce(room, command) {
-  const key = room + ':' + command;
-  if (_pendingCmds.has(key)) { showToast('Command already pending...', 'warn'); return; }
-  _pendingCmds.add(key);
-  setTimeout(() => _pendingCmds.delete(key), 10000);
+async function sendCmd(room, command) {
+  if (!confirm('Send "' + command + '" to ' + room + '?')) return;
   try {
     const resp = await fetch(MONITOR_URL + 'command', {
       method: 'POST',
@@ -1211,83 +1112,165 @@ async function sendCmdOnce(room, command) {
       body: JSON.stringify({room, command, sentBy: 'admin-dashboard'})
     });
     const data = await resp.json();
-    if (data.ok) showToast('✓ ' + command + ' → ' + room.split('@')[0]);
-    else { _pendingCmds.delete(key); showToast('✗ ' + (data.error || 'Failed'), 'error'); }
-  } catch(e) { _pendingCmds.delete(key); showToast('✗ ' + e.message, 'error'); }
+    if (data.ok) {
+      showToast('✓ Command sent: ' + command);
+    } else {
+      showToast('✗ ' + (data.error || 'Failed'), 'error');
+    }
+  } catch (e) {
+    showToast('✗ ' + e.message, 'error');
+  }
 }
-
-async function sendCmd(room, command) { return sendCmdOnce(room, command); }
 
 function toggleLog(logId) {
   const el = document.getElementById(logId);
   if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
 }
 
-let _lastAnalyzedRooms = [];
-let _incidentCache = {};
+// ── SMART ISSUE DETECTION + BULK ACTIONS ──
 
 function analyzeRooms(rooms) {
-  const issues = { needsFullscreen: [], needsReauth: [], needsReload: [], offlineLong: [], offlineRecent: [], healthy: [] };
+  const issues = {
+    needsFullscreen: [],
+    needsReauth: [],
+    needsReload: [],
+    offlineLong: [],
+    offlineRecent: [],
+    tokenExpiring: [],
+    healthy: []
+  };
+
   RIS_ROOMS.forEach(ris => {
     const r = rooms.find(rm => rm.room === ris.email);
-    if (!r) return;
+    if (!r) return; // no heartbeat yet — skip
+
     const logText = (r.log || []).join(' ').toLowerCase();
-    if (!r.isOnline && r.lastSeenMinutes > 60) issues.offlineLong.push(ris);
-    else if (!r.isOnline && r.lastSeenMinutes > 15) issues.offlineRecent.push(ris);
-    else if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') issues.needsReauth.push(ris);
-    else if (r.launchMode === 'browser' || logText.indexOf('fullscreen denied') > -1) issues.needsFullscreen.push(ris);
-    else if (logText.indexOf('meet in touch') > -1) issues.needsReload.push(ris);
-    else issues.healthy.push(ris);
+
+    if (!r.isOnline && r.lastSeenMinutes > 60) {
+      issues.offlineLong.push(ris);
+    } else if (!r.isOnline && r.lastSeenMinutes > 15) {
+      issues.offlineRecent.push(ris);
+    } else if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') {
+      issues.needsReauth.push(ris);
+    } else if (r.launchMode === 'browser' || (logText.indexOf('fullscreen denied') > -1 && !r.isFullscreen)) {
+      issues.needsFullscreen.push(ris);
+    } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
+      issues.needsReload.push(ris);
+    } else if (r.tokenMinsLeft > 0 && r.tokenMinsLeft < 10) {
+      issues.tokenExpiring.push(ris);
+    } else {
+      issues.healthy.push(ris);
+    }
   });
+
   return issues;
 }
 
 function renderSmartActions(rooms) {
   const container = document.getElementById('adm-smart-actions');
   if (!container) return;
+
   const issues = analyzeRooms(rooms);
-  let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
-  html += '<button class="adm-refresh-btn" onclick="bulkCommand('auto_tap','needsFullscreen')">👆 Auto-tap all</button>';
-  html += '<button class="adm-refresh-btn" onclick="bulkCommand('force_fullscreen','needsFullscreen')">⛶ Fullscreen all</button>';
-  html += '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand('reload','needsReload')">↻ Reload all</button>';
-  html += '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand('re_auth_remote','all')">🔐 Re-auth all</button>';
+  let html = '';
+
+  // Bulk actions bar
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  html += '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>';
+  html += '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'needsReload\')">↻ Reload all</button>';
+  html += '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth_remote\',\'all\')">🔐 Re-auth all</button>';
   html += '</div>';
+
+  // Smart recommendations
   if (issues.needsFullscreen.length > 0) {
-    html += '<div style="background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px"><span style="color:var(--green);font-weight:700">⛶ NOT FULLSCREEN</span> — ' + issues.needsFullscreen.map(r => r.name).join(', ') + ' <button style="margin-left:8px;padding:2px 8px;background:var(--green);color:#000;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand('auto_tap','needsFullscreen')">Fix all</button></div>';
+    html += '<div style="background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--green);font-weight:700">⛶ NOT FULLSCREEN</span> — ';
+    html += issues.needsFullscreen.map(r => r.name).join(', ');
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--green);color:#000;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">Fix all</button>';
+    html += '<div style="font-size:10px;color:var(--hint);margin-top:4px">Running in browser mode (not PWA). Fix: on tablet, Chrome menu → Add to Home Screen → reboot</div>';
+    html += '</div>';
   }
+
   if (issues.needsReauth.length > 0) {
-    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px"><span style="color:var(--red);font-weight:700">🔐 AUTH EXPIRED</span> — ' + issues.needsReauth.map(r => r.name).join(', ') + ' <button style="margin-left:8px;padding:2px 8px;background:var(--red);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand('re_auth_remote','needsReauth')">Fix remotely</button></div>';
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--red);font-weight:700">🔐 AUTH EXPIRED</span> — ';
+    html += issues.needsReauth.map(r => r.name).join(', ');
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--red);color:#fff;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">Fix remotely</button>';
+    html += '</div>';
   }
+
+  if (issues.needsReload.length > 0) {
+    html += '<div style="background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--amber);font-weight:700">↻ NEEDS RELOAD</span> — ';
+    html += issues.needsReload.map(r => r.name).join(', ');
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--amber);color:#000;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'reload\',\'needsReload\')">Fix all</button>';
+    html += '</div>';
+  }
+
   if (issues.offlineLong.length > 0) {
-    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px"><span style="color:var(--red);font-weight:700">⚫ OFFLINE &gt;1HR</span> — ' + issues.offlineLong.map(r => r.name).join(', ') + ' <span style="color:var(--muted);font-size:11px">⚠ Check power/WiFi</span></div>';
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--red);font-weight:700">⚫ OFFLINE &gt;1 HOUR</span> — ';
+    html += issues.offlineLong.map(r => r.name).join(', ');
+    html += ' <span style="color:var(--muted);font-size:11px;margin-left:6px">⚠ Check power / WiFi physically</span>';
+    html += '</div>';
   }
-  if (issues.needsFullscreen.length === 0 && issues.needsReauth.length === 0 && issues.offlineLong.length === 0 && issues.healthy.length > 0) {
-    html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:8px 12px;font-size:12px"><span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span> — ' + issues.healthy.length + ' rooms running normally</div>';
+
+  if (issues.offlineRecent.length > 0) {
+    html += '<div style="background:rgba(255,149,0,.06);border:1px solid rgba(255,149,0,.2);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--amber);font-weight:700">⏳ RECENTLY OFFLINE</span> — ';
+    html += issues.offlineRecent.map(r => r.name).join(', ');
+    html += ' <span style="color:var(--muted);font-size:11px;margin-left:6px">Waiting — may recover</span>';
+    html += '</div>';
   }
+
+  if (issues.needsFullscreen.length === 0 && issues.needsReauth.length === 0 && 
+      issues.needsReload.length === 0 && issues.offlineLong.length === 0 && 
+      issues.offlineRecent.length === 0 && issues.healthy.length > 0) {
+    html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span> — ';
+    html += issues.healthy.length + ' rooms running normally';
+    html += '</div>';
+  }
+
   container.innerHTML = html;
 }
 
+let _lastAnalyzedRooms = [];
+let _incidentCache = {};  // id -> incident record with key
+
 async function bulkCommand(command, group) {
   let targets = [];
-  const issues = analyzeRooms(_lastAnalyzedRooms);
-  if (group === 'all') targets = RIS_ROOMS.filter(r => _lastAnalyzedRooms.find(rm => rm.room === r.email && rm.isOnline));
-  else targets = (issues[group] || []);
-  if (targets.length === 0) { showToast('No rooms need this action', 'warn'); return; }
+  
+  if (group === 'all') {
+    targets = RIS_ROOMS.filter(r => _lastAnalyzedRooms.find(rm => rm.room === r.email && rm.isOnline));
+  } else if (group === 'needsFullscreen' || group === 'needsReload' || group === 'needsReauth') {
+    const issues = analyzeRooms(_lastAnalyzedRooms);
+    targets = issues[group] || [];
+  }
+
+  if (targets.length === 0) {
+    showToast('No rooms need this action', 'warn');
+    return;
+  }
+
   if (!confirm('Send "' + command + '" to ' + targets.length + ' rooms?')) return;
+
   let sent = 0;
-  for (const t of targets) {
+  for (let i = 0; i < targets.length; i++) {
     try {
       const resp = await fetch(MONITOR_URL + 'command', {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
-        body: JSON.stringify({room: t.email, command: command, sentBy: 'admin-bulk'})
+        body: JSON.stringify({room: targets[i].email, command: command, sentBy: 'admin-bulk'})
       });
       if (resp.ok) sent++;
     } catch(e) {}
   }
+
   showToast('✓ Sent "' + command + '" to ' + sent + '/' + targets.length + ' rooms');
   setTimeout(refreshAdmin, 5000);
 }
+
+// ── DAILY REPORTS ──
 
 async function generateReport() {
   try {
@@ -1296,14 +1279,22 @@ async function generateReport() {
       headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey}
     });
     const data = await resp.json();
-    if (data.ok) { showToast('✓ Report generated'); setTimeout(refreshAdmin, 1000); }
-    else showToast('✗ ' + (data.error || 'Failed'), 'error');
-  } catch(e) { showToast('✗ ' + e.message, 'error'); }
+    if (data.ok) {
+      showToast('✓ Report generated');
+      setTimeout(fetchReports, 1000);
+    } else {
+      showToast('✗ ' + (data.error || 'Failed'), 'error');
+    }
+  } catch(e) {
+    showToast('✗ ' + e.message, 'error');
+  }
 }
 
 async function fetchReports() {
   try {
-    const resp = await fetch(MONITOR_URL + 'reports?limit=7', {headers: {'X-Admin-Key': adminKey}});
+    const resp = await fetch(MONITOR_URL + 'reports?limit=7', {
+      headers: {'X-Admin-Key': adminKey}
+    });
     if (resp.status === 401) return;
     const data = await resp.json();
     renderReports(data.reports || []);
@@ -1313,22 +1304,105 @@ async function fetchReports() {
 function renderReports(reports) {
   const container = document.getElementById('adm-reports');
   if (!container) return;
-  if (!reports.length) { container.innerHTML = '<div class="adm-empty">No reports yet — generates at 19:30 daily</div>'; return; }
+
+  if (!reports.length) {
+    container.innerHTML = '<div class="adm-empty">No reports yet — first report generates at 20:00 today</div>';
+    return;
+  }
+
   let html = '';
   reports.forEach(rpt => {
+    const online = rpt.tabletsOnline || 0;
+    const deployed = rpt.tabletsDeployed || 0;
     const inc = rpt.incidents || {};
-    const allGood = (inc.open || 0) === 0;
-    html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px">';
-    html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-weight:700">' + rpt.date + '</span>';
-    html += '<span style="font-size:11px;padding:2px 8px;border-radius:10px;' + (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">✓ ALL GOOD' : 'background:rgba(255,149,0,.15);color:var(--amber)">⚠ ISSUES') + '</span></div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;font-size:11px">';
-    html += '<div style="color:var(--muted)">Tablets: <b>' + (rpt.tabletsOnline||0) + '/' + (rpt.tabletsDeployed||0) + '</b></div>';
-    html += '<div style="color:var(--muted)">Incidents: <b>' + (inc.total||0) + '</b></div>';
-    html += '<div style="color:var(--muted)">Auto-fixed: <b style="color:var(--green)">' + (inc.autoResolved||0) + '</b></div>';
-    html += '<div style="color:var(--muted)">Open: <b style="color:' + ((inc.open||0) > 0 ? 'var(--red)' : 'var(--green)') + '">' + (inc.open||0) + '</b></div>';
-    html += '</div></div>';
+    const uptimeList = (rpt.rooms || []).map(r => 
+      (r.roomname || r.room.split('@')[0]) + ': ' + (r.uptime || 0) + 'm'
+    ).join(' · ');
+
+    html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    html += '<span style="font-size:14px;font-weight:700;color:#fff">' + rpt.date + '</span>';
+    
+    const allGood = (inc.open || 0) === 0 && online === deployed;
+    html += '<span style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600;' + 
+      (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">' + '✓ ALL GOOD' : 
+      'background:rgba(255,149,0,.15);color:var(--amber)">' + '⚠ ISSUES') + '</span>';
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;font-size:11px">';
+    html += '<div style="color:var(--muted)">Tablets: <span style="color:#fff;font-weight:600">' + online + '/' + deployed + '</span></div>';
+    html += '<div style="color:var(--muted)">Incidents: <span style="color:#fff;font-weight:600">' + (inc.total || 0) + '</span></div>';
+    html += '<div style="color:var(--muted)">Auto-fixed: <span style="color:var(--green);font-weight:600">' + (inc.autoResolved || 0) + '</span></div>';
+    html += '<div style="color:var(--muted)">Open: <span style="color:' + ((inc.open || 0) > 0 ? 'var(--red)' : 'var(--green)') + ';font-weight:600">' + (inc.open || 0) + '</span></div>';
+    html += '</div>';
+
+    if (uptimeList) {
+      html += '<div style="font-size:10px;color:var(--hint);margin-top:6px">Uptime: ' + uptimeList + '</div>';
+    }
+
+    html += '</div>';
   });
+
   container.innerHTML = html;
+}
+
+async function resolveIncidentRemote(incId, incKey) {
+  // Use cached key if available (more reliable than reconstructed key)
+  if (_incidentCache[incId] && _incidentCache[incId].key) {
+    incKey = _incidentCache[incId].key;
+  }
+  try {
+    const resp = await fetch(MONITOR_URL + 'incident', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({
+        room: 'admin',
+        action: 'resolve',
+        incidentKey: incKey,
+        resolvedBy: 'admin-dashboard',
+        resolution: 'Manually resolved by admin'
+      })
+    });
+    if (resp.ok) {
+      showToast('✓ Incident resolved');
+      setTimeout(refreshAdmin, 1000);
+    } else {
+      const data = await resp.json();
+      showToast('✗ ' + (data.error || 'Failed'), 'error');
+    }
+  } catch(e) {
+    showToast('✗ ' + e.message, 'error');
+  }
+}
+
+async function resolveAllIncidents() {
+  if (!confirm('Resolve all open incidents?')) return;
+  const incResp = await fetch(MONITOR_URL + 'incidents?limit=50', {
+    headers: {'X-Admin-Key': adminKey}
+  });
+  const incData = await incResp.json();
+  const open = (incData.incidents || []).filter(i => !i.resolvedAt);
+  let resolved = 0;
+  for (const inc of open) {
+    const cached = _incidentCache[inc.id]; const key = (cached && cached.key) || inc.key || ('incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || ''));
+    try {
+      const resp = await fetch(MONITOR_URL + 'incident', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+        body: JSON.stringify({
+          room: inc.room,
+          action: 'resolve',
+          incidentKey: key,
+          resolvedBy: 'admin-dashboard',
+          resolution: 'Bulk resolved by admin'
+        })
+      });
+      if (resp.ok) resolved++;
+    } catch(e) {}
+  }
+  showToast('✓ Resolved ' + resolved + ' incidents');
+  // Force full refresh to update stats counter
+  setTimeout(refreshAdmin, 1500);
 }
 
 function showToast(msg, type) {
