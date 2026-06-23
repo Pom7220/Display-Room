@@ -236,6 +236,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="sum-card" style="border-color:var(--amber)"><div class="sum-n" id="sum-soon" style="color:var(--amber)">--</div><div class="sum-l">Soon</div></div>
   </div>
 
+  <div id="main-app-content">
   <!-- Hint + refresh merged into one bar -->
   <div class="hint-bar">
     <span style="font-size:13px">👇</span>
@@ -263,7 +264,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.8 (2026-06-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.9 (2026-06-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -314,40 +315,51 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     </div>
   </div>
 </div>
+  </div><!-- /main-app-content -->
 
 <div id="toast" class="hidden"></div>
 
 <!-- ADMIN PANEL -->
 <div id="admin-panel">
-  <div class="adm-refresh">
-    <button class="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh status</button>
+  <!-- Header bar -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <button class="adm-refresh-btn" id="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh</button>
     <span class="adm-last" id="adm-last-refresh">—</span>
-    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 60s</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto: 60s</span>
   </div>
 
+  <!-- Stats row -->
   <div class="adm-stats">
     <div class="adm-stat"><div class="adm-stat-n" id="adm-online" style="color:var(--green)">—</div><div class="adm-stat-l">Online</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-offline" style="color:var(--red)">—</div><div class="adm-stat-l">Offline</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Open issues</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg resolve</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Issues today</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg fix</div></div>
   </div>
 
-  <div id="adm-smart-actions" style="margin-bottom:16px"></div>
+  <!-- Smart action banners -->
+  <div id="adm-smart-actions" style="margin-bottom:12px"></div>
 
-  <div class="adm-section">Tablet health — 12 rooms</div>
-  <div class="adm-grid" id="adm-room-grid">
-    <div class="adm-empty">Loading status…</div>
-  </div>
+  <!-- Lobby zone -->
+  <div class="adm-section">Lobby — rooms 1–6</div>
+  <div class="adm-grid" id="adm-room-grid-lobby"></div>
 
-  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Recent incidents <button style="padding:3px 10px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveAllIncidents()">✓ Resolve all</button></div>
-  <div class="adm-incidents" id="adm-incident-list">
-    <div class="adm-empty">Loading incidents…</div>
-  </div>
+  <!-- Office zone -->
+  <div class="adm-section">In-office — rooms 7–12</div>
+  <div class="adm-grid" id="adm-room-grid-office"></div>
 
-  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Daily reports (last 7 days) <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Generate now</button></div>
-  <div id="adm-reports">
-    <div class="adm-empty">Loading reports…</div>
+  <!-- Incidents -->
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">
+    Recent incidents
+    <button style="padding:3px 10px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveAllIncidents()">✓ Resolve all</button>
   </div>
+  <div class="adm-incidents" id="adm-incident-list"><div class="adm-empty">Loading…</div></div>
+
+  <!-- Daily reports -->
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">
+    Daily reports
+    <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Generate now</button>
+  </div>
+  <div id="adm-reports"><div class="adm-empty">Loading…</div></div>
 </div>
 
 <!-- SCHEDULE POPUP — white alert style -->
@@ -944,24 +956,28 @@ function toggleAdmin() {
   const btn = document.getElementById('admin-toggle');
   const mainApp = document.getElementById('main-app');
 
+  const mainContent = document.getElementById('main-app-content');
   if (adminVisible) {
     panel.classList.add('visible');
     btn.classList.add('active');
     btn.textContent = 'ROOMS';
-    // Hide room grid and detail card, keep header
-    document.querySelectorAll('.zone-wrap,.zone-div,.legend,.dc-wrap,.sum-row,.hint-bar').forEach(el => el.style.display = 'none');
+    if (mainContent) mainContent.style.display = 'none';
     refreshAdmin();
     adminRefreshInterval = setInterval(refreshAdmin, 60000);
   } else {
     panel.classList.remove('visible');
     btn.classList.remove('active');
     btn.textContent = 'ADMIN';
-    document.querySelectorAll('.zone-wrap,.zone-div,.legend,.dc-wrap,.sum-row,.hint-bar').forEach(el => el.style.display = '');
+    if (mainContent) mainContent.style.display = '';
     if (adminRefreshInterval) { clearInterval(adminRefreshInterval); adminRefreshInterval = null; }
   }
 }
 
 async function refreshAdmin() {
+  // Update button state
+  const btn = document.getElementById('adm-refresh-btn');
+  if (btn) { btn.textContent = '↻ Refreshing...'; btn.disabled = true; }
+
   try {
     // Fetch room status
     const statusResp = await fetch(MONITOR_URL + 'status');
@@ -990,8 +1006,10 @@ async function refreshAdmin() {
     document.getElementById('adm-last-refresh').textContent =
       'Updated: ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   } catch (e) {
-    document.getElementById('adm-room-grid').innerHTML =
-      '<div class="adm-empty" style="color:var(--red)">Error loading: ' + e.message + '</div>';
+    const lobbyGrid = document.getElementById('adm-room-grid-lobby');
+    if (lobbyGrid) lobbyGrid.innerHTML = '<div class="adm-empty" style="color:var(--red)">Error: ' + e.message + '</div>';
+  } finally {
+    if (btn) { btn.textContent = '↻ Refresh'; btn.disabled = false; }
   }
 }
 
@@ -1014,15 +1032,19 @@ function renderAdminStats(rooms, stats, incidents) {
 }
 
 function renderAdminRooms(rooms) {
-  const grid = document.getElementById('adm-room-grid');
+  const lobbyGrid = document.getElementById('adm-room-grid-lobby');
+  const officeGrid = document.getElementById('adm-room-grid-office');
+  if (!lobbyGrid || !officeGrid) return;
 
   // Build a map of rooms from heartbeat data
   const roomMap = {};
   rooms.forEach(r => { roomMap[r.room] = r; });
 
-  // Show all 12 RIS rooms (even if no heartbeat yet)
-  let html = '';
+  let lobbyHtml = '';
+  let officeHtml = '';
+  let roomIndex = 0;
   RIS_ROOMS.forEach(ris => {
+    roomIndex++;
     const r = roomMap[ris.email] || null;
     const isOnline = r && r.isOnline;
     const dotColor = !r ? '#555' : (isOnline ? '#00d68f' : '#ff3333');
@@ -1068,7 +1090,12 @@ function renderAdminRooms(rooms) {
     html += '</div></div>';
   });
 
-  grid.innerHTML = html;
+    if (roomIndex <= 6) lobbyHtml += roomCard;
+    else officeHtml += roomCard;
+  });
+
+  lobbyGrid.innerHTML = lobbyHtml || '<div class="adm-empty">No data</div>';
+  officeGrid.innerHTML = officeHtml || '<div class="adm-empty">No data</div>';
 }
 
 function renderAdminIncidents(incidents) {
@@ -1106,8 +1133,17 @@ function renderAdminIncidents(incidents) {
   list.innerHTML = html;
 }
 
-async function sendCmd(room, command) {
-  if (!confirm('Send "' + command + '" to ' + room + '?')) return;
+const _pendingCmds = new Set(); // prevent double-sending
+
+async function sendCmdOnce(room, command) {
+  const key = room + ':' + command;
+  if (_pendingCmds.has(key)) {
+    showToast('Command already pending...', 'warn');
+    return;
+  }
+  _pendingCmds.add(key);
+  setTimeout(() => _pendingCmds.delete(key), 10000); // clear after 10s
+
   try {
     const resp = await fetch(MONITOR_URL + 'command', {
       method: 'POST',
@@ -1116,13 +1152,20 @@ async function sendCmd(room, command) {
     });
     const data = await resp.json();
     if (data.ok) {
-      showToast('✓ Command sent: ' + command);
+      showToast('✓ ' + command + ' → ' + (room.split('@')[0]));
     } else {
+      _pendingCmds.delete(key);
       showToast('✗ ' + (data.error || 'Failed'), 'error');
     }
   } catch (e) {
+    _pendingCmds.delete(key);
     showToast('✗ ' + e.message, 'error');
   }
+}
+
+// Keep sendCmd as alias for bulk actions
+async function sendCmd(room, command) {
+  return sendCmdOnce(room, command);
 }
 
 function toggleLog(logId) {
