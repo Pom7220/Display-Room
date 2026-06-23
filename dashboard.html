@@ -1042,18 +1042,18 @@ function renderAdminRooms(rooms) {
     const logId = 'log-' + ris.name.toLowerCase().replace(/[^a-z]/g, '');
 
     // Show last meaningful log line in card meta
-    let lastLogLine = '';
+    var lastLogLine = '';
     if (r && r.log && r.log.length > 0) {
       for (var li = r.log.length - 1; li >= 0; li--) {
-        const line = r.log[li] || '';
-        if (line.length > 5 && line.indexOf('Heartbeat') === -1) {
-          lastLogLine = line.substring(0, 50);
+        var logLine = r.log[li] || '';
+        if (logLine.length > 5 && logLine.indexOf('Heartbeat') === -1) {
+          lastLogLine = logLine.substring(0, 50);
           break;
         }
       }
     }
 
-    let card = '<div class="adm-room">' +
+    var card = '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
       '<div class="adm-room-name">' + ris.name + '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
