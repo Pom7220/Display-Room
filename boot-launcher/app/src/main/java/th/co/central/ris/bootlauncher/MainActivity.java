@@ -31,7 +31,6 @@ public class MainActivity extends Activity {
         "https://ris-display.ris-display.workers.dev/";
     private static final String CHROME_PACKAGE = "com.android.chrome";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
-    private android.widget.EditText adminKeyInput = null;
 
     // All 12 RIS rooms
     private static final String[][] ROOMS = {
@@ -129,28 +128,25 @@ public class MainActivity extends Activity {
         officeGrid.setPadding(0, 0, 0, dp(20));
         root.addView(officeGrid);
 
-        // Admin key input
-        TextView adminKeyLabel = new TextView(this);
-        adminKeyLabel.setText("Admin Key (required for zero-touch auth):");
-        adminKeyLabel.setTextColor(Color.parseColor("#6b82a8"));
-        adminKeyLabel.setTextSize(11);
-        adminKeyLabel.setPadding(dp(4), dp(16), dp(4), dp(4));
-        root.addView(adminKeyLabel);
-
-        adminKeyInput = new android.widget.EditText(this);
-        adminKeyInput.setHint("Enter RIS_ADMIN_KEY");
-        adminKeyInput.setTextColor(Color.parseColor("#ffffff"));
-        adminKeyInput.setHintTextColor(Color.parseColor("#3a4d6b"));
-        adminKeyInput.setBackgroundColor(Color.parseColor("#1a1a2e"));
-        adminKeyInput.setPadding(dp(12), dp(10), dp(12), dp(10));
-        adminKeyInput.setTextSize(13);
-        adminKeyInput.setSingleLine(true);
-        adminKeyInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
-            android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        // Pre-fill saved key
-        String savedKey = prefs.getString("admin_key", "");
-        if (savedKey.length() > 0) adminKeyInput.setText(savedKey);
-        root.addView(adminKeyInput);
+        // Accessibility service setup button
+        Button accessBtn = new Button(this);
+        accessBtn.setText("\u2699 Enable Auto-tap (Accessibility)");
+        accessBtn.setTextColor(Color.parseColor("#ff9500"));
+        accessBtn.setBackgroundColor(Color.parseColor("#1a1200"));
+        accessBtn.setPadding(dp(8), dp(12), dp(8), dp(12));
+        accessBtn.setTextSize(13);
+        accessBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                Toast.makeText(MainActivity.this,
+                    "Find 'RIS Kiosk Auto-tap' and enable it",
+                    Toast.LENGTH_LONG).show();
+            }
+        });
+        root.addView(accessBtn);
 
         // Launch button
         launchBtn = new Button(this);
@@ -174,7 +170,7 @@ public class MainActivity extends Activity {
 
         // Version
         TextView ver = new TextView(this);
-        ver.setText("\nRIS Kiosk Launcher v3.0\nth.co.central.ris.bootlauncher");
+        ver.setText("\nRIS Kiosk Launcher v4.0\nth.co.central.ris.bootlauncher");
         ver.setTextColor(Color.parseColor("#3a4d6b"));
         ver.setTextSize(10);
         ver.setGravity(Gravity.CENTER);
@@ -293,33 +289,13 @@ public class MainActivity extends Activity {
     }
 
     private void launchChrome() {
-        // Save admin key if entered
-        if (adminKeyInput != null) {
-            String key = adminKeyInput.getText().toString().trim();
-            if (key.length() > 0) {
-                prefs.edit().putString("admin_key", key).apply();
-            }
-        }
-        // Check admin key is set
-        String savedKey = prefs.getString("admin_key", "");
-        if (savedKey.length() == 0) {
-            Toast.makeText(this, "Enter Admin Key first", Toast.LENGTH_LONG).show();
-            return;
-        }
-        // Check room is selected
         if (selectedEmail.length() == 0) {
             Toast.makeText(this, "Tap a room card first", Toast.LENGTH_LONG).show();
             return;
         }
-        // Launch KioskWebViewActivity — fullscreen, ROPC token injection
-        try {
-            Intent intent = new Intent(this, KioskWebViewActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            finish();
-        } catch (Exception e) {
-            Toast.makeText(this, "Launch failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
+        // Launch Chrome with room URL
+        BootReceiver.launchChrome(this);
+        finish();
     }
 
     private int dp(int val) {
