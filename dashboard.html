@@ -1006,7 +1006,8 @@ function renderAdminStats(rooms, incidents) {
   document.getElementById('adm-online').textContent = online;
   document.getElementById('adm-offline').textContent = offline;
   // Count only today's open incidents
-  const today = new Date().toISOString().slice(0, 10);
+  var bkk = new Date(Date.now() + 7*60*60*1000);
+  const today = bkk.toISOString().slice(0, 10);
   const todayOpen = incidents.filter(i => !i.resolvedAt && (i.reportedAt || '').startsWith(today)).length;
   document.getElementById('adm-incidents-open').textContent = todayOpen;
   document.getElementById('adm-avg-resolve').textContent = '—';
@@ -1061,7 +1062,8 @@ function renderAdminRooms(rooms) {
       (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
 
     if (r && r.log && r.log.length > 0) {
-      card += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
+      var logPreview = r.log.slice(-3).join('\n');
+      card += '<div class="adm-log" id="' + logId + '" style="font-size:9px;max-height:60px;overflow:hidden">' + logPreview + '</div>';
     }
 
     card += '<div class="adm-room-actions">' +
@@ -1096,7 +1098,8 @@ function renderAdminIncidents(incidents) {
 
   // Group by day
   const byDay = {};
-  const today = new Date().toISOString().slice(0, 10);
+  var bkk = new Date(Date.now() + 7*60*60*1000);
+  const today = bkk.toISOString().slice(0, 10);
   incidents.forEach(function(inc) {
     const day = (inc.reportedAt || '').slice(0, 10);
     if (!byDay[day]) byDay[day] = [];
