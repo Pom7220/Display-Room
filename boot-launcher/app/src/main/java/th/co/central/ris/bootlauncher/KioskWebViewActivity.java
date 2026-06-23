@@ -83,9 +83,21 @@ public class KioskWebViewActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
 
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                // Inject Promise polyfill + tokens as early as possible
+                // onPageStarted fires before page scripts execute
+                injectPromisePolyfill(view);
+                if (pendingTokens != null && pendingTokens.isValid()) {
+                    injectTokens(view, pendingTokens);
+                    tokensInjected = true;
+                }
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
-                // Inject tokens into localStorage after page loads
+                // Retry injection if not done yet (fallback)
                 if (!tokensInjected && pendingTokens != null && pendingTokens.isValid()) {
+                    injectPromisePolyfill(view);
                     injectTokens(view, pendingTokens);
                     tokensInjected = true;
                 }
@@ -93,9 +105,6 @@ public class KioskWebViewActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Handle all navigation in WebView
-                // On token injection, index.html will NOT redirect to Azure
-                // because tokens are already present
                 view.loadUrl(url);
                 return true;
             }
@@ -107,6 +116,34 @@ public class KioskWebViewActivity extends Activity {
         });
 
         webView.setWebChromeClient(new WebChromeClient());
+    }
+
+    private void injectPromisePolyfill(WebView view) {
+        // Minimal Promise polyfill for Android 4.4 WebView (Chrome 30)
+        String polyfill = "if(typeof Promise==='undefined'){" +
+            "Promise=function(fn){" +
+            "var callbacks=[];" +
+            "var errbacks=[];" +
+            "var state=0;" +
+            "var val;" +
+            "this.then=function(cb,eb){" +
+            "if(state===1)setTimeout(function(){cb(val);},0);" +
+            "else if(state===2&&eb)setTimeout(function(){eb(val);},0);" +
+            "else{callbacks.push(cb);if(eb)errbacks.push(eb);}" +
+            "return this;};" +
+            "function resolve(v){state=1;val=v;callbacks.forEach(function(c){setTimeout(function(){c(v);},0);});}" +
+            "function reject(v){state=2;val=v;errbacks.forEach(function(c){setTimeout(function(){c(v);},0);});}" +
+            "try{fn(resolve,reject);}catch(e){reject(e);}" +
+            "};" +
+            "Promise.resolve=function(v){return new Promise(function(r){r(v);});};" +
+            "Promise.reject=function(v){return new Promise(function(r,j){j(v);});};" +
+            "Promise.all=function(arr){return new Promise(function(r,j){" +
+            "var res=[];var count=0;" +
+            "if(!arr.length){r(res);return;}" +
+            "arr.forEach(function(p,i){Promise.resolve(p).then(function(v){res[i]=v;if(++count===arr.length)r(res);},j);});" +
+            "});};" +
+            "}";
+        view.evaluateJavascript(polyfill, null);
     }
 
     private void injectTokens(WebView view, TokenFetcher.TokenResult tokens) {
@@ -192,5 +229,48 @@ public class KioskWebViewActivity extends Activity {
     protected void onDestroy() {
         if (webView != null) { webView.destroy(); webView = null; }
         super.onDestroy();
+    }
+
+    /**
+     * JavaScript interface — allows index.html to call native methods.
+     * Available as window.RISKiosk in JavaScript.
+     * This works on ALL Android versions including 4.4 WebView (Chrome 30).
+     */
+    public class RISKioskBridge {
+        private TokenFetcher.TokenResult tokens;
+
+        public RISKioskBridge(TokenFetcher.TokenResult t) {
+            tokens = t;
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getAccessToken() {
+            return tokens != null && tokens.accessToken != null ? tokens.accessToken : "";
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getRefreshToken() {
+            return tokens != null && tokens.refreshToken != null ? tokens.refreshToken : "";
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getIdToken() {
+            return tokens != null && tokens.idToken != null ? tokens.idToken : "";
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getClientId() {
+            return tokens != null && tokens.clientId != null ? tokens.clientId : "";
+        }
+
+        @android.webkit.JavascriptInterface
+        public int getExpiresIn() {
+            return tokens != null ? tokens.expiresIn : 3600;
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean hasTokens() {
+            return tokens != null && tokens.isValid();
+        }
     }
 }
