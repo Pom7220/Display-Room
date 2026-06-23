@@ -7,12 +7,10 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 
 /**
- * v1.8 — Full kiosk boot launcher:
- * 1. Three-tier Chrome launch: PWA → shortcut → regular
- * 2. Double launch at 90s + 3min (beats Meet in Touch)
- * 3. CLEAR_TASK flag (single tab)
- * 4. kiosk=1 URL param → triggers immediate fullscreen in index.html
- * 5. Starts ForegroundWatchService
+ * v2.0 — WebView kiosk launcher.
+ * Launches KioskWebViewActivity (fullscreen WebView) instead of Chrome.
+ * True fullscreen from boot — no address bar, no tap needed.
+ * Falls back to Chrome if WebView activity fails.
  */
 public class BootReceiver extends BroadcastReceiver {
 
@@ -26,7 +24,6 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(final Context context, Intent intent) {
         String action = intent.getAction();
-
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) ||
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
 
@@ -42,88 +39,60 @@ public class BootReceiver extends BroadcastReceiver {
                     launchKiosk(context);
 
                     try { Thread.sleep(SECOND_LAUNCH_MS - FIRST_LAUNCH_MS); } catch (InterruptedException e) {}
-                    bringChromeToFront(context);
+                    bringToFront(context);
                 }
             }).start();
         }
     }
 
     private void launchKiosk(Context context) {
-        String url = buildUrl(context);
-
-        // Try 1: PWA mode
-        if (tryPwaLaunch(context, url)) return;
-
-        // Try 2: Shortcut mode
-        if (tryShortcutLaunch(context, url)) return;
-
-        // Try 3: Regular Chrome with kiosk=1
-        launchRegularChrome(context, url);
-    }
-
-    private boolean tryPwaLaunch(Context context, String url) {
+        // Primary: launch fullscreen WebView activity
         try {
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setData(Uri.parse(url));
-            intent.setClassName(CHROME_PACKAGE,
-                "com.google.android.apps.chrome.webapps.WebappLauncherActivity");
+            Intent intent = new Intent(context, KioskWebViewActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             context.startActivity(intent);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+            return;
+        } catch (Exception e) {}
+
+        // Fallback: regular Chrome
+        launchChrome(context);
     }
 
-    private boolean tryShortcutLaunch(Context context, String url) {
-        try {
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setData(Uri.parse(url));
-            intent.setClassName(CHROME_PACKAGE,
-                "org.chromium.chrome.browser.webapps.WebappLauncherActivity");
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            context.startActivity(intent);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private void launchRegularChrome(Context context, String url) {
-        try {
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setData(Uri.parse(url));
-            intent.setPackage(CHROME_PACKAGE);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            context.startActivity(intent);
-        } catch (Exception e) {
-            try {
-                Intent fallback = new Intent(Intent.ACTION_VIEW);
-                fallback.setData(Uri.parse(url));
-                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                context.startActivity(fallback);
-            } catch (Exception e2) {}
-        }
-    }
-
-    private String buildUrl(Context context) {
+    private void launchChrome(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String roomEmail = prefs.getString("room_email", "");
         String roomName = prefs.getString("room_name", "");
 
         StringBuilder url = new StringBuilder(BASE_URL);
         url.append("?nocache=").append(System.currentTimeMillis());
-        url.append("&kiosk=1");  // triggers immediate fullscreen in index.html
-        if (roomEmail.length() > 0) {
-            url.append("&room=").append(Uri.encode(roomEmail));
+        if (roomEmail.length() > 0) url.append("&room=").append(Uri.encode(roomEmail));
+        if (roomName.length() > 0) url.append("&roomname=").append(Uri.encode(roomName));
+
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse(url.toString()));
+            intent.setPackage(CHROME_PACKAGE);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivity(intent);
+        } catch (Exception e) {
+            try {
+                Intent fallback = new Intent(Intent.ACTION_VIEW, Uri.parse(url.toString()));
+                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                context.startActivity(fallback);
+            } catch (Exception e2) {}
         }
-        if (roomName.length() > 0) {
-            url.append("&roomname=").append(Uri.encode(roomName));
-        }
-        return url.toString();
     }
 
-    static void bringChromeToFront(Context context) {
+    static void bringToFront(Context context) {
+        // Bring our KioskWebViewActivity to front
+        try {
+            Intent intent = new Intent(context, KioskWebViewActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            context.startActivity(intent);
+            return;
+        } catch (Exception e) {}
+
+        // Fallback: bring Chrome to front
         try {
             Intent intent = new Intent(Intent.ACTION_MAIN);
             intent.addCategory(Intent.CATEGORY_LAUNCHER);

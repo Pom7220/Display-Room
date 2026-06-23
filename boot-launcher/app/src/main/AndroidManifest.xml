@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.GET_TASKS" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="false"
@@ -21,6 +22,7 @@
             </intent-filter>
         </receiver>
 
+        <!-- Room picker setup screen -->
         <activity
             android:name=".MainActivity"
             android:label="RIS Kiosk"
@@ -33,7 +35,17 @@
             </intent-filter>
         </activity>
 
-        <!-- Background watchdog — keeps Chrome in foreground -->
+        <!-- Fullscreen WebView kiosk display -->
+        <activity
+            android:name=".KioskWebViewActivity"
+            android:label="RIS Room Display"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <!-- Background watchdog service -->
         <service
             android:name=".ForegroundWatchService"
             android:exported="false" />

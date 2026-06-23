@@ -68,9 +68,11 @@ public class ForegroundWatchService extends Service {
 
             String topPackage = tasks.get(0).topActivity.getPackageName();
 
-            if (!CHROME_PACKAGE.equals(topPackage)) {
-                // Chrome is NOT in the foreground — bring it back
-                BootReceiver.bringChromeToFront(getApplicationContext());
+            String ownPackage = getPackageName();
+            // Check if our WebView OR Chrome is in foreground
+            if (!CHROME_PACKAGE.equals(topPackage) && !ownPackage.equals(topPackage)) {
+                // Neither our app nor Chrome is on top — bring kiosk back
+                BootReceiver.bringToFront(getApplicationContext());
             }
         } catch (Exception e) {
             // Non-critical — will retry on next interval
