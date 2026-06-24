@@ -688,7 +688,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 30,
+  patch: 31,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1256,7 +1256,9 @@ function initMsal(){
 
 function doReauth(){
   dbg('doReauth called — clearing all token cache');
-  reportIncident('token_reauth','Token expired or refresh failed — reauth triggered',true);
+  reportIncident('token_reauth','Token expired or refresh failed — reauth triggered',true,function(key){
+    try{localStorage.setItem('last_token_incident',key);}catch(e){}
+  });
   _cachedToken=null;
   _tokenExpiry=0;
   _tokenRefreshPending=false;
@@ -1356,6 +1358,13 @@ function getToken(){
     saveToken(r.accessToken,expiry);
     _tokenRefreshPending=false;
     dbg('Token refreshed OK, expires in '+Math.round((expiry-Date.now())/60000)+'m');
+    try{
+      var incKey=localStorage.getItem('last_token_incident');
+      if(incKey){
+        resolveIncident(incKey,'Token auto-renewed via refresh token');
+        localStorage.removeItem('last_token_incident');
+      }
+    }catch(e){}
     return r.accessToken;
   }).catch(function(err){
     dbg('Silent token fail: '+(err&&err.errorCode||String(err)));
@@ -1635,7 +1644,10 @@ function executeCommand(cmd){
       }catch(e){}
       saveToken(tokens.access_token,expiresAt*1000);
       dbg('Remote tokens injected — access:'+Math.round((expiresAt*1000-Date.now())/60000)+'m, refresh:'+(tokens.refresh_token?'yes':'no'));
-      reportIncident('remote_reauth_success','Tokens injected remotely via ROPC',true);
+      reportIncident('remote_reauth_success','Tokens injected remotely via ROPC',true,function(key){
+        // Auto-resolve after 5s (give Worker time to store it)
+        setTimeout(function(){resolveIncident(key,'Tokens successfully injected and verified');},5000);
+      });
       setTimeout(fetchCal,2000);
       setTimeout(sendHeartbeat,3000);
     } else {
@@ -1647,7 +1659,7 @@ function executeCommand(cmd){
   }
 }
 
-function reportIncident(type,detail,autoResolvable){
+function reportIncident(type,detail,autoResolvable,onKey){
   if(!cfg.roomemail)return;
   var data={
     room:cfg.roomemail,
@@ -1661,6 +1673,14 @@ function reportIncident(type,detail,autoResolvable){
     var xhr=new XMLHttpRequest();
     xhr.open('POST',_monitorUrl+'incident',true);
     xhr.setRequestHeader('Content-Type','application/json');
+    if(onKey){
+      xhr.onload=function(){
+        try{
+          var resp=JSON.parse(xhr.responseText);
+          if(resp.key)onKey(resp.key);
+        }catch(e){}
+      };
+    }
     xhr.send(JSON.stringify(data));
   }catch(e){}
 }
