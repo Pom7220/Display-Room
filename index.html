@@ -688,7 +688,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 29,
+  patch: 30,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1457,16 +1457,16 @@ function launch(){
 // ══════════════════════════════════════
 function startMonitoring(){
   if(!cfg.roomemail)return;
-  dbg('Monitoring started — heartbeat every 20m, commands every 5m');
+  dbg('Monitoring started — heartbeat every 20m, commands every 30s');
 
   // Initial heartbeat after 30 seconds (let app settle)
   setTimeout(sendHeartbeat,30000);
   // Then every 20 minutes
   setInterval(sendHeartbeat,1200000);
 
-  // Poll for commands every 5 minutes
-  setTimeout(pollCommand,60000);
-  setInterval(pollCommand,300000);
+  // Poll for commands every 30s
+  setTimeout(pollCommand,15000);
+  setInterval(pollCommand,30000);
 }
 
 function getMonitorStatus(){
@@ -1530,6 +1530,7 @@ function sendHeartbeat(){
             if(resp.command&&resp.command.command){
               dbg('CMD received via heartbeat: '+resp.command.command);
               executeCommand(resp.command);
+              setTimeout(sendHeartbeat,5000); // confirm execution
             } else {
               dbg('Heartbeat OK — no pending command');
             }
@@ -1636,6 +1637,7 @@ function executeCommand(cmd){
       dbg('Remote tokens injected — access:'+Math.round((expiresAt*1000-Date.now())/60000)+'m, refresh:'+(tokens.refresh_token?'yes':'no'));
       reportIncident('remote_reauth_success','Tokens injected remotely via ROPC',true);
       setTimeout(fetchCal,2000);
+      setTimeout(sendHeartbeat,3000);
     } else {
       dbg('inject_tokens: no access_token in payload');
     }
@@ -1806,6 +1808,7 @@ function enterKiosk(){
       var inFS=!!(document.fullscreenElement||document.webkitFullscreenElement);
       if(inFS){
         dbg('Auto-fullscreen succeeded in browser mode');
+      setTimeout(sendHeartbeat,1000);
         var ov=el('fs-overlay');if(ov)ov.style.display='none';
       } else {
         dbg('Auto-fullscreen denied — showing tap overlay');

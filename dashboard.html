@@ -324,7 +324,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   <div class="adm-refresh">
     <button class="adm-refresh-btn" id="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh</button>
     <span class="adm-last" id="adm-last-refresh">—</span>
-    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 60s</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 30s</span>
   </div>
 
   <div class="adm-stats">
@@ -955,7 +955,7 @@ function toggleAdmin() {
     btn.textContent = 'ROOMS';
     if (mainContent) mainContent.style.display = 'none';
     refreshAdmin();
-    adminRefreshInterval = setInterval(refreshAdmin, 60000);
+    adminRefreshInterval = setInterval(refreshAdmin, 30000);
   } else {
     panel.classList.remove('visible');
     btn.classList.remove('active');
