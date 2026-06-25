@@ -424,6 +424,8 @@ if('serviceWorker' in navigator){
     <div class="field"><label>Room Email (mailbox)</label><input type="text" id="cfg-roomemail" placeholder="rismacchiato@central.co.th"><div class="hint">Shared room mailbox in Exchange / M365</div></div>
     <div class="field"><label>Auto-release (min without check-in)</label>
       <select id="cfg-release"><option value="0">Disabled</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
+      <div class="cfg-label" style="margin-top:10px">Heartbeat interval <span style="color:var(--hint);font-size:10px">(5–60 min · default 20 · use 30 for 12 tablets)</span></div>
+      <select id="cfg-heartbeat-mins" class="cfg-input"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20" selected>20 min</option><option value="30">30 min</option><option value="60">60 min</option></select>
     </div>
   </div>
   <div class="cfg-card">
@@ -688,7 +690,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 34,
+  patch: 37,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1038,10 +1040,13 @@ function saveConfig(){
     var em=roomRows[ri].querySelector('.rr-email').value.trim();
     if(nm&&em)extraRooms.push({name:nm,email:em});
   }
+  var hbMinsVal=parseInt(el('cfg-heartbeat-mins')?el('cfg-heartbeat-mins').value:20)||20;
+  if(hbMinsVal<5)hbMinsVal=5; if(hbMinsVal>60)hbMinsVal=60;
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
-    extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false};
+    extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false,
+    heartbeatMins:hbMinsVal};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
   initMsal();
 }
@@ -1056,6 +1061,7 @@ function showConfig(){
   if(cfg.roomname)el('cfg-roomname').value=cfg.roomname;
   if(cfg.roomemail)el('cfg-roomemail').value=cfg.roomemail;
   if(cfg.release!=null)el('cfg-release').value=cfg.release;
+  if(el('cfg-heartbeat-mins')&&cfg.heartbeatMins)el('cfg-heartbeat-mins').value=cfg.heartbeatMins;
   el('cfg-booking').checked=cfg.booking!==false; // default ON
   el('cfg-approval').checked=!!cfg.approval;      // default OFF
   el('cfg-teams').checked=cfg.teamsBtn!==false;   // default ON
@@ -1291,6 +1297,23 @@ function doReauth(){
     }
   }catch(e){}
   dbg('doReauth loginHint: '+(loginHint||'EMPTY'));
+  // Send SYNCHRONOUS heartbeat before navigating away
+  // Must complete before Chrome navigates to Azure
+  try{
+    var hbXhr=new XMLHttpRequest();
+    hbXhr.open('POST',_monitorUrl+'heartbeat',false); // false = SYNCHRONOUS
+    hbXhr.setRequestHeader('Content-Type','application/json');
+    var hbData={
+      room:cfg.roomemail||'',roomname:cfg.roomname||'',
+      status:'reauth_redirect',version:APP_VERSION.label(),
+      launchMode:'browser',isFullscreen:false,
+      tokenMinsLeft:0,hasRefreshToken:false,
+      uptime:Math.round((Date.now()-_startTime)/60000),
+      meetingCount:0,log:dbgLines.slice(-5)
+    };
+    hbXhr.send(JSON.stringify(hbData));
+    dbg('Pre-redirect sync heartbeat sent');
+  }catch(e){dbg('Pre-redirect heartbeat failed: '+e.message);}
   try{localStorage.removeItem('roomdisplay_token');}catch(e){}
   // Clear ALL MSAL cache — removes personal accounts, only loginHint survives
   try{
@@ -1495,12 +1518,14 @@ function launch(){
 // ══════════════════════════════════════
 function startMonitoring(){
   if(!cfg.roomemail)return;
-  dbg('Monitoring started — heartbeat every 20m, commands every 30s');
+  dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 30s');
 
   // Initial heartbeat after 30 seconds (let app settle)
   setTimeout(sendHeartbeat,30000);
-  // Then every 20 minutes
-  setInterval(sendHeartbeat,1200000);
+  // Heartbeat interval: configurable via cfg.heartbeatMins (default 20)
+  var _hbMins=(cfg.heartbeatMins&&cfg.heartbeatMins>=5&&cfg.heartbeatMins<=60)?cfg.heartbeatMins:20;
+  setInterval(sendHeartbeat,_hbMins*60*1000);
+  dbg('Heartbeat interval: '+_hbMins+'min');
 
   // Poll for commands every 30s
   setTimeout(pollCommand,15000);
@@ -1520,7 +1545,8 @@ function getMonitorStatus(){
   }
 
   var status='ok';
-  if(!_cachedToken&&!hasRefresh)status='no_auth';
+  if(window._reauthInProgress)status='reauth_redirect';
+  else if(!_cachedToken&&!hasRefresh)status='no_auth';
   else if(_tokenExpiry>0&&_tokenExpiry<Date.now()&&!hasRefresh)status='token_expired_no_refresh';
   else if(_tokenExpiry>0&&_tokenExpiry<Date.now())status='token_expired';
 
