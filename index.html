@@ -688,7 +688,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 31,
+  patch: 34,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1255,6 +1255,22 @@ function initMsal(){
 }
 
 function doReauth(){
+  // Guard 1: prevent re-entry within same tab
+  if(window._reauthInProgress){
+    dbg('doReauth skipped — already in progress');
+    return;
+  }
+  // Guard 2: prevent multiple tabs from all doing PKCE simultaneously
+  // Use localStorage as cross-tab lock with 60s TTL
+  try{
+    var lockTime=parseInt(localStorage.getItem('reauth_lock')||'0');
+    if(Date.now()-lockTime<60000){
+      dbg('doReauth skipped — another tab already doing PKCE ('+Math.round((60000-(Date.now()-lockTime))/1000)+'s remaining)');
+      return;
+    }
+    localStorage.setItem('reauth_lock',String(Date.now()));
+  }catch(e){}
+  window._reauthInProgress=true;
   dbg('doReauth called — clearing all token cache');
   reportIncident('token_reauth','Token expired or refresh failed — reauth triggered',true,function(key){
     try{localStorage.setItem('last_token_incident',key);}catch(e){}
@@ -1369,7 +1385,20 @@ function getToken(){
   }).catch(function(err){
     dbg('Silent token fail: '+(err&&err.errorCode||String(err)));
     var code=err&&err.errorCode||'';
-    var msg=err&&err.errorMessage||'';
+    var msg=err&&err.errorMessage||String(err)||'';
+
+    // No refresh token = token cache was wiped (testing/clear_tokens)
+    // Do NOT do PKCE redirect — request remote re-auth from admin instead
+    var noRefreshToken=msg.indexOf('No refresh token')!==-1||
+      msg.indexOf('no_tokens_found')!==-1||
+      msg.indexOf('No account')!==-1;
+    if(noRefreshToken){
+      dbg('No refresh token — requesting remote re-auth, NOT doing PKCE redirect');
+      showSignInBar();
+      reportIncident('no_refresh_token','No refresh token — needs remote re-auth from admin',true);
+      return null;
+    }
+
     var isExpired=msg.indexOf('lifetime')!==-1||msg.indexOf('expired')!==-1||
       msg.indexOf('AADSTS70011')!==-1||msg.indexOf('AADSTS50058')!==-1;
     var needsLogin=isExpired||code==='login_required'||code==='interaction_required'||
@@ -1575,9 +1604,25 @@ function pollCommand(){
   }catch(e){}
 }
 
+var _lastCmdTime = 0;
+var _lastCmdAction = '';
 function executeCommand(cmd){
   if(!cmd||!cmd.command)return;
   var action=cmd.command;
+  var now=Date.now();
+
+  // Prevent same command within 30s (dedup from multiple admin taps)
+  if(action===_lastCmdAction&&now-_lastCmdTime<30000){
+    dbg('Command ignored — duplicate '+action+' within 30s');
+    return;
+  }
+  // Prevent re_auth_remote within 60s of a reload (reload causes state change)
+  if(action==='re_auth_remote'&&_lastCmdAction==='reload'&&now-_lastCmdTime<60000){
+    dbg('re_auth_remote ignored — reload happened '+Math.round((now-_lastCmdTime)/1000)+'s ago, wait for page to settle');
+    return;
+  }
+  _lastCmdTime=now;
+  _lastCmdAction=action;
   dbg('Executing command: '+action);
 
   if(action==='reload'){
