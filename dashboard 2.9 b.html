@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a12">
+<title>RIS Rooms</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="ris-shared.js?v=12">
+</script>
+<script src="msal-v1.min.js">
+</script>
+<style>
+:root{
+  --bg:#040810;--panel:#0d1526;--panel2:#111d35;
+  --border:rgba(99,179,255,0.12);--border2:rgba(99,179,255,0.25);
+  --blue:#2979ff;--blue-l:#60aaff;--red:#ff3333;--amber:#ff9500;--green:#00d68f;
+  --text:#e8f0ff;--muted:#7788aa;--hint:#3a4d6b;
+  --font:'Inter',sans-serif;--radius:14px;--radius-sm:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+.hidden{display:none!important;}
+
+/* HEADER — compact single row */
+.hdr{background:var(--panel);padding:10px 14px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.hdr-row{display:flex;align-items:center;gap:8px;}
+.ris-logo{background:#1a3a6a;border:2px solid var(--blue);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800;color:#fff;letter-spacing:.1em;flex-shrink:0;}
+.hdr-title{font-size:15px;font-weight:900;color:#fff;flex:1;}
+.clock-wrap{text-align:right;flex-shrink:0;}
+.clock-time{font-size:22px;font-weight:200;color:#fff;line-height:1;font-variant-numeric:tabular-nums;display:block;}
+.clock-date{font-size:10px;color:var(--muted);margin-top:1px;display:block;}
+
+/* SUMMARY — thin underline style */
+.sum-row{display:flex;gap:0;padding:8px 16px 0;}
+.sum-card{flex:1;text-align:center;padding:6px 4px 8px;border-bottom:3px solid;}
+.sum-n{font-size:22px;font-weight:800;line-height:1;}
+.sum-l{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* HINT */
+.hint-bar{background:#0a1a0a;border-top:1px solid #1a3a1a;border-bottom:1px solid #1a3a1a;padding:6px 16px;display:flex;align-items:center;gap:8px;font-size:11px;color:#44bb66;}
+
+.tslot-d{padding:7px 12px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.tslot-d.active{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);color:var(--blue-l);}
+.tslot-d:active{opacity:.8;}
+
+/* SCHEDULE POPUP — white alert style */
+#sched-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;}
+#sched-modal.hidden{display:none;}
+.sched-popup{background:#fff;border-radius:14px;padding:20px 20px 14px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.35);}
+.sched-popup-title{font-size:15px;font-weight:700;color:#111;margin-bottom:1px;}
+.sched-popup-sub{font-size:11px;color:#999;margin-bottom:12px;}
+.sched-divider{height:1px;background:#ebebeb;margin-bottom:10px;}
+.sched-row{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f2f2f2;}
+.sched-row:last-of-type{border-bottom:none;}
+.sched-row.now-row{background:#eef4ff;border-radius:7px;padding:7px 8px;margin:2px -8px;border-bottom:none;}
+.sched-row-time{font-size:12px;color:#666;white-space:nowrap;min-width:96px;font-variant-numeric:tabular-nums;}
+.sched-row.now-row .sched-row-time{color:#2979ff;font-weight:700;}
+.sched-row-info{flex:1;}
+.sched-row-title{font-size:13px;color:#222;line-height:1.4;}
+.sched-row.now-row .sched-row-title{font-weight:700;color:#111;}
+.now-tag{display:inline-block;background:#2979ff;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle;letter-spacing:.04em;}
+.sched-row-org{font-size:11px;color:#999;margin-top:1px;}
+.sched-pending-tag{font-size:10px;color:#ff9500;margin-left:5px;}
+.sched-empty-txt{font-size:13px;color:#999;text-align:center;padding:16px 0;}
+.sched-close-btn{width:100%;margin-top:14px;padding:11px;background:#f0f2f5;border:none;border-radius:8px;font-size:14px;font-weight:600;color:#333;cursor:pointer;font-family:var(--font);}
+
+/* IMPROVED REFRESH BAR */
+.ref-bar{display:none;} /* merged into hint-bar */
+.ref-btn{font-size:14px;font-weight:700;color:#44bb66;background:none;border:none;cursor:pointer;padding:0 0 0 4px;font-family:var(--font);line-height:1;}
+.ref-btn:active{opacity:.7;}
+
+/* ZONES */
+.zone-wrap{padding:10px 14px 6px;}
+.zone-hdr{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.zone-name{font-size:13px;font-weight:700;color:var(--text);}
+.zone-sub{font-size:10px;color:var(--hint);margin-left:auto;}
+
+/* GRID — 3 column underline style */
+.zone-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
+.rt{padding:8px 7px 6px;position:relative;border-radius:var(--radius-sm);cursor:pointer;transition:background .15s;}
+.rt:active{opacity:.8;}
+.rt-name{font-size:13px;font-weight:800;color:var(--text);line-height:1.2;margin-bottom:3px;}
+.rt-info{font-size:10px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:3px;}
+.rt-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.rt-bar{position:absolute;bottom:0;left:5px;right:5px;height:3px;border-radius:2px;}
+
+/* Selected state — white outline box, bar contained inside */
+.rt.sel{outline:2px solid rgba(255,255,255,0.55);outline-offset:-2px;padding:8px 7px 6px;}
+.rt.sel .rt-bar{left:0;right:0;bottom:0;height:4px;border-radius:0 0 var(--radius-sm) var(--radius-sm);}
+.rt.sel .rt-name{color:#fff;}
+.sel-arrow{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:7px solid rgba(255,255,255,0.55);z-index:2;}
+.next-pill{display:inline-block;background:rgba(41,121,255,.2);border:1px solid rgba(41,121,255,.4);border-radius:4px;padding:2px 5px;font-size:8px;font-weight:700;color:var(--blue-l);margin-top:1px;}
+
+/* Zone divider */
+.zone-div{height:1px;background:var(--border);margin:4px 14px 2px;}
+
+/* LEGEND */
+.legend{display:flex;gap:14px;padding:4px 14px 8px;justify-content:center;}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);}
+.leg-dot{width:7px;height:7px;border-radius:50%;}
+
+/* DETAIL CARD */
+.dc-wrap{padding:0 14px 48px;}
+.dc{border-radius:var(--radius);overflow:hidden;border:2px solid var(--blue);transition:border-color .2s;}
+.dc.dc-busy{border-color:var(--red);}
+.dc.dc-soon{border-color:var(--amber);}
+.dc-top{background:var(--panel2);padding:12px 14px 10px;}
+.dc-row1{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.dc-name{font-size:18px;font-weight:800;color:#fff;line-height:1.2;}
+.dc-badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;white-space:nowrap;flex-shrink:0;}
+.dc-meta{font-size:11px;color:var(--muted);margin-bottom:3px;}
+.dc-time{font-size:14px;font-weight:700;margin-bottom:4px;}
+.appr-note{background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:6px;padding:7px 10px;font-size:11px;color:var(--amber);line-height:1.5;margin-top:4px;}
+.dc-btns{display:flex;gap:10px;padding:10px 14px 12px;background:rgba(7,20,40,.8);}
+.dc-btn{flex:1;padding:12px 8px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;text-align:center;border:none;cursor:pointer;font-family:var(--font);transition:opacity .15s;}
+.dc-btn:active{opacity:.8;}
+.dc-btn-sec{background:var(--panel);color:var(--muted);border:1px solid var(--border2)!important;}
+.dc-btn-book{background:var(--blue);color:#fff;}
+.dc-btn-appr{background:var(--amber);color:#1a0800;}
+.dc-btn-busy{background:var(--panel);color:var(--hint);border:1px solid var(--border)!important;cursor:default;}
+
+/* BOOKING MODAL */
+#book-modal{position:fixed;inset:0;background:rgba(4,8,16,.9);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+#book-modal.hidden{display:none;}
+.msheet{background:var(--panel);border:2px solid var(--border2);border-radius:22px 22px 0 0;padding:20px 18px 44px;width:100%;max-width:480px;animation:sUp .3s ease;}
+@keyframes sUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mdrag{width:36px;height:4px;background:var(--hint);border-radius:2px;margin:0 auto 18px;}
+.mtitle{font-size:19px;font-weight:800;color:#fff;margin-bottom:3px;}
+.msub{font-size:11px;color:var(--muted);margin-bottom:16px;}
+.appr-banner{background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--amber);line-height:1.6;}
+.appr-banner strong{display:block;font-size:12px;margin-bottom:2px;}
+.mfield{margin-bottom:12px;}
+.mfield label{display:block;font-size:10px;color:var(--muted);margin-bottom:5px;letter-spacing:.06em;text-transform:uppercase;}
+.mfield input{width:100%;padding:12px 14px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-family:var(--font);font-size:14px;outline:none;transition:border-color .2s;}
+.mfield input:focus{border-color:var(--blue);}
+.tprev{font-size:11px;color:var(--muted);padding:8px 12px;background:var(--panel2);border-radius:var(--radius-sm);margin-bottom:12px;}
+.tprev span{color:var(--text);font-weight:600;}
+.dur-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px;}
+.dchip{padding:11px 4px;text-align:center;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;}
+.dchip.sel{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);}
+.dchip.asel{background:rgba(255,149,0,.12);border-color:rgba(255,149,0,.4);}
+.dchip-lbl{font-size:13px;font-weight:700;color:var(--muted);}
+.dchip.sel .dchip-lbl{color:var(--blue-l);}
+.dchip.asel .dchip-lbl{color:var(--amber);}
+.dchip-end{font-size:9px;color:var(--hint);margin-top:2px;}
+.macts{display:flex;gap:10px;}
+.mcancel{flex:0 0 auto;width:100px;padding:13px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.mconfirm{flex:1;padding:13px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.mconfirm:disabled{opacity:.5;cursor:default;}
+.mconfirm.inst{background:var(--blue);color:#fff;}
+.mconfirm.appr{background:var(--amber);color:#1a0800;}
+
+/* AUTH */
+#auth-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:500;padding:32px;}
+#auth-overlay.hidden{display:none;}
+.auth-btn{padding:14px 36px;background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);}
+
+/* TOAST */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--panel);border:2px solid var(--border2);border-radius:50px;padding:10px 22px;font-size:13px;color:var(--text);z-index:400;white-space:nowrap;pointer-events:none;transition:opacity .3s;}
+#toast.hidden{opacity:0;}
+#toast.success{border-color:rgba(0,214,143,.45);color:var(--green);}
+#toast.error{border-color:rgba(255,51,51,.45);color:var(--red);}
+#toast.warn{border-color:rgba(255,149,0,.45);color:var(--amber);}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;display:inline-block;vertical-align:middle;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ADMIN PANEL */
+.admin-btn{background:#1a1a2e;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;letter-spacing:.05em;}
+.admin-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+#admin-panel{display:none;padding:12px 14px 80px;}
+#admin-panel.visible{display:block;}
+.adm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+.adm-stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;text-align:center;}
+.adm-stat-n{font-size:22px;font-weight:800;line-height:1.2;}
+.adm-stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+.adm-section{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.adm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+.adm-room{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;position:relative;}
+.adm-room-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;}
+.adm-room-status{font-size:10px;margin-bottom:2px;}
+.adm-room-meta{font-size:9px;color:var(--hint);line-height:1.5;}
+.adm-room-dot{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%;}
+.adm-room-actions{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
+.adm-act{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--panel2);color:var(--muted);}
+.adm-act:active{opacity:.7;}
+.adm-act.reload{color:var(--blue);border-color:rgba(41,121,255,.3);}
+.adm-act.fullscreen{color:var(--green);border-color:rgba(0,214,143,.3);}
+.adm-act.clear{color:var(--amber);border-color:rgba(255,149,0,.3);}
+.adm-act.reauth{color:var(--red);border-color:rgba(255,51,51,.3);}
+.adm-incidents{margin-bottom:16px;}
+.adm-inc{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:4px;font-size:11px;}
+.adm-inc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.adm-inc-room{font-weight:600;color:#fff;min-width:70px;}
+.adm-inc-type{color:var(--muted);min-width:120px;}
+.adm-inc-time{color:var(--hint);margin-left:auto;white-space:nowrap;font-size:10px;}
+.adm-inc-dur{font-size:9px;padding:1px 6px;border-radius:3px;margin-left:6px;}
+.adm-inc-dur.resolved{background:rgba(0,214,143,.1);color:var(--green);}
+.adm-inc-dur.open{background:rgba(255,51,51,.1);color:var(--red);}
+.adm-empty{text-align:center;padding:24px;color:var(--hint);font-size:12px;}
+.adm-refresh{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.adm-refresh-btn{padding:6px 14px;background:var(--blue);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:600;cursor:pointer;}
+.adm-refresh-btn:active{opacity:.8;}
+.adm-last{font-size:10px;color:var(--hint);}
+.adm-log{background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:monospace;font-size:10px;color:var(--muted);max-height:120px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;display:none;}
+</style>
+</head>
+<body>
+
+<div id="auth-overlay" class="hidden">
+  <div style="font-size:48px">🔐</div>
+  <div style="font-size:22px;font-weight:800;color:#fff">Sign in to book</div>
+  <div style="font-size:13px;color:var(--muted);text-align:center;line-height:1.7">Sign in with your Microsoft 365 account<br>to complete this booking.</div>
+  <button class="auth-btn" onclick="doSignIn()">Sign in with Microsoft</button>
+  <div style="font-size:11px;color:var(--hint);margin-top:4px" id="auth-error"></div>
+</div>
+
+<div id="main-app">
+  <div class="hdr">
+    <div class="hdr-row">
+      <div class="ris-logo">RIS</div>
+      <div class="hdr-title">Meeting Rooms</div>
+      <button class="admin-btn" id="admin-toggle" onclick="toggleAdmin()">ADMIN</button>
+      <div class="clock-wrap">
+        <span class="clock-time" id="clock-time">--:--</span>
+        <span class="clock-date" id="clock-date">---</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sum-row">
+    <div class="sum-card" style="border-color:var(--blue)"><div class="sum-n" id="sum-avail" style="color:var(--blue)">--</div><div class="sum-l">Available</div></div>
+    <div class="sum-card" style="border-color:var(--red)"><div class="sum-n" id="sum-busy" style="color:var(--red)">--</div><div class="sum-l">In Use</div></div>
+    <div class="sum-card" style="border-color:var(--amber)"><div class="sum-n" id="sum-soon" style="color:var(--amber)">--</div><div class="sum-l">Soon</div></div>
+  </div>
+
+  <div id="main-app-content">
+  <!-- Hint + refresh merged into one bar -->
+  <div class="hint-bar">
+    <span style="font-size:13px">👇</span>
+    <span style="flex:1">Tap any room to select &amp; book</span>
+    <span class="ref-txt" id="ref-txt" style="font-size:10px;color:#2a6a3a;margin-right:6px">Loading…</span>
+    <button class="ref-btn" onclick="refreshAll()">↻</button>
+  </div>
+
+  <div class="zone-wrap">
+    <div class="zone-hdr"><span style="font-size:16px">🪟</span><span class="zone-name">Lobby area</span><span class="zone-sub">rooms 1–6 · window side</span></div>
+    <div class="zone-grid" id="zone-lobby"></div>
+  </div>
+
+  <div class="zone-div"></div>
+
+  <div class="zone-wrap">
+    <div class="zone-hdr"><span style="font-size:16px">🏢</span><span class="zone-name">In-office area</span><span class="zone-sub">rooms 7–12 · interior</span></div>
+    <div class="zone-grid" id="zone-office"></div>
+  </div>
+
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:var(--blue)"></div>Available</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--amber)"></div>Soon</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--red)"></div>In Use</div>
+  </div>
+
+  <div class="dc-wrap">
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.9 (2026-06-23)</div>
+    <div class="dc" id="detail-card">
+      <div class="dc-top" id="dc-top">
+        <div class="dc-row1">
+          <div class="dc-name" id="dc-name">Tap a room</div>
+          <div class="dc-badge" id="dc-badge"></div>
+        </div>
+        <div class="dc-meta" id="dc-meta">Select any room above to see details</div>
+        <div class="dc-time" id="dc-time"></div>
+        <div class="appr-note hidden" id="dc-appr">⚠ This room requires owner approval before confirming.</div>
+      </div>
+      <div class="dc-btns">
+        <button class="dc-btn dc-btn-sec" onclick="showSchedule()">View schedule</button>
+        <button class="dc-btn dc-btn-book" id="dc-book-btn" onclick="openBookModal()">+ Book this room</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="book-modal" class="hidden">
+  <div class="msheet">
+    <div class="mdrag"></div>
+    <div class="mtitle" id="modal-room-name">Book Room</div>
+    <div class="msub" id="modal-room-email"></div>
+    <div class="appr-banner hidden" id="modal-appr-banner">
+      <strong>✉ Approval required</strong>
+      A request will be sent to the room owner. Booking is pending until approved.
+    </div>
+    <div class="mfield"><label>Your Name</label><input type="text" id="book-name" placeholder="Enter your name" autocomplete="off"></div>
+    <div class="mfield"><label>Your Email</label><input type="text" id="book-email" placeholder="yourname@central.co.th" autocomplete="off"></div>
+    <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
+    <div class="mfield">
+      <label>Start Time</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="dash-tslots">
+        <!-- populated by buildDashTimeSlots() -->
+      </div>
+    </div>
+    <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
+    <label style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:8px">Duration</label>
+    <div class="dur-grid">
+      <div class="dchip" data-min="30"><div class="dchip-lbl">30m</div><div class="dchip-end" id="ce30"></div></div>
+      <div class="dchip sel" data-min="60"><div class="dchip-lbl">1h</div><div class="dchip-end" id="ce60"></div></div>
+      <div class="dchip" data-min="90"><div class="dchip-lbl">1h 30</div><div class="dchip-end" id="ce90"></div></div>
+      <div class="dchip" data-min="120"><div class="dchip-lbl">2h</div><div class="dchip-end" id="ce120"></div></div>
+    </div>
+    <div class="macts">
+      <button class="mcancel" onclick="closeBookModal()">Cancel</button>
+      <button class="mconfirm inst" id="mconfirm" onclick="confirmBooking()"><span id="mconfirm-lbl">Confirm booking</span></button>
+    </div>
+  </div>
+</div>
+
+  </div><!-- /main-app-content -->
+<div id="toast" class="hidden"></div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-panel">
+  <div class="adm-refresh">
+    <button class="adm-refresh-btn" id="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh</button>
+    <span class="adm-last" id="adm-last-refresh">—</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 60s</span>
+  </div>
+
+  <div class="adm-stats">
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-online" style="color:var(--green)">—</div><div class="adm-stat-l">Online</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-offline" style="color:var(--red)">—</div><div class="adm-stat-l">Offline</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Issues today</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg resolve</div></div>
+  </div>
+
+  <div id="adm-smart-actions" style="margin-bottom:12px"></div>
+
+  <div class="adm-section">Lobby — rooms 1–6</div>
+  <div class="adm-grid" id="adm-room-grid-lobby"><div class="adm-empty">Loading…</div></div>
+
+  <div class="adm-section">In-office — rooms 7–12</div>
+  <div class="adm-grid" id="adm-room-grid-office"><div class="adm-empty">Loading…</div></div>
+
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Recent incidents <button style="padding:3px 10px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveAllIncidents()">✓ Resolve all</button></div>
+  <div class="adm-incidents" id="adm-incident-list">
+    <div class="adm-empty">Loading incidents…</div>
+  </div>
+
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Daily reports <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Now</button></div>
+  <div id="adm-reports">
+    <div class="adm-empty">Loading reports…</div>
+  </div>
+</div>
+
+<!-- SCHEDULE POPUP — white alert style -->
+<div id="sched-modal" class="hidden">
+  <div class="sched-popup">
+    <div class="sched-popup-title" id="sched-title">Today's schedule</div>
+    <div class="sched-popup-sub" id="sched-sub"></div>
+    <div class="sched-divider"></div>
+    <div id="sched-list"></div>
+    <button class="sched-close-btn" onclick="closeSchedModal()">Close</button>
+  </div>
+</div>
+
+<script>
+const TENANT='817e531d-191b-4cf5-8812-f0061d89b53d';
+const CLIENT='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
+const SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
+
+// ROOMS loaded from ris-shared.js as RIS_ROOMS
+const ROOMS = RIS_ROOMS;
+
+let msalInst=null, account=null, _token=null, _tokenExp=0, _redirectInProgress=false;
+let roomData={}, selectedRoom=null, selDurMin=60, bookStart=null;
+
+const el=id=>document.getElementById(id);
+const show=id=>el(id)?.classList.remove('hidden');
+const hide=id=>el(id)?.classList.add('hidden');
+const pad=n=>String(n).padStart(2,'0');
+const ft=d=>`${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const localISO=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+
+function toast(msg,type){
+  const t=el('toast');t.textContent=msg;t.className=type||'';
+  t.classList.remove('hidden');clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.add('hidden'),3500);
+}
+
+// gDate() loaded from ris-shared.js
+
+function startClock(){
+  const tick=()=>{
+    const n=new Date();
+    el('clock-time').textContent=`${pad(n.getHours())}:${pad(n.getMinutes())}`;
+    el('clock-date').textContent=n.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short'});
+  };
+  tick();setInterval(tick,15000);
+}
+
+function initMsal(){
+  if(msalInst)return;
+  const Lib=typeof Msal!=='undefined'?Msal:(typeof msal!=='undefined'?msal:null);
+  if(!Lib){console.warn('MSAL not loaded');return;}
+  try{
+    msalInst=new Lib.UserAgentApplication({
+      auth:{clientId:CLIENT,authority:`https://login.microsoftonline.com/${TENANT}`,
+        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+    // Handle redirect response (returning from Microsoft login)
+    msalInst.handleRedirectCallback(function(err,resp){
+      _redirectInProgress=false; // always clear on return from Azure
+      if(err){
+        console.warn('Redirect error:',err);
+        // interaction_required on prompt:none → show sign-in bar, don't loop
+        const code=(err.errorCode||err.errorMessage||'').toLowerCase();
+        if(code.indexOf('interaction_required')>-1||code.indexOf('login_required')>-1||
+           code.indexOf('50196')>-1||code.indexOf('loop')>-1){
+          showSignInBar();
+        }
+        return;
+      }
+      if(resp&&resp.account){
+        account=resp.account;
+        // Save login hint — use JWT decode for reliability (account.username undefined on some browsers)
+        var hint=getEmailFromJWT(resp.accessToken)||account.userName||account.username||'';
+        if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
+        if(resp.accessToken){
+          _token=resp.accessToken;
+          _tokenExp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
+        }
+        fetchAllRooms();
+        startDashboardKeepalive();
+      }
+    });
+    account=msalInst.getAccount();
+    // Save hint if already signed in
+    if(account){
+      var hint=account.userName||account.username||'';
+      if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
+    }
+  }catch(e){console.warn('MSAL init:',e);}
+}
+
+// Decode email from access token JWT — reliable on all browsers
+// account.username/userName can be undefined; JWT claims always populated
+function getEmailFromJWT(token){
+  try{
+    var parts=(token||'').split('.');
+    if(parts.length<2)return '';
+    var b64=parts[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(b64.length%4!==0)b64+='=';
+    var payload=JSON.parse(atob(b64));
+    return payload.upn||payload.unique_name||payload.preferred_username||payload.email||'';
+  }catch(e){return '';}
+}
+
+function doSignIn(){
+  if(_redirectInProgress)return;
+  initMsal();
+  try{
+    _redirectInProgress=true;
+    msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});
+  }catch(e){_redirectInProgress=false;el('auth-error').textContent=e.message;}
+}
+
+// Session keepalive — same as kiosk v3.10.5
+// Pings acquireTokenSilent every 45 min to prevent Azure AD session timeout
+function startDashboardKeepalive(){
+  setInterval(async function(){
+    if(!account||!msalInst)return;
+    try{
+      const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
+      _token=r.accessToken;
+      _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
+      console.log('Dashboard keepalive OK — session renewed');
+    }catch(e){
+      const code=e?.errorCode||'';
+      console.warn('Dashboard keepalive failed:',code);
+      if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
+        showSignInBar();
+      }
+    }
+  },2700000); // 45 minutes
+}
+
+async function getToken(){
+  if(_token&&_tokenExp>Date.now()+120000)return _token;
+  initMsal();
+  if(!msalInst)return null;
+  // Already mid-redirect — don't stack another one
+  if(_redirectInProgress)return null;
+  // No account — attempt silent reauth with saved hint, or show sign-in bar
+  if(!account){
+    const savedHint=localStorage.getItem('roomdisplay_loginhint')||'';
+    if(savedHint){
+      try{
+        _redirectInProgress=true;
+        // prompt:none = fully silent on modern browsers (Surface Pro etc)
+        // If it fails Azure returns interaction_required → handleRedirectCallback → showSignInBar
+        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});
+      }catch(e){_redirectInProgress=false;showSignInBar();}
+    } else {
+      showSignInBar();
+    }
+    return null;
+  }
+  // Have account — try acquireTokenSilent first (no redirect at all)
+  try{
+    const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
+    _token=r.accessToken;
+    _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
+    return _token;
+  }catch(e){
+    // Silent token renewal failed — redirect with hint
+    const savedHint=localStorage.getItem('roomdisplay_loginhint')||'';
+    if(savedHint&&!_redirectInProgress){
+      try{
+        _redirectInProgress=true;
+        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});
+      }catch(e2){_redirectInProgress=false;showSignInBar();}
+    } else {
+      showSignInBar();
+    }
+    return null;
+  }
+}
+
+// ES6 wrapper around shared fetchCalendarForRoom + deriveRoomStatus
+async function fetchRoom(room, tok){
+  if(!tok) return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
+  const now = new Date();
+  const s = new Date(now); s.setHours(0,0,0,0);
+  const e = new Date(now); e.setHours(23,59,59,999);
+  try{
+    // fetchCalendarForRoom from ris-shared.js — returns filtered, sorted meetings array
+    const meetings = await fetchCalendarForRoom(room.email, tok, s.toISOString(), e.toISOString());
+    // deriveRoomStatus from ris-shared.js — same logic as kiosk getCur/getNext
+    const derived = deriveRoomStatus(meetings);
+    return {
+      status: derived.status,
+      meetings: meetings,
+      cur: derived.cur,
+      nxt: derived.nxt,
+      freeUntil: derived.freeUntil,
+      allDayCur: derived.allDayCur
+    };
+  }catch(err){
+    return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
+  }
+}
+
+async function fetchAllRooms(){
+  el('ref-txt').textContent='Refreshing…';
+  // Show spinner on refresh button during fetch
+  var refBtn=document.querySelector('.ref-btn');
+  if(refBtn)refBtn.textContent='↻ …';
+  const tok = await getToken();
+  const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
+  ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
+  const now=new Date();
+  el('ref-txt').textContent=`Updated ${ft(now)}`;
+  if(refBtn)refBtn.textContent='↻ Refresh';
+  renderRooms(); updateSummary();
+  if(!selectedRoom) selectDefaultRoom();
+  else updateDetailCard();
+}
+
+function showSignInBar(){
+  el('ref-txt').textContent='Session expired — sign in to reload';
+  var refBtn=document.querySelector('.ref-btn');
+  if(refBtn){
+    refBtn.textContent='🔐 Sign in';
+    refBtn.style.background='rgba(255,149,0,.15)';
+    refBtn.style.borderColor='rgba(255,149,0,.4)';
+    refBtn.style.color='#ffaa33';
+    refBtn.onclick=function(){
+      if(_redirectInProgress)return;
+      initMsal();
+      if(msalInst){
+        const hint=localStorage.getItem('roomdisplay_loginhint')||'';
+        try{
+          _redirectInProgress=true;
+          // Manual tap: always use select_account so user can actively choose
+          // prompt:none is only for background/automatic silent reauth
+          msalInst.loginRedirect({
+            scopes:SCOPES,
+            loginHint:hint||undefined,
+            prompt:'select_account'
+          });
+        }catch(e){_redirectInProgress=false;console.warn(e);}
+      }
+    };
+  }
+}
+
+function refreshAll(){
+  // Reset refresh button to normal state
+  var refBtn=document.querySelector('.ref-btn');
+  if(refBtn){
+    refBtn.textContent='↻ Refresh';
+    refBtn.style.background='';
+    refBtn.style.borderColor='';
+    refBtn.style.color='';
+    refBtn.onclick=refreshAll;
+  }
+  fetchAllRooms();
+}
+
+function getStatusProps(room){
+  const d=roomData[room.email];
+  const now=new Date();
+  if(!d||d.status==='unknown')return{status:'unknown',dot:'#3a4d6b',info:'—',dcCls:'',badgeTxt:'—',badgeStyle:'background:#1a1a2e;color:#7788aa'};
+  if(d.status==='busy'){const busyInfo=d.allDayCur?'Booked all day':(d.cur?`Until ${ft(d.cur.end)}`:'Occupied');return{status:'busy',dot:'#ff3333',info:busyInfo,dcCls:'dc-busy',badgeTxt:'IN USE',badgeStyle:'background:rgba(255,51,51,.15);color:#ff8888;border:1px solid rgba(255,51,51,.3)'}; }
+  if(d.status==='pending'){
+    const p=d.pendingCur;
+    const info=p?(p.start<=now?`Pending until ${ft(p.end)}`:`Pending at ${ft(p.start)}`):'Pending approval';
+    return{status:'pending',dot:'#ff9500',info:info,dcCls:'dc-soon',badgeTxt:'PENDING',badgeStyle:'background:rgba(255,149,0,.15);color:#ffcc44;border:1px solid rgba(255,149,0,.3)'};
+  }
+  if(d.status==='soon'){
+    const m=d.freeUntil?Math.round((d.freeUntil-now)/60000):0;
+    return{status:'soon',dot:'#ff9500',info:`Meeting at ${ft(d.freeUntil)} (in ${m}m)`,dcCls:'dc-soon',badgeTxt:'SOON',badgeStyle:'background:rgba(255,149,0,.15);color:#ffcc44;border:1px solid rgba(255,149,0,.3)'};
+  }
+  return{status:'avail',dot:'#2979ff',info:d.freeUntil?`Free until ${ft(d.freeUntil)}`:'Free all day',dcCls:'',badgeTxt:'FREE',badgeStyle:'background:rgba(41,121,255,.15);color:#60aaff;border:1px solid rgba(41,121,255,.3)'};
+}
+
+function renderZone(cid,rooms){
+  const c=el(cid);if(!c)return;c.innerHTML='';
+  rooms.forEach(room=>{
+    const sp=getStatusProps(room);
+    const isSel=selectedRoom?.email===room.email;
+    const div=document.createElement('div');
+    div.className='rt'+(isSel?' sel':'');
+    div.innerHTML=`
+      ${isSel?'<div class="sel-arrow"></div>':''}
+      <div class="rt-name">${room.name}</div>
+      <div class="rt-info"><span class="rt-dot" style="background:${sp.dot}"></span>${sp.info}</div>
+      <div class="rt-bar" style="background:${sp.dot}"></div>`;
+    div.addEventListener('click',()=>selectRoom(room));
+    c.appendChild(div);
+  });
+}
+
+function renderRooms(){
+  renderZone('zone-lobby',ROOMS.filter(r=>r.zone==='lobby'));
+  renderZone('zone-office',ROOMS.filter(r=>r.zone==='office'));
+}
+
+function updateSummary(){
+  let a=0,b=0,s=0;
+  ROOMS.forEach(r=>{
+    const d=roomData[r.email];if(!d)return;
+    if(d.status==='avail')a++;
+    else if(d.status==='busy')b++;
+    else if(d.status==='soon'||d.status==='pending')s++;
+  });
+  el('sum-avail').textContent=a;el('sum-busy').textContent=b;el('sum-soon').textContent=s;
+}
+
+function selectDefaultRoom(){
+  // Exclude Macchiato (approval) from default selection
+  const best=ROOMS.find(r=>!r.approval&&roomData[r.email]?.status==='avail')
+    ||ROOMS.find(r=>roomData[r.email]?.status==='avail')
+    ||ROOMS[0];
+  ROOMS.forEach(r=>r._isDefault=false);
+  if(best)best._isDefault=true;
+  selectRoom(best||ROOMS[0]);
+}
+
+function selectRoom(room){
+  selectedRoom=room;
+  renderRooms();
+  updateDetailCard();
+  el('detail-card')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function updateDetailCard(){
+  if(!selectedRoom)return;
+  const sp=getStatusProps(selectedRoom);
+  const d=roomData[selectedRoom.email];
+  const card=el('detail-card');
+  card.className=`dc ${sp.dcCls}`;
+  el('dc-name').textContent=`${selectedRoom.name} — Room ${selectedRoom.num}`;
+  const badge=el('dc-badge');
+  badge.textContent=sp.badgeTxt;
+  badge.setAttribute('style',sp.badgeStyle+';font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;');
+  const zone=selectedRoom.zone==='lobby'?'Lobby area':'In-office area';
+  el('dc-meta').textContent=`${zone} · 👤 ${selectedRoom.seats} seats`;
+  if(sp.status==='busy'){
+    el('dc-time').textContent=`Occupied · ${sp.info}`;
+    el('dc-time').style.color='var(--red)';
+  } else if(sp.status==='pending'){
+    el('dc-time').textContent=sp.info;
+    el('dc-time').style.color='var(--amber)';
+  } else if(sp.status==='soon'){
+    el('dc-time').textContent=`Free now · ${sp.info}`;
+    el('dc-time').style.color='var(--amber)';
+  } else {
+    // Show "Next available" badge if this is the auto-selected room
+    var timeStr=sp.info||'Free all day';
+    if(selectedRoom._isDefault)timeStr='★ Next available · '+timeStr;
+    el('dc-time').textContent=timeStr;
+    el('dc-time').style.color='var(--blue-l)';
+  }
+  selectedRoom.approval?show('dc-appr'):hide('dc-appr');
+  const btn=el('dc-book-btn');
+  if(sp.status==='busy'){
+    btn.className='dc-btn dc-btn-busy';
+    btn.textContent=d?.cur?`Occupied until ${ft(d.cur.end)}`:'Currently occupied';
+    btn.onclick=null;
+  }else if(sp.status==='pending'){
+    btn.className='dc-btn dc-btn-busy';
+    btn.textContent='Pending approval — not bookable';
+    btn.onclick=null;
+  }else if(selectedRoom.approval){
+    btn.className='dc-btn dc-btn-appr';btn.textContent='Request booking';btn.onclick=openBookModal;
+  }else{
+    btn.className='dc-btn dc-btn-book';btn.textContent='+ Book this room';btn.onclick=openBookModal;
+  }
+}
+
+function showSchedule(){
+  if(!selectedRoom)return;
+  const d=roomData[selectedRoom.email];
+  el('sched-title').textContent=`${selectedRoom.name} — Today`;
+  el('sched-sub').textContent=selectedRoom.email;
+  const list=el('sched-list');
+  const now=new Date();
+  if(!d?.meetings?.length){
+    list.innerHTML='<div class="sched-empty-txt">No meetings scheduled today</div>';
+  } else {
+    // Split all-day events from timed meetings
+    const allDayEvts = d.meetings.filter(function(m){ return (m.end-m.start)>=86399000; });
+    const timedMeets = d.meetings.filter(function(m){ return (m.end-m.start)<86399000; });
+    var html = '';
+    // All-day events shown as a compact banner at the top, not as time slots
+    if(allDayEvts.length){
+      html += allDayEvts.map(function(m){
+        const pendTag=m.isPending?'<span class="sched-pending-tag">PENDING</span>':'';
+        const org=m.organizer?`<div class="sched-row-org">${m.organizer}</div>`:'';
+        return `<div class="sched-row" style="background:#f0f4ff;border-radius:6px;padding:6px 8px;margin-bottom:4px">
+          <div class="sched-row-time" style="color:#2979ff;font-weight:700;min-width:60px">All day</div>
+          <div class="sched-row-info">
+            <div class="sched-row-title">${m.title}${pendTag}</div>
+            ${org}
+          </div>
+        </div>`;
+      }).join('');
+    }
+    // Timed meetings
+    if(timedMeets.length){
+      html += timedMeets.map(m=>{
+        const isNow=m.start<=now&&m.end>=now;
+        const rowCls=isNow?'sched-row now-row':'sched-row';
+        const nowTag=isNow?'<span class="now-tag">NOW</span>':'';
+        const pendTag=m.isPending?'<span class="sched-pending-tag">PENDING</span>':'';
+        const org=m.organizer?`<div class="sched-row-org">${m.organizer}</div>`:'';
+        return `<div class="${rowCls}">
+          <div class="sched-row-time">${ft(m.start)} – ${ft(m.end)}</div>
+          <div class="sched-row-info">
+            <div class="sched-row-title">${m.title}${nowTag}${pendTag}</div>
+            ${org}
+          </div>
+        </div>`;
+      }).join('');
+    }
+    if(!html) html = '<div class="sched-empty-txt">No meetings scheduled today</div>';
+    list.innerHTML = html;
+  }
+  show('sched-modal');
+}
+function closeSchedModal(){hide('sched-modal');}
+el('sched-modal').addEventListener('click',e=>{if(e.target===el('sched-modal'))closeSchedModal();});
+
+function nextQuarterD(d){
+  const ms=15*60000;
+  return new Date(Math.ceil(d.getTime()/ms)*ms);
+}
+
+function buildDashTimeSlots(){
+  bookStart=nextQuarterD(new Date());
+  const container=el('dash-tslots');
+  if(!container)return;
+  let html=`<div class="tslot-d active" data-ms="${bookStart.getTime()}">Now (${ft(bookStart)})</div>`;
+  for(let i=1;i<=5;i++){
+    const t=new Date(bookStart.getTime()+i*30*60000);
+    html+=`<div class="tslot-d" data-ms="${t.getTime()}">${ft(t)}</div>`;
+  }
+  container.innerHTML=html;
+  container.querySelectorAll('.tslot-d').forEach(chip=>{
+    chip.addEventListener('click',()=>{
+      container.querySelectorAll('.tslot-d').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      bookStart=new Date(parseInt(chip.dataset.ms));
+      updatePrev();
+    });
+  });
+}
+
+function openBookModal(){
+  if(!selectedRoom)return;
+  initMsal();
+  if(!account){show('auth-overlay');return;}
+  selDurMin=60;
+  el('book-name').value='';el('book-email').value='';el('book-title').value='';
+  el('modal-room-name').textContent=`Book ${selectedRoom.name}`;
+  el('modal-room-email').textContent=selectedRoom.email;
+  selectedRoom.approval?show('modal-appr-banner'):hide('modal-appr-banner');
+  el('mconfirm').className=`mconfirm ${selectedRoom.approval?'appr':'inst'}`;
+  el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
+  document.querySelectorAll('.dchip').forEach(c=>{
+    c.className='dchip'+(c.dataset.min==='60'?(selectedRoom.approval?' sel asel':' sel'):'');
+  });
+  buildDashTimeSlots();
+  updatePrev();
+  show('book-modal');
+  setTimeout(()=>el('book-name').focus(),350);
+}
+
+function closeBookModal(){hide('book-modal');}
+
+document.querySelectorAll('.dchip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('.dchip').forEach(x=>x.className='dchip');
+  c.className=`dchip sel${selectedRoom?.approval?' asel':''}`;
+  selDurMin=parseInt(c.dataset.min);updatePrev();
+}));
+
+function updatePrev(){
+  const s=bookStart||new Date();
+  const e=new Date(s.getTime()+selDurMin*60000);
+  el('prev-s').textContent=ft(s);el('prev-e').textContent=ft(e);
+  [30,60,90,120].forEach(m=>{const x=el(`ce${m}`);if(x)x.textContent=ft(new Date(s.getTime()+m*60000));});
+}
+
+async function confirmBooking(){
+  const name=el('book-name').value.trim();
+  const email=el('book-email').value.trim();
+  const title=el('book-title').value.trim();
+  if(!name){toast('Please enter your name','warn');return;}
+  if(!email||email.indexOf('@')<0){toast('Please enter a valid email address','warn');return;}
+  if(!title){toast('Please enter a meeting title','warn');return;}
+  const btn=el('mconfirm');btn.disabled=true;
+  el('mconfirm-lbl').innerHTML='<span class="spinner"></span>';
+  const tok=await getToken();
+  if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
+  const s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
+
+  // ── CONFLICT CHECK — fetch room calendar for requested slot ──
+  try{
+    const existing=await fetchCalendarForRoom(selectedRoom.email,tok,s.toISOString(),e.toISOString());
+    const conflict=existing.find(function(m){
+      // Check overlap: meeting starts before our end AND ends after our start
+      return !m.isPending&&(m.end-m.start)<86399000&&m.start<e&&m.end>s;
+    });
+    if(conflict){
+      btn.disabled=false;
+      el('mconfirm-lbl').textContent='Confirm booking';
+      toast('Room is already booked at that time: '+ft(conflict.start)+'–'+ft(conflict.end),'error');
+      setTimeout(fetchAllRooms,500); // Refresh to show latest status
+      return;
+    }
+  }catch(err){
+    // Conflict check failed — proceed anyway, Exchange will handle it
+    console.warn('Conflict check failed:',err.message);
+  }
+
+  let tz='Asia/Bangkok';
+  try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch{}
+  try{
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{
+      method:'POST',
+      headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        subject:title,
+        body:{contentType:'text',content:`Booked by ${name} (${email}) via RIS Room Dashboard.`},
+        start:{dateTime:localISO(s),timeZone:tz},
+        end:{dateTime:localISO(e),timeZone:tz},
+        attendees:[
+          {emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'resource'},
+          {emailAddress:{address:email,name:name},type:'required'}
+        ],
+        isOnlineMeeting:false
+      })
+    });
+    btn.disabled=false;
+    el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
+    if(!r.ok){const er=await r.json();toast('Booking failed: '+(er.error?.message||r.status),'error');}
+    else{closeBookModal();toast(`✓ Booked! Invitation sent to ${email}`,'success');setTimeout(fetchAllRooms,3000);}
+  }catch(err){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Error: '+err.message,'error');}
+}
+
+el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))closeBookModal();});
+
+// ── IFRAME GUARD ──
+// Silent iframe renewal loads this page in a hidden iframe.
+// Only init MSAL to process the redirect hash, skip everything else.
+if(window!==window.top){
+  try{
+    new Msal.UserAgentApplication({
+      auth:{clientId:CLIENT,authority:'https://login.microsoftonline.com/'+TENANT,
+        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+  }catch(e){}
+}else{
+
+startClock();
+initMsal();
+
+if(!account){
+  showSignInBar();
+  renderRooms();
+  selectDefaultRoom();
+} else {
+  fetchAllRooms();
+  startDashboardKeepalive();
+}
+setInterval(fetchAllRooms,60000);
+
+} // end normal boot
+
+
+// ══════════════════════════════════════
+// ADMIN PANEL — remote monitoring
+// ══════════════════════════════════════
+const MONITOR_URL = 'https://ris-display.ris-display.workers.dev/api/';
+let adminVisible = false;
+let adminRefreshInterval = null;
+let _lastAnalyzedRooms = [];
+
+let adminKey = localStorage.getItem('ris_admin_key') || '';
+
+function toggleAdmin() {
+  // If turning ON admin, check for key first
+  if (!adminVisible) {
+    if (!adminKey) {
+      const key = prompt('Enter admin key:');
+      if (!key) return;
+      adminKey = key;
+      localStorage.setItem('ris_admin_key', key);
+    }
+  }
+
+  adminVisible = !adminVisible;
+  const panel = document.getElementById('admin-panel');
+  const btn = document.getElementById('admin-toggle');
+  const mainApp = document.getElementById('main-app');
+
+  const mainContent = document.getElementById('main-app-content');
+  if (adminVisible) {
+    panel.classList.add('visible');
+    btn.classList.add('active');
+    btn.textContent = 'ROOMS';
+    if (mainContent) mainContent.style.display = 'none';
+    refreshAdmin();
+    adminRefreshInterval = setInterval(refreshAdmin, 60000);
+  } else {
+    panel.classList.remove('visible');
+    btn.classList.remove('active');
+    btn.textContent = 'ADMIN';
+    if (mainContent) mainContent.style.display = '';
+    if (adminRefreshInterval) { clearInterval(adminRefreshInterval); adminRefreshInterval = null; }
+  }
+}
+
+async function refreshAdmin() {
+  const btn = document.getElementById('adm-refresh-btn');
+  if (btn) { btn.textContent = '↻ Refreshing...'; btn.disabled = true; }
+  try {
+    // Fetch status + incidents in parallel
+    const [statusResp, incResp] = await Promise.all([
+      fetch(MONITOR_URL + 'status'),
+      fetch(MONITOR_URL + 'incidents?limit=50', {headers: {'X-Admin-Key': adminKey}})
+    ]);
+    if (incResp.status === 401) {
+      adminKey = '';
+      localStorage.removeItem('ris_admin_key');
+      document.getElementById('adm-room-grid-lobby').innerHTML =
+        '<div class="adm-empty" style="color:var(--red)">Invalid admin key — tap ADMIN to re-enter</div>';
+      return;
+    }
+    const [statusData, incData] = await Promise.all([statusResp.json(), incResp.json()]);
+
+    _lastAnalyzedRooms = statusData.rooms || [];
+    renderAdminRooms(statusData.rooms || []);
+    renderSmartActions(statusData.rooms || []);
+    renderAdminStats(statusData.rooms || [], incData.incidents || []);
+    renderAdminIncidents(incData.incidents || []);
+    fetchReports();
+
+    document.getElementById('adm-last-refresh').textContent =
+      'Updated: ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  } catch (e) {
+    const g = document.getElementById('adm-room-grid-lobby');
+    if (g) g.innerHTML = '<div class="adm-empty" style="color:var(--red)">Error: ' + e.message + '</div>';
+  } finally {
+    if (btn) { btn.textContent = '↻ Refresh'; btn.disabled = false; }
+  }
+}
+
+function renderAdminStats(rooms, incidents) {
+  const online = rooms.filter(r => r.isOnline).length;
+  const offline = rooms.length > 0 ? rooms.filter(r => !r.isOnline).length : 0;
+  document.getElementById('adm-online').textContent = online;
+  document.getElementById('adm-offline').textContent = offline;
+  // Count only today's open incidents
+  const today = new Date().toISOString().slice(0, 10);
+  const todayOpen = incidents.filter(i => !i.resolvedAt && (i.reportedAt || '').startsWith(today)).length;
+  document.getElementById('adm-incidents-open').textContent = todayOpen;
+  document.getElementById('adm-avg-resolve').textContent = '—';
+}
+
+function renderAdminRooms(rooms) {
+  const lobbyGrid = document.getElementById('adm-room-grid-lobby');
+  const officeGrid = document.getElementById('adm-room-grid-office');
+  if (!lobbyGrid || !officeGrid) return;
+
+  const roomMap = {};
+  rooms.forEach(function(r) { roomMap[r.room] = r; });
+
+  let lobbyHtml = '';
+  let officeHtml = '';
+  let roomIdx = 0;
+
+  RIS_ROOMS.forEach(function(ris) {
+    roomIdx++;
+    const r = roomMap[ris.email] || null;
+    const isOnline = r && r.isOnline;
+    const needsAuth = r && (r.status === 'no_auth' || r.status === 'token_expired_no_refresh');
+    const needsTap = r && isOnline && r.launchMode === 'browser';
+    const dotColor = !r ? '#555' : (isOnline ? (needsAuth ? '#ff9500' : '#00d68f') : '#ff3333');
+    const statusText = !r ? 'No heartbeat' :
+      (isOnline ? 'Online — ' + r.status : 'Offline (' + r.lastSeenMinutes + 'm ago)');
+    const tokenText = !r ? '' :
+      (r.hasRefreshToken ? '🔑 ' + (r.tokenMinsLeft > 0 ? r.tokenMinsLeft + 'm' : 'expired') + ' ✓' : '⚠ No token');
+    const modeText = !r ? '' :
+      (r.launchMode === 'pwa' ? '📱 PWA' : r.launchMode === 'fullscreen' ? '⛶ FS' : '🌐 Browser');
+    const versionText = r ? 'v' + r.version : '';
+    const uptimeText = r ? '⏱ ' + r.uptime + 'm' : '';
+    const logId = 'log-' + ris.name.toLowerCase().replace(/[^a-z]/g, '');
+
+    // Show last meaningful log line in card meta
+    let lastLogLine = '';
+    if (r && r.log && r.log.length > 0) {
+      for (var li = r.log.length - 1; li >= 0; li--) {
+        const line = r.log[li] || '';
+        if (line.length > 5 && line.indexOf('Heartbeat') === -1) {
+          lastLogLine = line.substring(0, 50);
+          break;
+        }
+      }
+    }
+
+    let card = '<div class="adm-room">' +
+      '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
+      '<div class="adm-room-name">' + ris.name + '</div>' +
+      '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
+      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText].filter(Boolean).join(' · ') + '</div>' +
+      (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
+
+    if (r && r.log && r.log.length > 0) {
+      card += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
+    }
+
+    card += '<div class="adm-room-actions">' +
+      '<div class="adm-act reload" onclick="sendCmd(\'' + ris.email + '\',\'reload\')">↻</div>';
+    if (needsTap) {
+      card += '<div class="adm-act fullscreen" onclick="sendCmd(\'' + ris.email + '\',\'auto_tap\')">👆 Tap</div>';
+    } else {
+      card += '<div class="adm-act fullscreen" onclick="sendCmd(\'' + ris.email + '\',\'force_fullscreen\')">⛶</div>';
+    }
+    if (needsAuth) {
+      card += '<div class="adm-act reauth" onclick="sendCmd(\'' + ris.email + '\',\'re_auth_remote\')">🔐 Re-auth</div>';
+    }
+    if (r && r.log && r.log.length > 0) {
+      card += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋</div>';
+    }
+    card += '</div></div>';
+
+    if (ris.zone === 'lobby') lobbyHtml += card;
+    else officeHtml += card;
+  });
+
+  lobbyGrid.innerHTML = lobbyHtml || '<div class="adm-empty">No heartbeat yet</div>';
+  officeGrid.innerHTML = officeHtml || '<div class="adm-empty">No heartbeat yet</div>';
+}
+
+function renderAdminIncidents(incidents) {
+  const list = document.getElementById('adm-incident-list');
+  if (!incidents.length) {
+    list.innerHTML = '<div class="adm-empty">No incidents recorded</div>';
+    return;
+  }
+
+  // Group by day
+  const byDay = {};
+  const today = new Date().toISOString().slice(0, 10);
+  incidents.forEach(function(inc) {
+    const day = (inc.reportedAt || '').slice(0, 10);
+    if (!byDay[day]) byDay[day] = [];
+    byDay[day].push(inc);
+  });
+
+  // Sort days newest first, show last 7 days
+  const days = Object.keys(byDay).sort().reverse().slice(0, 7);
+  let html = '';
+
+  days.forEach(function(day) {
+    const dayIncs = byDay[day];
+    const openCount = dayIncs.filter(function(i) { return !i.resolvedAt; }).length;
+    const label = day === today ? 'Today' : day;
+    html += '<div style="margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;' +
+      'color:var(--muted);text-transform:uppercase;padding:3px 0;border-bottom:1px solid var(--border);margin-bottom:5px">' +
+      '<span>' + label + '</span>' +
+      '<span style="color:' + (openCount > 0 ? 'var(--red)' : 'var(--green)') + '">' +
+      openCount + ' open / ' + dayIncs.length + '</span></div>';
+
+    dayIncs.forEach(function(inc) {
+      const isOpen = !inc.resolvedAt;
+      const dotColor = isOpen ? '#ff3333' : '#00d68f';
+      const time = new Date(inc.reportedAt).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+      const incKey = 'incident:' + (inc.reportedAt || '').slice(0, 10) + ':' + (inc.id || '');
+      const durHtml = isOpen
+        ? '<span class="adm-inc-dur open">OPEN</span>' +
+          '<button style="margin-left:4px;padding:2px 6px;background:rgba(0,214,143,.15);color:var(--green);' +
+          'border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;cursor:pointer" ' +
+          'onclick="resolveIncidentRemote(\'' + (inc.id||'') + '\',\'' + incKey + '\')">✓</button>'
+        : '<span class="adm-inc-dur resolved">' + (inc.durationMinutes || 0) + 'm</span>';
+
+      html += '<div class="adm-inc">' +
+        '<div class="adm-inc-dot" style="background:' + dotColor + '"></div>' +
+        '<div class="adm-inc-room">' + (inc.roomname || inc.room) + '</div>' +
+        '<div class="adm-inc-type">' + inc.type + '</div>' +
+        '<div class="adm-inc-time">' + time + durHtml + '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
+async function resolveIncidentRemote(incId, incKey) {
+  try {
+    const resp = await fetch(MONITOR_URL + 'incident', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({
+        room: 'admin',
+        action: 'resolve',
+        incidentKey: incKey,
+        resolvedBy: 'admin-dashboard',
+        resolution: 'Manually resolved by admin'
+      })
+    });
+    if (resp.ok) {
+      showToast('✓ Incident resolved');
+      setTimeout(refreshAdmin, 1000);
+    } else {
+      const data = await resp.json();
+      showToast('✗ ' + (data.error || 'Failed'), 'error');
+    }
+  } catch(e) {
+    showToast('✗ ' + e.message, 'error');
+  }
+}
+
+async function resolveAllIncidents() {
+  if (!confirm('Resolve all open incidents?')) return;
+  const incResp = await fetch(MONITOR_URL + 'incidents?limit=50', {
+    headers: {'X-Admin-Key': adminKey}
+  });
+  const incData = await incResp.json();
+  const open = (incData.incidents || []).filter(i => !i.resolvedAt);
+  let resolved = 0;
+  for (const inc of open) {
+    const key = 'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '');
+    try {
+      const resp = await fetch(MONITOR_URL + 'incident', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+        body: JSON.stringify({
+          room: inc.room,
+          action: 'resolve',
+          incidentKey: key,
+          resolvedBy: 'admin-dashboard',
+          resolution: 'Bulk resolved by admin'
+        })
+      });
+      if (resp.ok) resolved++;
+    } catch(e) {}
+  }
+  showToast('✓ Resolved ' + resolved + ' incidents');
+  setTimeout(refreshAdmin, 1000);
+}
+
+function renderSmartActions(rooms) {
+  const container = document.getElementById('adm-smart-actions');
+  if (!container) return;
+
+  const issues = { needsFullscreen: [], needsReauth: [], needsReload: [], offlineLong: [] };
+  RIS_ROOMS.forEach(function(ris) {
+    const r = rooms.find(function(rm) { return rm.room === ris.email; });
+    if (!r) return;
+    if (!r.isOnline && r.lastSeenMinutes > 60) { issues.offlineLong.push(ris); return; }
+    if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') { issues.needsReauth.push(ris); return; }
+    if (r.launchMode === 'browser') { issues.needsFullscreen.push(ris); return; }
+    if ((r.log || []).join(' ').toLowerCase().indexOf('meet in touch') > -1) issues.needsReload.push(ris);
+  });
+
+  let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
+    '<button class="adm-refresh-btn" style="background:#7b1fa2" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">👆 Auto-tap all</button>' +
+    '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>' +
+    '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'all\')">↻ Reload all</button>' +
+    '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">🔐 Re-auth all</button>' +
+    '</div>';
+
+  if (issues.needsFullscreen.length > 0) {
+    html += '<div style="background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
+      '<span style="color:var(--green);font-weight:700">⛶ NOT FULLSCREEN</span> — ' +
+      issues.needsFullscreen.map(function(r) { return r.name; }).join(', ') +
+      ' <button style="margin-left:8px;padding:2px 8px;background:var(--green);color:#000;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">Fix all</button></div>';
+  }
+  if (issues.needsReauth.length > 0) {
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
+      '<span style="color:var(--red);font-weight:700">🔐 AUTH EXPIRED</span> — ' +
+      issues.needsReauth.map(function(r) { return r.name; }).join(', ') +
+      ' <button style="margin-left:8px;padding:2px 8px;background:var(--red);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">Fix remotely</button></div>';
+  }
+  if (issues.offlineLong.length > 0) {
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
+      '<span style="color:var(--red);font-weight:700">⚫ OFFLINE >1HR</span> — ' +
+      issues.offlineLong.map(function(r) { return r.name; }).join(', ') + '</div>';
+  }
+  if (!issues.needsFullscreen.length && !issues.needsReauth.length && !issues.offlineLong.length && rooms.length > 0) {
+    html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:8px 12px;font-size:12px">' +
+      '<span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span></div>';
+  }
+  container.innerHTML = html;
+}
+
+async function bulkCommand(command, group) {
+  const issues = { needsFullscreen: [], needsReauth: [], needsReload: [], all: [] };
+  RIS_ROOMS.forEach(function(ris) {
+    const r = _lastAnalyzedRooms.find(function(rm) { return rm.room === ris.email; });
+    if (r && r.isOnline) issues.all.push(ris);
+    if (!r) return;
+    if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') issues.needsReauth.push(ris);
+    if (r.launchMode === 'browser') issues.needsFullscreen.push(ris);
+  });
+  const targets = issues[group] || issues.all;
+  if (!targets.length) { showToast('No rooms to target'); return; }
+  if (!confirm('Send "' + command + '" to ' + targets.length + ' rooms?')) return;
+  let sent = 0;
+  for (let i = 0; i < targets.length; i++) {
+    try {
+      const resp = await fetch(MONITOR_URL + 'command', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+        body: JSON.stringify({room: targets[i].email, command: command, sentBy: 'admin-bulk'})
+      });
+      if ((await resp.json()).ok) sent++;
+    } catch(e) {}
+  }
+  showToast('✓ Sent to ' + sent + '/' + targets.length + ' rooms');
+  setTimeout(refreshAdmin, 3000);
+}
+
+async function fetchReports() {
+  try {
+    const resp = await fetch(MONITOR_URL + 'reports?limit=7', {headers: {'X-Admin-Key': adminKey}});
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const container = document.getElementById('adm-reports');
+    if (!container) return;
+    const reports = data.reports || [];
+    if (!reports.length) {
+      container.innerHTML = '<div class="adm-empty">No reports yet — first generates at 19:30</div>';
+      return;
+    }
+    let html = '';
+    reports.forEach(function(rpt) {
+      const inc = rpt.incidents || {};
+      const allGood = (inc.open || 0) === 0;
+      html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+        '<span style="font-weight:700">' + rpt.date + '</span>' +
+        '<span style="font-size:11px;padding:2px 8px;border-radius:10px;' +
+        (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">✓ OK' : 'background:rgba(255,149,0,.15);color:var(--amber)">⚠ Issues') + '</span></div>' +
+        '<div style="font-size:11px;color:var(--muted)">Tablets: ' + (rpt.tabletsOnline||0) + '/' + (rpt.tabletsDeployed||0) +
+        ' · Incidents: ' + (inc.total||0) + ' · Open: ' + (inc.open||0) + '</div></div>';
+    });
+    container.innerHTML = html;
+  } catch(e) {}
+}
+
+
+async function generateReport() {
+  try {
+    const resp = await fetch(MONITOR_URL + 'reports/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey}
+    });
+    const data = await resp.json();
+    if (data.ok) { showToast('✓ Report generated'); setTimeout(fetchReports, 1000); }
+    else showToast('✗ ' + (data.error||'Failed'), 'error');
+  } catch(e) { showToast('✗ ' + e.message, 'error'); }
+}
+
+
+const _pendingCmds = {};
+
+async function sendCmd(room, command) {
+  if (command === 're_auth_remote') { return sendReauth(room); }
+  const key = room + ':' + command;
+  if (_pendingCmds[key]) { showToast('Already pending...'); return; }
+  _pendingCmds[key] = true;
+  setTimeout(function() { delete _pendingCmds[key]; }, 10000);
+  try {
+    const resp = await fetch(MONITOR_URL + 'command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({room: room, command: command, sentBy: 'admin-dashboard'})
+    });
+    const data = await resp.json();
+    if (data.ok) showToast('✓ ' + command + ' → ' + room.split('@')[0]);
+    else { delete _pendingCmds[key]; showToast('✗ ' + (data.error||'Failed'), 'error'); }
+  } catch(e) { delete _pendingCmds[key]; showToast('✗ ' + e.message, 'error'); }
+}
+
+async function sendReauth(room) {
+  const key = room + ':reauth';
+  if (_pendingCmds[key]) { showToast('Re-auth already in progress...'); return; }
+  _pendingCmds[key] = true;
+  const roomName = (RIS_ROOMS.find(function(r){return r.email===room;})||{}).name || room.split('@')[0];
+  showToast('🔐 Sending re-auth to ' + roomName + '...');
+  try {
+    const resp = await fetch(MONITOR_URL + 'command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({room: room, command: 're_auth_remote', sentBy: 'admin-dashboard'})
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      delete _pendingCmds[key];
+      showToast('✗ Re-auth failed: ' + (data.error||'Unknown'), 'error');
+      return;
+    }
+    showToast('✓ Re-auth sent — auto-refresh in 15s');
+    setTimeout(function() { delete _pendingCmds[key]; refreshAdmin(); }, 15000);
+  } catch(e) { delete _pendingCmds[key]; showToast('✗ ' + e.message, 'error'); }
+}
+
+
+function analyzeRooms(rooms) {
+  const issues = {
+    needsFullscreen: [],
+    needsReauth: [],
+    needsReload: [],
+    offlineLong: [],
+    offlineRecent: [],
+    tokenExpiring: [],
+    healthy: []
+  };
+
+  RIS_ROOMS.forEach(ris => {
+    const r = rooms.find(rm => rm.room === ris.email);
+    if (!r) return; // no heartbeat yet — skip
+
+    const logText = (r.log || []).join(' ').toLowerCase();
+
+    if (!r.isOnline && r.lastSeenMinutes > 60) {
+      issues.offlineLong.push(ris);
+    } else if (!r.isOnline && r.lastSeenMinutes > 15) {
+      issues.offlineRecent.push(ris);
+    } else if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') {
+      issues.needsReauth.push(ris);
+    } else if (r.launchMode === 'browser' || (logText.indexOf('fullscreen denied') > -1 && !r.isFullscreen)) {
+      issues.needsFullscreen.push(ris);
+    } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
+      issues.needsReload.push(ris);
+    } else if (r.tokenMinsLeft > 0 && r.tokenMinsLeft < 10) {
+      issues.tokenExpiring.push(ris);
+    } else {
+      issues.healthy.push(ris);
+    }
+  });
+
+  return issues;
+}
+
+
+function renderReports(reports) {
+  const container = document.getElementById('adm-reports');
+  if (!container) return;
+
+  if (!reports.length) {
+    container.innerHTML = '<div class="adm-empty">No reports yet — first report generates at 20:00 today</div>';
+    return;
+  }
+
+  let html = '';
+  reports.forEach(rpt => {
+    const online = rpt.tabletsOnline || 0;
+    const deployed = rpt.tabletsDeployed || 0;
+    const inc = rpt.incidents || {};
+    const uptimeList = (rpt.rooms || []).map(r => 
+      (r.roomname || r.room.split('@')[0]) + ': ' + (r.uptime || 0) + 'm'
+    ).join(' · ');
+
+    html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    html += '<span style="font-size:14px;font-weight:700;color:#fff">' + rpt.date + '</span>';
+    
+    const allGood = (inc.open || 0) === 0 && online === deployed;
+    html += '<span style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600;' + 
+      (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">' + '✓ ALL GOOD' : 
+      'background:rgba(255,149,0,.15);color:var(--amber)">' + '⚠ ISSUES') + '</span>';
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;font-size:11px">';
+    html += '<div style="color:var(--muted)">Tablets: <span style="color:#fff;font-weight:600">' + online + '/' + deployed + '</span></div>';
+    html += '<div style="color:var(--muted)">Incidents: <span style="color:#fff;font-weight:600">' + (inc.total || 0) + '</span></div>';
+    html += '<div style="color:var(--muted)">Auto-fixed: <span style="color:var(--green);font-weight:600">' + (inc.autoResolved || 0) + '</span></div>';
+    html += '<div style="color:var(--muted)">Open: <span style="color:' + ((inc.open || 0) > 0 ? 'var(--red)' : 'var(--green)') + ';font-weight:600">' + (inc.open || 0) + '</span></div>';
+    html += '</div>';
+
+    if (uptimeList) {
+      html += '<div style="font-size:10px;color:var(--hint);margin-top:6px">Uptime: ' + uptimeList + '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+
+
+function toggleLog(logId) {
+  var el = document.getElementById(logId);
+  if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type === 'error' ? 'toast-error' : '';
+  t.classList.remove('hidden');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+</script>
+</body>
+</html>
