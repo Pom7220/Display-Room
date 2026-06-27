@@ -1031,7 +1031,7 @@ function saveConfig(){
   dbg('saveConfig called');
   function v(id){return el(id).value.trim();}
   function b(id){return el(id).checked;}
-  dbg('tenant='+v('cfg-tenant').substring(0,8)+'... client='+v('cfg-client').substring(0,8)+'...');
+  dbg('saveConfig: room='+v('cfg-roomemail')+' key='+(v('cfg-tabletkey')?'set':'MISSING'));
   if(!v('cfg-tenant')||!v('cfg-client')||!v('cfg-roomname')||!v('cfg-roomemail')){alert('Fill in all required fields.');return;}
   if(b('cfg-booking')&&b('cfg-approval')&&!v('cfg-owner')){alert('Enter room owner email for approval.');return;}
   dbg('Validation passed, saving config...');
@@ -2012,7 +2012,7 @@ function fetchCal(){
   var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
   var tabletKey=cfg.tabletKey||'';
   if(!tabletKey){
-    dbg('fetchCal: no tabletKey in cfg — awaiting set_tablet_key command');
+    dbg('fetchCal: no tabletKey — check config screen');
     setTimeout(fetchCal,10000);
     return;
   }
@@ -2932,10 +2932,10 @@ loadCfg();
 })();
 // Restore debug state
 try{dbgEnabled=localStorage.getItem('roomdisplay_debug')==='1';}catch(e){}
-dbg('Boot check: tenant='+(cfg.tenant?'ok':'MISSING')+
-  ' client='+(cfg.client?'ok':'MISSING')+
-  ' roomname='+(cfg.roomname||'MISSING')+
-  ' roomemail='+(cfg.roomemail||'MISSING'));
+dbg('Boot check: room='+(cfg.roomemail||'MISSING')+
+  ' name='+(cfg.roomname||'MISSING')+
+  ' tabletKey='+(cfg.tabletKey?'ok':'MISSING')+
+  ' mode='+(cfg.tabletKey?'proxy':'msal'));
 if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
   // Phase 4: Worker proxy flow — no MSAL needed
   dbg('tabletKey found — launching via Worker proxy');
