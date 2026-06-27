@@ -401,10 +401,9 @@ function startClock(){
 
 function initDashboard(){
   // Phase 4: direct launch — no MSAL auth needed
-  // Dashboard only reads from Worker endpoints (status, incidents, reports)
-  // Booking goes through Worker proxy with X-Tablet-Key
-  startAdminAutoRefresh();
+  // Dashboard reads from Worker endpoints, booking via Worker proxy
   refreshAdmin();
+  adminRefreshInterval = setInterval(refreshAdmin, 30000);
 }
 
 // Decode email from access token JWT — reliable on all browsers
