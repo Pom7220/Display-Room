@@ -535,16 +535,26 @@ async function getToken(){
   }
 }
 
-// ES6 wrapper around shared fetchCalendarForRoom + deriveRoomStatus
+// Fetch room data directly from MS Graph using MSAL token
 async function fetchRoom(room, tok){
   if(!tok) return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
   const now = new Date();
   const s = new Date(now); s.setHours(0,0,0,0);
   const e = new Date(now); e.setHours(23,59,59,999);
   try{
-    // fetchCalendarForRoom from ris-shared.js — returns filtered, sorted meetings array
-    const meetings = await fetchCalendarForRoom(room.email, tok, s.toISOString(), e.toISOString());
-    // deriveRoomStatus from ris-shared.js — same logic as kiosk getCur/getNext
+    // Dashboard calls MS Graph DIRECTLY with MSAL token — bypasses Worker proxy
+    // ris-shared.js fetchCalendarForRoom now routes via Worker, so we call Graph here
+    const url = 'https://graph.microsoft.com/v1.0/users/'
+      + encodeURIComponent(room.email)
+      + '/calendarView'
+      + '?startDateTime=' + s.toISOString()
+      + '&endDateTime=' + e.toISOString()
+      + '&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled'
+      + '&$orderby=start/dateTime&$top=60';
+    const resp = await fetch(url, {headers: {Authorization: 'Bearer ' + tok}});
+    if(!resp.ok) return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
+    const data = await resp.json();
+    const meetings = filterMeetings(data.value || []);
     const derived = deriveRoomStatus(meetings);
     return {
       status: derived.status,
@@ -853,9 +863,16 @@ async function confirmBooking(){
   if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
   const s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
 
-  // ── CONFLICT CHECK — fetch room calendar for requested slot ──
+  // ── CONFLICT CHECK — fetch room calendar directly from Graph with MSAL token ──
   try{
-    const existing=await fetchCalendarForRoom(selectedRoom.email,tok,s.toISOString(),e.toISOString());
+    const conflictUrl='https://graph.microsoft.com/v1.0/users/'
+      +encodeURIComponent(selectedRoom.email)
+      +'/calendarView?startDateTime='+s.toISOString()
+      +'&endDateTime='+e.toISOString()
+      +'&$select=subject,start,end,showAs,isCancelled&$top=20';
+    const conflictResp=await fetch(conflictUrl,{headers:{Authorization:'Bearer '+tok}});
+    const conflictData=conflictResp.ok?await conflictResp.json():{value:[]};
+    const existing=filterMeetings(conflictData.value||[]);
     const conflict=existing.find(function(m){
       // Check overlap: meeting starts before our end AND ends after our start
       return !m.isPending&&(m.end-m.start)<86399000&&m.start<e&&m.end>s;
