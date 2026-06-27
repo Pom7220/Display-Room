@@ -22,8 +22,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<script src="ris-shared.js?v=12"></script>
-<!-- Promise polyfill MUST load before msal-v1.min.js (Chrome 30 WebView) -->
+<script src="ris-shared.js?v=13"></script>
+<!-- Promise polyfill for Chrome 42 -->
 <script>
 if(typeof Promise==='undefined'){
   Promise=function(fn){
@@ -53,7 +53,7 @@ if(typeof Promise==='undefined'){
   };
 }
 </script>
-<script src="msal-v1.min.js"></script>
+<!-- msal removed: Phase 4 uses Worker proxy auth -->
 <!-- Polyfills for Chrome 42 / Android 4.4 -->
 <script>
 // Array.from polyfill
@@ -426,6 +426,8 @@ if('serviceWorker' in navigator){
       <select id="cfg-release"><option value="0">Disabled</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
       <div class="cfg-label" style="margin-top:10px">Heartbeat interval <span style="color:var(--hint);font-size:10px">(5–60 min · default 20 · use 30 for 12 tablets)</span></div>
       <select id="cfg-heartbeat-mins" class="cfg-input"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20" selected>20 min</option><option value="30">30 min</option><option value="60">60 min</option></select>
+      <div class="cfg-label" style="margin-top:10px">Tablet key <span style="color:var(--hint);font-size:10px">(from Cloudflare Worker RIS_TABLET_KEY)</span></div>
+      <input class="cfg-input" id="cfg-tabletkey" type="text" placeholder="auto-filled via set_tablet_key command">
     </div>
   </div>
   <div class="cfg-card">
@@ -690,7 +692,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 37,
+  patch: 38,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1042,11 +1044,12 @@ function saveConfig(){
   }
   var hbMinsVal=parseInt(el('cfg-heartbeat-mins')?el('cfg-heartbeat-mins').value:20)||20;
   if(hbMinsVal<5)hbMinsVal=5; if(hbMinsVal>60)hbMinsVal=60;
+  var tkVal=el('cfg-tabletkey')?el('cfg-tabletkey').value.trim():(cfg.tabletKey||'');
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
     extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false,
-    heartbeatMins:hbMinsVal};
+    heartbeatMins:hbMinsVal,tabletKey:tkVal};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
   initMsal();
 }
@@ -1062,6 +1065,7 @@ function showConfig(){
   if(cfg.roomemail)el('cfg-roomemail').value=cfg.roomemail;
   if(cfg.release!=null)el('cfg-release').value=cfg.release;
   if(el('cfg-heartbeat-mins')&&cfg.heartbeatMins)el('cfg-heartbeat-mins').value=cfg.heartbeatMins;
+  if(el('cfg-tabletkey')&&cfg.tabletKey)el('cfg-tabletkey').value=cfg.tabletKey;
   el('cfg-booking').checked=cfg.booking!==false; // default ON
   el('cfg-approval').checked=!!cfg.approval;      // default OFF
   el('cfg-teams').checked=cfg.teamsBtn!==false;   // default ON
@@ -1725,6 +1729,18 @@ function executeCommand(cmd){
       dbg('inject_tokens: no access_token in payload');
     }
   }
+  else if(action==='set_tablet_key'){
+    // Pre-seed tablet key before Phase 4 SW update
+    var newKey=cmd.value||'';
+    if(newKey){
+      try{
+        cfg.tabletKey=newKey;
+        localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
+        dbg('Tablet key stored in cfg: '+newKey.substring(0,4)+'***');
+        sendHeartbeat();
+      }catch(e){dbg('set_tablet_key failed: '+e.message);}
+    }
+  }
   else{
     dbg('Unknown command: '+action);
   }
@@ -1979,17 +1995,16 @@ function startClock(){
 // CALENDAR FETCH — 7 days
 // ══════════════════════════════════════
 function fetchCal(){
-  getToken().then(function(tok){
-    if(!tok){
-      // Token not ready yet — retry in 5 seconds
-      dbg('fetchCal: no token, retry in 5s');
-      setTimeout(fetchCal,5000);
-      return null;
-    }
-    var s=new Date();s.setHours(0,0,0,0);
-    var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
-    return fetchCalendarForRoom(activeRoom.email,tok,s.toISOString(),e.toISOString());
-  }).then(function(filtered){
+  var s=new Date();s.setHours(0,0,0,0);
+  var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
+  var tabletKey=cfg.tabletKey||'';
+  if(!tabletKey){
+    dbg('fetchCal: no tabletKey in cfg — awaiting set_tablet_key command');
+    setTimeout(fetchCal,10000);
+    return;
+  }
+  fetchCalendarForRoom(activeRoom.email,tabletKey,s.toISOString(),e.toISOString())
+  .then(function(filtered){
     if(!filtered)return; // null from retry path or error
     meetings=filtered;
     // Debug — log showAs values to diagnose pending/free status on Macchiato
@@ -2431,37 +2446,20 @@ function confirmBooking(){
 }
 
 function createDirect(name,email,title,s,e,done){
-  getToken().then(function(tok){
-    if(!tok){closeModal();if(done)done();return;}
-    var tz='Asia/Bangkok';
-    try{var t=Intl.DateTimeFormat().resolvedOptions().timeZone;if(t)tz=t;}catch(ex){}
-    var body={
-      subject:title,
-      body:{contentType:'text',content:'Booked by '+name+' ('+email+') from the RIS Room Display.'},
-      start:{dateTime:localISO(s),timeZone:tz},
-      end:{dateTime:localISO(e),timeZone:tz},
-      attendees:[
-        // Room as resource — Exchange auto-accepts/declines, conflict detection applies
-        {emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'resource'},
-        // Requester as required attendee — receives meeting invitation
-        {emailAddress:{address:email,name:name},type:'required'}
-      ],
-      isOnlineMeeting:false
-    };
-    // POST to /me/events — resource booking approach
-    // Exchange processes room invite: auto-accepts if free, auto-declines if busy
-    return fetch('https://graph.microsoft.com/v1.0/me/events',
-      {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)});
-  }).then(function(r){
-    if(!r)return;
-    if(!r.ok){return r.json().then(function(er){toast('Booking failed: '+((er.error&&er.error.message)||r.status),'error');closeModal();if(done)done();});}
+  var tabletKey=cfg.tabletKey||'';
+  if(!tabletKey){toast('Booking not available — tablet key not set','error');if(done)done();return;}
+  fetchBookRoom(tabletKey,activeRoom.email,activeRoom.name,title,localISO(s),localISO(e),name,email)
+  .then(function(d){
     closeModal();toast('Room booked! Invitation sent to '+email,'success');
     meetings.push({id:'loc-'+Date.now(),title:title,organizer:name,start:s,end:e,attendees:1,isPending:false,joinUrl:null,isOnline:false});
     meetings.sort(function(a,b){return a.start-b.start;});
     updateCurrentCard();renderBadges();renderMeetList();
     setTimeout(fetchCal,6000);
     if(done)done();
-  }).catch(function(err){toast('Error: '+err.message,'error');closeModal();if(done)done();});
+  }).catch(function(err){
+    toast('Booking failed: '+err.message,'error');
+    closeModal();if(done)done();
+  });
 }
 
 function sendApproval(name,email,title,s,e,done){

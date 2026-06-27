@@ -1,7 +1,7 @@
 // ris-shared.js — RIS Room Display shared logic
 // ES5 ONLY — loaded by both index.html (Chrome 42) and dashboard.html
 // DO NOT use: const/let, arrows, template literals, async/await, optional chaining
-// Version: 1.2 (2026-06-12) — updated seat counts with ranges for Espresso/Doppio/Macchiato; Viennese/Decaffinato/Affogato to 6
+// Version: 1.3 (2026-06-28) — Phase 2: fetchCalendarForRoom + fetchBookRoom via Worker proxy (Client Credentials)
 
 // ── ROOM DEFINITIONS ──
 var RIS_ROOMS = [
@@ -148,17 +148,20 @@ function deriveRoomStatus(meetings) {
   return { status: status, cur: cur, nxt: nxt, pendingCur: pendingCur, freeUntil: freeUntil, allDayCur: allDayCur };
 }
 
-// Fetch calendar for a single room — returns Promise
-// Graph API fields match kiosk exactly
-function fetchCalendarForRoom(email, tok, startISO, endISO) {
-  var url = 'https://graph.microsoft.com/v1.0/users/'
-    + encodeURIComponent(email)
-    + '/calendarView'
-    + '?startDateTime=' + startISO
-    + '&endDateTime=' + endISO
-    + '&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled'
-    + '&$orderby=start/dateTime&$top=60';
-  return fetch(url, { headers: { Authorization: 'Bearer ' + tok } })
+// Fetch calendar for a single room via Cloudflare Worker proxy — returns Promise
+// Worker handles Client Credentials auth — no user token needed on tablet
+// ES5 ONLY — no const/let/arrows/template literals
+function fetchCalendarForRoom(email, tabletKey, startISO, endISO) {
+  var workerOrigin = (typeof window !== 'undefined' && window.location)
+    ? window.location.protocol + '//' + window.location.host
+    : 'https://ris-display.ris-display.workers.dev';
+  var url = workerOrigin + '/api/calendar'
+    + '?room=' + encodeURIComponent(email)
+    + '&startDateTime=' + encodeURIComponent(startISO)
+    + '&endDateTime=' + encodeURIComponent(endISO);
+  return fetch(url, {
+    headers: { 'X-Tablet-Key': tabletKey || '' }
+  })
     .then(function(r) {
       if (!r.ok) return { value: [] };
       return r.json();
@@ -167,6 +170,38 @@ function fetchCalendarForRoom(email, tok, startISO, endISO) {
       return filterMeetings(d.value || []);
     })
     .catch(function() { return []; });
+}
+
+// Book a room via Cloudflare Worker proxy — returns Promise
+// ES5 ONLY
+function fetchBookRoom(tabletKey, roomEmail, roomName, subject, startISO, endISO, organizerName, organizerEmail) {
+  var workerOrigin = (typeof window !== 'undefined' && window.location)
+    ? window.location.protocol + '//' + window.location.host
+    : 'https://ris-display.ris-display.workers.dev';
+  var url = workerOrigin + '/api/book';
+  var body = JSON.stringify({
+    room: roomEmail,
+    roomName: roomName || roomEmail,
+    subject: subject || 'Meeting',
+    start: startISO,
+    end: endISO,
+    organizerName: organizerName || '',
+    organizerEmail: organizerEmail || ''
+  });
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Tablet-Key': tabletKey || ''
+    },
+    body: body
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error) throw new Error(d.error);
+      return d;
+    })
+    .catch(function(e) { throw e; });
 }
 
 // Format duration in minutes to human readable e.g. "3h 45m" or "45m"
