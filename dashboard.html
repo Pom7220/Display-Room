@@ -431,21 +431,8 @@ function doSignIn(){
 // Session keepalive — same as kiosk v3.10.5
 // Pings acquireTokenSilent every 45 min to prevent Azure AD session timeout
 function startDashboardKeepalive(){
-  setInterval(async function(){
-    if(!account||!msalInst)return;
-    try{
-      const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
-      _token=r.accessToken;
-      _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
-      console.log('Dashboard keepalive OK — session renewed');
-    }catch(e){
-      const code=e?.errorCode||'';
-      console.warn('Dashboard keepalive failed:',code);
-      if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
-        showSignInBar();
-      }
-    }
-  },2700000); // 45 minutes
+  // Phase 4: no MSAL keepalive needed — Worker proxy handles auth
+  // Room data stays fresh via setInterval(fetchAllRooms, 60000) in startup
 }
 
 async function getToken(){
@@ -516,10 +503,11 @@ async function fetchRoom(room, tok){
 
 async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
-  // Show spinner on refresh button during fetch
   var refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
-  const tok = await getToken();
+  // Phase 4: use adminKey for Worker proxy
+  // If no key yet, rooms show without calendar data — loads after ADMIN key entered
+  const tok = adminKey || localStorage.getItem('ris_admin_key') || '';
   const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
   ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
   const now=new Date();
@@ -854,7 +842,10 @@ el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))clo
 
 // Phase 4: no MSAL — dashboard uses Worker proxy
 startClock();
-initDashboard();
+fetchAllRooms();          // Start room display immediately
+startDashboardKeepalive(); // Keep room data fresh
+setInterval(fetchAllRooms, 60000); // Refresh every 60s
+initDashboard();          // Admin panel (separate section)
 
 
 // ══════════════════════════════════════
@@ -891,6 +882,8 @@ function toggleAdmin() {
     if (mainContent) mainContent.style.display = 'none';
     refreshAdmin();
     adminRefreshInterval = setInterval(refreshAdmin, 30000);
+    // Also refresh room display now that we have a key
+    fetchAllRooms();
   } else {
     panel.classList.remove('visible');
     btn.classList.remove('active');
