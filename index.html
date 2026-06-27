@@ -1504,7 +1504,7 @@ function startTokenRefreshTimer(){
 // LAUNCH
 // ══════════════════════════════════════
 function launch(){
-  hide('auth-overlay');show('app');
+  hide('auth-overlay');hide('config-screen');hide('booking-modal');show('app');
   var vt=el('ver-tag');if(vt)vt.textContent=APP_VERSION.label();
   var vc=el('ver-corner');if(vc)vc.textContent=APP_VERSION.label();
   el('cfg-sticky-bar').style.display='none';
