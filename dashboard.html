@@ -916,8 +916,19 @@ el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))clo
 
 // Dashboard startup
 startClock();
-initMsal();       // Room display — signs in via MSAL → fetchAllRooms
-initDashboard();  // Admin panel — loads monitoring data
+initMsal();
+
+if(!account){
+  showSignInBar();
+  renderRooms();
+  selectDefaultRoom();
+} else {
+  fetchAllRooms();
+  startDashboardKeepalive();
+}
+setInterval(fetchAllRooms, 60000);
+
+initDashboard();  // Admin panel
 
 
 // ══════════════════════════════════════

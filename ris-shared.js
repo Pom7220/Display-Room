@@ -152,9 +152,8 @@ function deriveRoomStatus(meetings) {
 // Worker handles Client Credentials auth — no user token needed on tablet
 // ES5 ONLY — no const/let/arrows/template literals
 function fetchCalendarForRoom(email, tabletKey, startISO, endISO) {
-  var workerOrigin = (typeof window !== 'undefined' && window.location)
-    ? window.location.protocol + '//' + window.location.host
-    : 'https://ris-display.ris-display.workers.dev';
+  // Always use the Worker URL directly — window.location may point to GitHub Pages
+  var workerOrigin = 'https://ris-display.ris-display.workers.dev';
   var url = workerOrigin + '/api/calendar'
     + '?room=' + encodeURIComponent(email)
     + '&startDateTime=' + encodeURIComponent(startISO)
@@ -175,9 +174,8 @@ function fetchCalendarForRoom(email, tabletKey, startISO, endISO) {
 // Book a room via Cloudflare Worker proxy — returns Promise
 // ES5 ONLY
 function fetchBookRoom(tabletKey, roomEmail, roomName, subject, startISO, endISO, organizerName, organizerEmail) {
-  var workerOrigin = (typeof window !== 'undefined' && window.location)
-    ? window.location.protocol + '//' + window.location.host
-    : 'https://ris-display.ris-display.workers.dev';
+  // Always use the Worker URL directly
+  var workerOrigin = 'https://ris-display.ris-display.workers.dev';
   var url = workerOrigin + '/api/book';
   var body = JSON.stringify({
     room: roomEmail,
