@@ -8,9 +8,9 @@
 <meta name="theme-color" content="#0a0a12">
 <title>RIS Rooms</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="ris-shared.js?v=12">
+<script src="ris-shared.js?v=13">
 </script>
-<script src="msal-v1.min.js">
+<!-- msal removed: dashboard uses Worker proxy for booking -->
 </script>
 <style>
 :root{
@@ -264,7 +264,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.9 (2026-06-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.0 (2026-06-28)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -399,49 +399,12 @@ function startClock(){
   tick();setInterval(tick,15000);
 }
 
-function initMsal(){
-  if(msalInst)return;
-  const Lib=typeof Msal!=='undefined'?Msal:(typeof msal!=='undefined'?msal:null);
-  if(!Lib){console.warn('MSAL not loaded');return;}
-  try{
-    msalInst=new Lib.UserAgentApplication({
-      auth:{clientId:CLIENT,authority:`https://login.microsoftonline.com/${TENANT}`,
-        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
-      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
-    });
-    // Handle redirect response (returning from Microsoft login)
-    msalInst.handleRedirectCallback(function(err,resp){
-      _redirectInProgress=false; // always clear on return from Azure
-      if(err){
-        console.warn('Redirect error:',err);
-        // interaction_required on prompt:none → show sign-in bar, don't loop
-        const code=(err.errorCode||err.errorMessage||'').toLowerCase();
-        if(code.indexOf('interaction_required')>-1||code.indexOf('login_required')>-1||
-           code.indexOf('50196')>-1||code.indexOf('loop')>-1){
-          showSignInBar();
-        }
-        return;
-      }
-      if(resp&&resp.account){
-        account=resp.account;
-        // Save login hint — use JWT decode for reliability (account.username undefined on some browsers)
-        var hint=getEmailFromJWT(resp.accessToken)||account.userName||account.username||'';
-        if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
-        if(resp.accessToken){
-          _token=resp.accessToken;
-          _tokenExp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
-        }
-        fetchAllRooms();
-        startDashboardKeepalive();
-      }
-    });
-    account=msalInst.getAccount();
-    // Save hint if already signed in
-    if(account){
-      var hint=account.userName||account.username||'';
-      if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
-    }
-  }catch(e){console.warn('MSAL init:',e);}
+function initDashboard(){
+  // Phase 4: direct launch — no MSAL auth needed
+  // Dashboard only reads from Worker endpoints (status, incidents, reports)
+  // Booking goes through Worker proxy with X-Tablet-Key
+  startAdminAutoRefresh();
+  refreshAdmin();
 }
 
 // Decode email from access token JWT — reliable on all browsers
@@ -866,48 +829,34 @@ async function confirmBooking(){
     console.warn('Conflict check failed:',err.message);
   }
 
-  let tz='Asia/Bangkok';
-  try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch{}
+  // Phase 4: booking via Worker proxy — no MSAL token needed
   try{
-    const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{
+    const r=await fetch(MONITOR_URL.replace('/api/','') + '/api/book',{
       method:'POST',
-      headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','X-Admin-Key':adminKey},
       body:JSON.stringify({
+        room:selectedRoom.email,
+        roomName:selectedRoom.name,
         subject:title,
-        body:{contentType:'text',content:`Booked by ${name} (${email}) via RIS Room Dashboard.`},
-        start:{dateTime:localISO(s),timeZone:tz},
-        end:{dateTime:localISO(e),timeZone:tz},
-        attendees:[
-          {emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'resource'},
-          {emailAddress:{address:email,name:name},type:'required'}
-        ],
-        isOnlineMeeting:false
+        start:localISO(s),
+        end:localISO(e),
+        organizerName:name,
+        organizerEmail:email
       })
     });
     btn.disabled=false;
     el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
-    if(!r.ok){const er=await r.json();toast('Booking failed: '+(er.error?.message||r.status),'error');}
-    else{closeBookModal();toast(`✓ Booked! Invitation sent to ${email}`,'success');setTimeout(fetchAllRooms,3000);}
+    const rd=await r.json();
+    if(!r.ok||rd.error){toast('Booking failed: '+(rd.error||r.status),'error');}
+    else{closeBookModal();toast('✓ Booked! Invitation sent to '+email,'success');setTimeout(fetchAllRooms,3000);}
   }catch(err){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Error: '+err.message,'error');}
 }
 
 el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))closeBookModal();});
 
-// ── IFRAME GUARD ──
-// Silent iframe renewal loads this page in a hidden iframe.
-// Only init MSAL to process the redirect hash, skip everything else.
-if(window!==window.top){
-  try{
-    new Msal.UserAgentApplication({
-      auth:{clientId:CLIENT,authority:'https://login.microsoftonline.com/'+TENANT,
-        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
-      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
-    });
-  }catch(e){}
-}else{
-
+// Phase 4: no MSAL — dashboard uses Worker proxy
 startClock();
-initMsal();
+initDashboard();
 
 if(!account){
   showSignInBar();
@@ -919,7 +868,7 @@ if(!account){
 }
 setInterval(fetchAllRooms,60000);
 
-} // end normal boot
+// end Phase 4 dashboard init
 
 
 // ══════════════════════════════════════
@@ -1033,7 +982,8 @@ function renderAdminRooms(rooms) {
     const needsTap = r && isOnline && r.launchMode === 'browser';
     const dotColor = !r ? '#555' : (isOnline ? (needsAuth ? '#ff9500' : '#00d68f') : '#ff3333');
     const statusText = !r ? 'No heartbeat' :
-      (isOnline ? 'Online — ' + r.status : 'Offline (' + r.lastSeenMinutes + 'm ago)');
+      (isOnline ? (r.status === 'reauth_redirect' ? '⚠ Redirected to Azure login' :
+        'Online — ' + r.status) : 'Offline (' + r.lastSeenMinutes + 'm ago)');
     const tokenText = !r ? '' :
       (r.hasRefreshToken ? '🔑 ' + (r.tokenMinsLeft > 0 ? r.tokenMinsLeft + 'm' : 'expired') + ' ✓' : '⚠ No token');
     const modeText = !r ? '' :
@@ -1074,6 +1024,8 @@ function renderAdminRooms(rooms) {
     var fixLabel = null;
     if (!r || !r.isOnline) {
       fixCmd = 'reload'; fixLabel = '↻ Fix';
+    } else if (r.status === 'reauth_redirect') {
+      fixCmd = 're_auth_remote'; fixLabel = '🔐 Fix';
     } else if (needsAuth) {
       fixCmd = 're_auth_remote'; fixLabel = '🔐 Fix';
     } else if (needsTap) {
