@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="ris-shared.js?v=13">
 </script>
-<!-- msal removed: dashboard uses Worker proxy for booking -->
+<script src="msal-v1.min.js">
 </script>
 <style>
 :root{
@@ -405,9 +405,64 @@ function startClock(){
   tick();setInterval(tick,15000);
 }
 
+function initMsal(){
+  if(msalInst)return;
+  const Lib=typeof Msal!=='undefined'?Msal:(typeof msal!=='undefined'?msal:null);
+  if(!Lib){console.warn('MSAL not loaded');return;}
+  try{
+    msalInst=new Lib.UserAgentApplication({
+      auth:{clientId:CLIENT,authority:`https://login.microsoftonline.com/${TENANT}`,
+        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+    msalInst.handleRedirectCallback(function(err,resp){
+      _redirectInProgress=false;
+      if(err){
+        const code=(err.errorCode||err.errorMessage||'').toLowerCase();
+        if(code.indexOf('interaction_required')>-1||code.indexOf('login_required')>-1||
+           code.indexOf('50196')>-1||code.indexOf('loop')>-1){
+          showSignInBar();
+        }
+        return;
+      }
+      if(resp&&resp.account){
+        account=resp.account;
+        var hint=getEmailFromJWT(resp.accessToken)||account.userName||account.username||'';
+        if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
+        if(resp.accessToken){
+          _token=resp.accessToken;
+          _tokenExp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
+        }
+        fetchAllRooms();
+        startDashboardKeepalive();
+      }
+    });
+    account=msalInst.getAccount();
+    if(account){
+      var hint=account.userName||account.username||'';
+      if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
+    }
+  }catch(e){console.warn('MSAL init:',e);}
+}
+
+function startDashboardKeepalive(){
+  setInterval(async function(){
+    if(!account||!msalInst)return;
+    try{
+      const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
+      _token=r.accessToken;
+      _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
+    }catch(e){
+      const code=e?.errorCode||'';
+      if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
+        showSignInBar();
+      }
+    }
+  },2700000);
+}
+
 function initDashboard(){
-  // Phase 4: direct launch — no MSAL auth needed
-  // Dashboard reads from Worker endpoints, booking via Worker proxy
+  // Admin panel only — room display uses initMsal() separately
   refreshAdmin();
   adminRefreshInterval = setInterval(refreshAdmin, 30000);
 }
@@ -436,10 +491,7 @@ function doSignIn(){
 
 // Session keepalive — same as kiosk v3.10.5
 // Pings acquireTokenSilent every 45 min to prevent Azure AD session timeout
-function startDashboardKeepalive(){
-  // Phase 4: no MSAL keepalive needed — Worker proxy handles auth
-  // Room data stays fresh via setInterval(fetchAllRooms, 60000) in startup
-}
+
 
 async function getToken(){
   if(_token&&_tokenExp>Date.now()+120000)return _token;
@@ -511,9 +563,8 @@ async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
   var refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
-  // Phase 4: use adminKey for Worker proxy
-  // If no key yet, rooms show without calendar data — loads after ADMIN key entered
-  const tok = adminKey || localStorage.getItem('ris_admin_key') || '';
+  // Dashboard pulls directly from MS Graph via MSAL — independent of tablet key
+  const tok = await getToken();
   const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
   ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
   const now=new Date();
@@ -846,12 +897,10 @@ async function confirmBooking(){
 
 el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))closeBookModal();});
 
-// Phase 4: no MSAL — dashboard uses Worker proxy
+// Dashboard startup
 startClock();
-fetchAllRooms();          // Start room display immediately
-startDashboardKeepalive(); // Keep room data fresh
-setInterval(fetchAllRooms, 60000); // Refresh every 60s
-initDashboard();          // Admin panel (separate section)
+initMsal();       // Room display — signs in via MSAL → fetchAllRooms
+initDashboard();  // Admin panel — loads monitoring data
 
 
 // ══════════════════════════════════════
@@ -884,8 +933,7 @@ function toggleAdmin() {
     if (mainContent) mainContent.style.display = 'none';
     refreshAdmin();
     adminRefreshInterval = setInterval(refreshAdmin, 30000);
-    // Also refresh room display now that we have a key
-    fetchAllRooms();
+
   } else {
     panel.classList.remove('visible');
     btn.classList.remove('active');
@@ -1167,7 +1215,7 @@ function renderSmartActions(rooms) {
       '<span style="color:var(--red);font-weight:700">⚫ OFFLINE >1HR</span> — ' +
       issues.offlineLong.map(function(r) { return r.name; }).join(', ') + '</div>';
   }
-  if (!issues.needsFullscreen.length && !issues.needsReauth.length && !issues.offlineLong.length && rooms.length > 0) {
+  if (!issues.needsFullscreen.length && !issues.offlineLong.length && rooms.length > 0) {
     html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:8px 12px;font-size:12px">' +
       '<span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span></div>';
   }
@@ -1175,12 +1223,12 @@ function renderSmartActions(rooms) {
 }
 
 async function bulkCommand(command, group) {
-  const issues = { needsFullscreen: [], needsReauth: [], needsReload: [], all: [] };
+  const issues = { needsFullscreen: [], needsReload: [], all: [] };
   RIS_ROOMS.forEach(function(ris) {
     const r = _lastAnalyzedRooms.find(function(rm) { return rm.room === ris.email; });
     if (r && r.isOnline) issues.all.push(ris);
     if (!r) return;
-    if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') issues.needsReauth.push(ris);
+
     if (r.launchMode === 'browser') issues.needsFullscreen.push(ris);
   });
   const targets = issues[group] || issues.all;
@@ -1290,7 +1338,7 @@ async function sendReauth(room) {
 function analyzeRooms(rooms) {
   const issues = {
     needsFullscreen: [],
-    needsReauth: [],
+
     needsReload: [],
     offlineLong: [],
     offlineRecent: [],
@@ -1307,8 +1355,6 @@ function analyzeRooms(rooms) {
       issues.offlineLong.push(ris);
     } else if (!r.isOnline && r.lastSeenMinutes > 15) {
       issues.offlineRecent.push(ris);
-    } else if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') {
-      issues.needsReauth.push(ris);
     } else if (r.launchMode === 'browser' || (logText.indexOf('fullscreen denied') > -1 && !r.isFullscreen)) {
       issues.needsFullscreen.push(ris);
     } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
