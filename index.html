@@ -1054,11 +1054,7 @@ function saveConfig(){
   // Phase 4: bypass MSAL — launch directly via Worker proxy
   if(cfg.tabletKey){
     dbg('tabletKey found — launching via Worker proxy');
-    hide('config-screen');
-    show('app');
-    el('cfg-sticky-bar').style.display='none';
-    startMonitoring();
-    fetchCal();
+    launch();
   } else {
     dbg('No tabletKey — falling back to MSAL');
     initMsal();
@@ -2942,13 +2938,8 @@ dbg('Boot check: tenant='+(cfg.tenant?'ok':'MISSING')+
   ' roomemail='+(cfg.roomemail||'MISSING'));
 if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
   // Phase 4: Worker proxy flow — no MSAL needed
-  dbg('tabletKey found — starting via Worker proxy');
-  loadCfg();
-  if(!selectRoom(cfg.roomemail))selectDefaultRoom();
-  startClock();fetchCal();fetchWeather();
-  setInterval(fetchCal,90000);
-  setInterval(fetchWeather,1800000);
-  startBurnIn();enterKiosk();startAutoRelaunch();startMonitoring();
+  dbg('tabletKey found — launching via Worker proxy');
+  launch();
 } else if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail){
   // Legacy MSAL flow — no tabletKey yet
   dbg('No tabletKey — falling back to MSAL flow');
