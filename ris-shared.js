@@ -196,7 +196,7 @@ function fetchBookRoom(tabletKey, roomEmail, roomName, subject, startISO, endISO
   })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      if (d.error) throw new Error(d.error);
+      if (d.error) throw new Error(d.error + (d.detail ? ' | ' + d.detail : '') + (d.status ? ' (HTTP '+d.status+')' : ''));
       return d;
     })
     .catch(function(e) { throw e; });
