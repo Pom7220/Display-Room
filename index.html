@@ -406,7 +406,7 @@ if('serviceWorker' in navigator){
 <body>
 
 <!-- CONFIG SCREEN -->
-<div id="config-screen">
+<div id="config-screen" class="hidden" style="display:none">
   <div class="cfg-logo">⬡ Room Display</div>
   <div class="cfg-title">Setup</div>
   <div class="cfg-sub">Meeting Room Kiosk — Configuration</div>
@@ -505,7 +505,7 @@ if('serviceWorker' in navigator){
 </div>
 
 <!-- Sticky save bar - always visible at bottom of config screen -->
-<div id="cfg-sticky-bar" style="position:fixed;bottom:0;left:0;right:0;padding:12px 20px;background:#0a0a12;border-top:2px solid #2979ff;z-index:1001;">
+<div id="cfg-sticky-bar" class="hidden" style="display:none;position:fixed;bottom:0;left:0;right:0;padding:12px 20px;background:#0a0a12;border-top:2px solid #2979ff;z-index:1001;">
   <button style="display:block;width:100%;padding:16px;background:#2979ff;border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;" onclick="saveConfig()">Save &amp; Launch Display</button>
 </div>
 
@@ -2960,7 +2960,7 @@ if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
 </div>
 
 <!-- FULLSCREEN TAP OVERLAY — tap anywhere to enter fullscreen, no PIN needed -->
-<div id="fs-overlay" onclick="doFullscreen();this.style.display='none';">
+<div id="fs-overlay" style="display:none" onclick="doFullscreen();this.style.display='none';">
   <div class="fs-icon">&#9974;</div>
   <div class="fs-title">Tap anywhere to continue</div>
   <div class="fs-sub" style="max-width:320px;line-height:1.8;">
