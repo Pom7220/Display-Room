@@ -372,6 +372,12 @@ const SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','Us
 // ROOMS loaded from ris-shared.js as RIS_ROOMS
 const ROOMS = RIS_ROOMS;
 
+// Admin panel variables — declared here to avoid TDZ when initDashboard() runs
+var adminVisible = false;
+var adminRefreshInterval = null;
+var _lastAnalyzedRooms = [];
+var adminKey = localStorage.getItem('ris_admin_key') || '';
+
 let msalInst=null, account=null, _token=null, _tokenExp=0, _redirectInProgress=false;
 let roomData={}, selectedRoom=null, selDurMin=60, bookStart=null;
 
@@ -852,11 +858,7 @@ initDashboard();          // Admin panel (separate section)
 // ADMIN PANEL — remote monitoring
 // ══════════════════════════════════════
 const MONITOR_URL = 'https://ris-display.ris-display.workers.dev/api/';
-let adminVisible = false;
-let adminRefreshInterval = null;
-let _lastAnalyzedRooms = [];
-
-let adminKey = localStorage.getItem('ris_admin_key') || '';
+// admin vars declared below at top of script
 
 function toggleAdmin() {
   // If turning ON admin, check for key first
