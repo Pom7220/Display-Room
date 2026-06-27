@@ -1530,14 +1530,14 @@ function launch(){
 // ══════════════════════════════════════
 function startMonitoring(){
   if(!cfg.roomemail)return;
-  dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 30s');
+  // log moved below after _hbMins is defined
 
   // Initial heartbeat after 30 seconds (let app settle)
   setTimeout(sendHeartbeat,30000);
   // Heartbeat interval: configurable via cfg.heartbeatMins (default 20)
   var _hbMins=(cfg.heartbeatMins&&cfg.heartbeatMins>=5&&cfg.heartbeatMins<=60)?cfg.heartbeatMins:20;
   setInterval(sendHeartbeat,_hbMins*60*1000);
-  dbg('Heartbeat interval: '+_hbMins+'min');
+  dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 30s');
 
   // Poll for commands every 30s
   setTimeout(pollCommand,15000);
