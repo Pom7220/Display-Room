@@ -264,7 +264,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.0 (2026-06-28)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.1 (2026-06-28)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -978,14 +978,12 @@ function renderAdminRooms(rooms) {
     roomIdx++;
     const r = roomMap[ris.email] || null;
     const isOnline = r && r.isOnline;
-    const needsAuth = r && (r.status === 'no_auth' || r.status === 'token_expired_no_refresh');
+    const needsAuth = false; // removed: proxy auth handles this
     const needsTap = r && isOnline && r.launchMode === 'browser';
     const dotColor = !r ? '#555' : (isOnline ? (needsAuth ? '#ff9500' : '#00d68f') : '#ff3333');
     const statusText = !r ? 'No heartbeat' :
-      (isOnline ? (r.status === 'reauth_redirect' ? '⚠ Redirected to Azure login' :
-        'Online — ' + r.status) : 'Offline (' + r.lastSeenMinutes + 'm ago)');
-    const tokenText = !r ? '' :
-      (r.hasRefreshToken ? '🔑 ' + (r.tokenMinsLeft > 0 ? r.tokenMinsLeft + 'm' : 'expired') + ' ✓' : '⚠ No token');
+      (isOnline ? 'Online — ' + r.status : 'Offline (' + r.lastSeenMinutes + 'm ago)');
+    const tokenText = ''; // removed: proxy auth — no token status needed
     const modeText = !r ? '' :
       (r.launchMode === 'pwa' ? '📱 PWA' : r.launchMode === 'fullscreen' ? '⛶ FS' : '🌐 Browser');
     const versionText = r ? 'v' + r.version : '';
@@ -1024,10 +1022,6 @@ function renderAdminRooms(rooms) {
     var fixLabel = null;
     if (!r || !r.isOnline) {
       fixCmd = 'reload'; fixLabel = '↻ Fix';
-    } else if (r.status === 'reauth_redirect') {
-      fixCmd = 're_auth_remote'; fixLabel = '🔐 Fix';
-    } else if (needsAuth) {
-      fixCmd = 're_auth_remote'; fixLabel = '🔐 Fix';
     } else if (needsTap) {
       fixCmd = 'auto_tap'; fixLabel = '👆 Fix';
     }
@@ -1164,12 +1158,12 @@ function renderSmartActions(rooms) {
   const container = document.getElementById('adm-smart-actions');
   if (!container) return;
 
-  const issues = { needsFullscreen: [], needsReauth: [], needsReload: [], offlineLong: [] };
+  const issues = { needsFullscreen: [], needsReload: [], offlineLong: [], healthy: [] };
   RIS_ROOMS.forEach(function(ris) {
     const r = rooms.find(function(rm) { return rm.room === ris.email; });
     if (!r) return;
     if (!r.isOnline && r.lastSeenMinutes > 60) { issues.offlineLong.push(ris); return; }
-    if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') { issues.needsReauth.push(ris); return; }
+
     if (r.launchMode === 'browser') { issues.needsFullscreen.push(ris); return; }
     if ((r.log || []).join(' ').toLowerCase().indexOf('meet in touch') > -1) issues.needsReload.push(ris);
   });
@@ -1178,7 +1172,6 @@ function renderSmartActions(rooms) {
     '<button class="adm-refresh-btn" style="background:#7b1fa2" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">👆 Auto-tap all</button>' +
     '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>' +
     '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'all\')">↻ Reload all</button>' +
-    '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">🔐 Re-auth all</button>' +
     '</div>';
 
   if (issues.needsFullscreen.length > 0) {
@@ -1187,12 +1180,7 @@ function renderSmartActions(rooms) {
       issues.needsFullscreen.map(function(r) { return r.name; }).join(', ') +
       ' <button style="margin-left:8px;padding:2px 8px;background:var(--green);color:#000;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">Fix all</button></div>';
   }
-  if (issues.needsReauth.length > 0) {
-    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
-      '<span style="color:var(--red);font-weight:700">🔐 AUTH EXPIRED</span> — ' +
-      issues.needsReauth.map(function(r) { return r.name; }).join(', ') +
-      ' <button style="margin-left:8px;padding:2px 8px;background:var(--red);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">Fix remotely</button></div>';
-  }
+
   if (issues.offlineLong.length > 0) {
     html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
       '<span style="color:var(--red);font-weight:700">⚫ OFFLINE >1HR</span> — ' +
@@ -1325,7 +1313,6 @@ function analyzeRooms(rooms) {
     needsReload: [],
     offlineLong: [],
     offlineRecent: [],
-    tokenExpiring: [],
     healthy: []
   };
 
@@ -1345,8 +1332,6 @@ function analyzeRooms(rooms) {
       issues.needsFullscreen.push(ris);
     } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
       issues.needsReload.push(ris);
-    } else if (r.tokenMinsLeft > 0 && r.tokenMinsLeft < 10) {
-      issues.tokenExpiring.push(ris);
     } else {
       issues.healthy.push(ris);
     }
