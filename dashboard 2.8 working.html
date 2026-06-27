@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a0a12">
 <title>RIS Rooms</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="ris-shared.js?v=13">
+<script src="ris-shared.js?v=12">
 </script>
 <script src="msal-v1.min.js">
 </script>
@@ -178,7 +178,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .adm-stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
 .adm-section{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
 .adm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
-.adm-room{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;position:relative;;min-width:0;overflow:hidden}
+.adm-room{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;position:relative;}
 .adm-room-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;}
 .adm-room-status{font-size:10px;margin-bottom:2px;}
 .adm-room-meta{font-size:9px;color:var(--hint);line-height:1.5;}
@@ -264,7 +264,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.1 (2026-06-28)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.8 (2026-06-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -322,32 +322,31 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 <!-- ADMIN PANEL -->
 <div id="admin-panel">
   <div class="adm-refresh">
-    <button class="adm-refresh-btn" id="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh</button>
+    <button class="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh status</button>
     <span class="adm-last" id="adm-last-refresh">—</span>
-    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 30s</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 60s</span>
   </div>
 
   <div class="adm-stats">
     <div class="adm-stat"><div class="adm-stat-n" id="adm-online" style="color:var(--green)">—</div><div class="adm-stat-l">Online</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-offline" style="color:var(--red)">—</div><div class="adm-stat-l">Offline</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Issues today</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Open issues</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg resolve</div></div>
   </div>
 
-  <div id="adm-smart-actions" style="margin-bottom:12px"></div>
+  <div id="adm-smart-actions" style="margin-bottom:16px"></div>
 
-  <div class="adm-section">Lobby — rooms 1–6</div>
-  <div class="adm-grid" id="adm-room-grid-lobby"><div class="adm-empty">Loading…</div></div>
-
-  <div class="adm-section">In-office — rooms 7–12</div>
-  <div class="adm-grid" id="adm-room-grid-office"><div class="adm-empty">Loading…</div></div>
+  <div class="adm-section">Tablet health — 12 rooms</div>
+  <div class="adm-grid" id="adm-room-grid">
+    <div class="adm-empty">Loading status…</div>
+  </div>
 
   <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Recent incidents <button style="padding:3px 10px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveAllIncidents()">✓ Resolve all</button></div>
   <div class="adm-incidents" id="adm-incident-list">
     <div class="adm-empty">Loading incidents…</div>
   </div>
 
-  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Daily reports <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Now</button></div>
+  <div class="adm-section">Daily reports (last 7 days)</div>
   <div id="adm-reports">
     <div class="adm-empty">Loading reports…</div>
   </div>
@@ -371,12 +370,6 @@ const SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','Us
 
 // ROOMS loaded from ris-shared.js as RIS_ROOMS
 const ROOMS = RIS_ROOMS;
-
-// Admin panel variables — declared here to avoid TDZ when initDashboard() runs
-var adminVisible = false;
-var adminRefreshInterval = null;
-var _lastAnalyzedRooms = [];
-var adminKey = localStorage.getItem('ris_admin_key') || '';
 
 let msalInst=null, account=null, _token=null, _tokenExp=0, _redirectInProgress=false;
 let roomData={}, selectedRoom=null, selDurMin=60, bookStart=null;
@@ -415,9 +408,12 @@ function initMsal(){
         redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
+    // Handle redirect response (returning from Microsoft login)
     msalInst.handleRedirectCallback(function(err,resp){
-      _redirectInProgress=false;
+      _redirectInProgress=false; // always clear on return from Azure
       if(err){
+        console.warn('Redirect error:',err);
+        // interaction_required on prompt:none → show sign-in bar, don't loop
         const code=(err.errorCode||err.errorMessage||'').toLowerCase();
         if(code.indexOf('interaction_required')>-1||code.indexOf('login_required')>-1||
            code.indexOf('50196')>-1||code.indexOf('loop')>-1){
@@ -427,6 +423,7 @@ function initMsal(){
       }
       if(resp&&resp.account){
         account=resp.account;
+        // Save login hint — use JWT decode for reliability (account.username undefined on some browsers)
         var hint=getEmailFromJWT(resp.accessToken)||account.userName||account.username||'';
         if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
         if(resp.accessToken){
@@ -438,33 +435,12 @@ function initMsal(){
       }
     });
     account=msalInst.getAccount();
+    // Save hint if already signed in
     if(account){
       var hint=account.userName||account.username||'';
       if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
     }
   }catch(e){console.warn('MSAL init:',e);}
-}
-
-function startDashboardKeepalive(){
-  setInterval(async function(){
-    if(!account||!msalInst)return;
-    try{
-      const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
-      _token=r.accessToken;
-      _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
-    }catch(e){
-      const code=e?.errorCode||'';
-      if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
-        showSignInBar();
-      }
-    }
-  },2700000);
-}
-
-function initDashboard(){
-  // Admin panel only — room display uses initMsal() separately
-  refreshAdmin();
-  adminRefreshInterval = setInterval(refreshAdmin, 30000);
 }
 
 // Decode email from access token JWT — reliable on all browsers
@@ -491,7 +467,23 @@ function doSignIn(){
 
 // Session keepalive — same as kiosk v3.10.5
 // Pings acquireTokenSilent every 45 min to prevent Azure AD session timeout
-
+function startDashboardKeepalive(){
+  setInterval(async function(){
+    if(!account||!msalInst)return;
+    try{
+      const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
+      _token=r.accessToken;
+      _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
+      console.log('Dashboard keepalive OK — session renewed');
+    }catch(e){
+      const code=e?.errorCode||'';
+      console.warn('Dashboard keepalive failed:',code);
+      if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
+        showSignInBar();
+      }
+    }
+  },2700000); // 45 minutes
+}
 
 async function getToken(){
   if(_token&&_tokenExp>Date.now()+120000)return _token;
@@ -535,26 +527,16 @@ async function getToken(){
   }
 }
 
-// Fetch room data directly from MS Graph using MSAL token
+// ES6 wrapper around shared fetchCalendarForRoom + deriveRoomStatus
 async function fetchRoom(room, tok){
   if(!tok) return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
   const now = new Date();
   const s = new Date(now); s.setHours(0,0,0,0);
   const e = new Date(now); e.setHours(23,59,59,999);
   try{
-    // Dashboard calls MS Graph DIRECTLY with MSAL token — bypasses Worker proxy
-    // ris-shared.js fetchCalendarForRoom now routes via Worker, so we call Graph here
-    const url = 'https://graph.microsoft.com/v1.0/users/'
-      + encodeURIComponent(room.email)
-      + '/calendarView'
-      + '?startDateTime=' + s.toISOString()
-      + '&endDateTime=' + e.toISOString()
-      + '&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled'
-      + '&$orderby=start/dateTime&$top=60';
-    const resp = await fetch(url, {headers: {Authorization: 'Bearer ' + tok}});
-    if(!resp.ok) return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
-    const data = await resp.json();
-    const meetings = filterMeetings(data.value || []);
+    // fetchCalendarForRoom from ris-shared.js — returns filtered, sorted meetings array
+    const meetings = await fetchCalendarForRoom(room.email, tok, s.toISOString(), e.toISOString());
+    // deriveRoomStatus from ris-shared.js — same logic as kiosk getCur/getNext
     const derived = deriveRoomStatus(meetings);
     return {
       status: derived.status,
@@ -571,9 +553,9 @@ async function fetchRoom(room, tok){
 
 async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
+  // Show spinner on refresh button during fetch
   var refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
-  // Dashboard pulls directly from MS Graph via MSAL — independent of tablet key
   const tok = await getToken();
   const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
   ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
@@ -818,7 +800,8 @@ function buildDashTimeSlots(){
 
 function openBookModal(){
   if(!selectedRoom)return;
-  // Phase 4: no MSAL check needed — booking goes via Worker proxy
+  initMsal();
+  if(!account){show('auth-overlay');return;}
   selDurMin=60;
   el('book-name').value='';el('book-email').value='';el('book-title').value='';
   el('modal-room-name').textContent=`Book ${selectedRoom.name}`;
@@ -863,16 +846,9 @@ async function confirmBooking(){
   if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
   const s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
 
-  // ── CONFLICT CHECK — fetch room calendar directly from Graph with MSAL token ──
+  // ── CONFLICT CHECK — fetch room calendar for requested slot ──
   try{
-    const conflictUrl='https://graph.microsoft.com/v1.0/users/'
-      +encodeURIComponent(selectedRoom.email)
-      +'/calendarView?startDateTime='+s.toISOString()
-      +'&endDateTime='+e.toISOString()
-      +'&$select=subject,start,end,showAs,isCancelled&$top=20';
-    const conflictResp=await fetch(conflictUrl,{headers:{Authorization:'Bearer '+tok}});
-    const conflictData=conflictResp.ok?await conflictResp.json():{value:[]};
-    const existing=filterMeetings(conflictData.value||[]);
+    const existing=await fetchCalendarForRoom(selectedRoom.email,tok,s.toISOString(),e.toISOString());
     const conflict=existing.find(function(m){
       // Check overlap: meeting starts before our end AND ends after our start
       return !m.isPending&&(m.end-m.start)<86399000&&m.start<e&&m.end>s;
@@ -889,32 +865,46 @@ async function confirmBooking(){
     console.warn('Conflict check failed:',err.message);
   }
 
-  // Phase 4: booking via Worker proxy — no MSAL token needed
+  let tz='Asia/Bangkok';
+  try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch{}
   try{
-    const r=await fetch(MONITOR_URL.replace('/api/','') + '/api/book',{
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{
       method:'POST',
-      headers:{'Content-Type':'application/json','X-Admin-Key':adminKey},
+      headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},
       body:JSON.stringify({
-        room:selectedRoom.email,
-        roomName:selectedRoom.name,
         subject:title,
-        start:localISO(s),
-        end:localISO(e),
-        organizerName:name,
-        organizerEmail:email
+        body:{contentType:'text',content:`Booked by ${name} (${email}) via RIS Room Dashboard.`},
+        start:{dateTime:localISO(s),timeZone:tz},
+        end:{dateTime:localISO(e),timeZone:tz},
+        attendees:[
+          {emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'resource'},
+          {emailAddress:{address:email,name:name},type:'required'}
+        ],
+        isOnlineMeeting:false
       })
     });
     btn.disabled=false;
     el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
-    const rd=await r.json();
-    if(!r.ok||rd.error){toast('Booking failed: '+(rd.error||r.status),'error');}
-    else{closeBookModal();toast('✓ Booked! Invitation sent to '+email,'success');setTimeout(fetchAllRooms,3000);}
+    if(!r.ok){const er=await r.json();toast('Booking failed: '+(er.error?.message||r.status),'error');}
+    else{closeBookModal();toast(`✓ Booked! Invitation sent to ${email}`,'success');setTimeout(fetchAllRooms,3000);}
   }catch(err){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Error: '+err.message,'error');}
 }
 
 el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))closeBookModal();});
 
-// Dashboard startup
+// ── IFRAME GUARD ──
+// Silent iframe renewal loads this page in a hidden iframe.
+// Only init MSAL to process the redirect hash, skip everything else.
+if(window!==window.top){
+  try{
+    new Msal.UserAgentApplication({
+      auth:{clientId:CLIENT,authority:'https://login.microsoftonline.com/'+TENANT,
+        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+  }catch(e){}
+}else{
+
 startClock();
 initMsal();
 
@@ -926,16 +916,19 @@ if(!account){
   fetchAllRooms();
   startDashboardKeepalive();
 }
-setInterval(fetchAllRooms, 60000);
+setInterval(fetchAllRooms,60000);
 
-initDashboard();  // Admin panel
+} // end normal boot
 
 
 // ══════════════════════════════════════
 // ADMIN PANEL — remote monitoring
 // ══════════════════════════════════════
 const MONITOR_URL = 'https://ris-display.ris-display.workers.dev/api/';
-// admin vars declared below at top of script
+let adminVisible = false;
+let adminRefreshInterval = null;
+
+let adminKey = localStorage.getItem('ris_admin_key') || '';
 
 function toggleAdmin() {
   // If turning ON admin, check for key first
@@ -960,8 +953,7 @@ function toggleAdmin() {
     btn.textContent = 'ROOMS';
     if (mainContent) mainContent.style.display = 'none';
     refreshAdmin();
-    adminRefreshInterval = setInterval(refreshAdmin, 30000);
-
+    adminRefreshInterval = setInterval(refreshAdmin, 60000);
   } else {
     panel.classList.remove('visible');
     btn.classList.remove('active');
@@ -972,132 +964,108 @@ function toggleAdmin() {
 }
 
 async function refreshAdmin() {
-  const btn = document.getElementById('adm-refresh-btn');
-  if (btn) { btn.textContent = '↻ Refreshing...'; btn.disabled = true; }
   try {
-    // Fetch status + incidents in parallel
-    const [statusResp, incResp] = await Promise.all([
-      fetch(MONITOR_URL + 'status'),
-      fetch(MONITOR_URL + 'incidents?limit=50', {headers: {'X-Admin-Key': adminKey}})
-    ]);
+    // Fetch room status
+    const statusResp = await fetch(MONITOR_URL + 'status');
+    const statusData = await statusResp.json();
+
+    // Fetch incidents
+    const incResp = await fetch(MONITOR_URL + 'incidents?limit=30', {
+      headers: {'X-Admin-Key': adminKey}
+    });
     if (incResp.status === 401) {
       adminKey = '';
       localStorage.removeItem('ris_admin_key');
-      document.getElementById('adm-room-grid-lobby').innerHTML =
+      document.getElementById('adm-room-grid').innerHTML =
         '<div class="adm-empty" style="color:var(--red)">Invalid admin key — tap ADMIN to re-enter</div>';
       return;
     }
-    const [statusData, incData] = await Promise.all([statusResp.json(), incResp.json()]);
+    const incData = await incResp.json();
 
     _lastAnalyzedRooms = statusData.rooms || [];
     renderAdminRooms(statusData.rooms || []);
     renderSmartActions(statusData.rooms || []);
-    renderAdminStats(statusData.rooms || [], incData.incidents || []);
+    renderAdminStats(statusData.rooms || [], incData.stats || {});
     renderAdminIncidents(incData.incidents || []);
     fetchReports();
 
     document.getElementById('adm-last-refresh').textContent =
       'Updated: ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   } catch (e) {
-    const g = document.getElementById('adm-room-grid-lobby');
-    if (g) g.innerHTML = '<div class="adm-empty" style="color:var(--red)">Error: ' + e.message + '</div>';
-  } finally {
-    if (btn) { btn.textContent = '↻ Refresh'; btn.disabled = false; }
+    document.getElementById('adm-room-grid').innerHTML =
+      '<div class="adm-empty" style="color:var(--red)">Error loading: ' + e.message + '</div>';
   }
 }
 
-function renderAdminStats(rooms, incidents) {
+function renderAdminStats(rooms, stats) {
   const online = rooms.filter(r => r.isOnline).length;
   const offline = rooms.length > 0 ? rooms.filter(r => !r.isOnline).length : 0;
+
   document.getElementById('adm-online').textContent = online;
   document.getElementById('adm-offline').textContent = offline;
-  // Count only today's open incidents
-  var bkk = new Date(Date.now() + 7*60*60*1000);
-  const today = bkk.toISOString().slice(0, 10);
-  const todayOpen = incidents.filter(i => !i.resolvedAt && (i.reportedAt || '').startsWith(today)).length;
-  document.getElementById('adm-incidents-open').textContent = todayOpen;
-  document.getElementById('adm-avg-resolve').textContent = '—';
+  document.getElementById('adm-incidents-open').textContent = stats.open || 0;
+
+  const avg = stats.avgResolutionMinutes;
+  document.getElementById('adm-avg-resolve').textContent =
+    avg > 0 ? (avg < 60 ? avg + 'm' : Math.round(avg/60) + 'h') : '—';
 }
 
 function renderAdminRooms(rooms) {
-  const lobbyGrid = document.getElementById('adm-room-grid-lobby');
-  const officeGrid = document.getElementById('adm-room-grid-office');
-  if (!lobbyGrid || !officeGrid) return;
+  const grid = document.getElementById('adm-room-grid');
 
+  // Build a map of rooms from heartbeat data
   const roomMap = {};
-  rooms.forEach(function(r) { roomMap[r.room] = r; });
+  rooms.forEach(r => { roomMap[r.room] = r; });
 
-  let lobbyHtml = '';
-  let officeHtml = '';
-  let roomIdx = 0;
-
-  RIS_ROOMS.forEach(function(ris) {
-    roomIdx++;
+  // Show all 12 RIS rooms (even if no heartbeat yet)
+  let html = '';
+  RIS_ROOMS.forEach(ris => {
     const r = roomMap[ris.email] || null;
     const isOnline = r && r.isOnline;
-    const needsAuth = false; // removed: proxy auth handles this
-    const needsTap = r && isOnline && r.launchMode === 'browser';
-    const dotColor = !r ? '#555' : (isOnline ? (needsAuth ? '#ff9500' : '#00d68f') : '#ff3333');
+    const dotColor = !r ? '#555' : (isOnline ? '#00d68f' : '#ff3333');
     const statusText = !r ? 'No heartbeat' :
       (isOnline ? 'Online — ' + r.status : 'Offline (' + r.lastSeenMinutes + 'm ago)');
-    const tokenText = ''; // removed: proxy auth — no token status needed
+    const tokenText = !r ? '' :
+      (r.hasRefreshToken ? '🔑 Token: ' + (r.tokenMinsLeft > 0 ? r.tokenMinsLeft + 'm left' : 'expired') + ' · refresh ✓'
+        : '⚠ No refresh token');
     const modeText = !r ? '' :
-      (r.launchMode === 'pwa' ? '📱 PWA' : r.launchMode === 'fullscreen' ? '⛶ FS' : '🌐 Browser');
+      (r.launchMode === 'pwa' ? '📱 PWA standalone' :
+       r.launchMode === 'fullscreen' ? '⛶ Fullscreen' :
+       '🌐 Browser mode (not PWA)');
     const versionText = r ? 'v' + r.version : '';
-    const uptimeText = r ? '⏱ ' + r.uptime + 'm' : '';
-    const logId = 'log-' + ris.name.toLowerCase().replace(/[^a-z]/g, '');
+    const uptimeText = r ? '⏱ ' + r.uptime + 'm uptime' : '';
+    const meetText = r ? '📅 ' + r.meetingCount + ' meetings' : '';
+    const lastLog = (r && r.log && r.log.length > 0) ? r.log[r.log.length - 1] : '';
 
-    // Show last meaningful log line in card meta
-    var lastLogLine = '';
-    if (r && r.log && r.log.length > 0) {
-      for (var li = r.log.length - 1; li >= 0; li--) {
-        var logLine = r.log[li] || '';
-        if (logLine.length > 5 && logLine.indexOf('Heartbeat') === -1) {
-          lastLogLine = logLine.substring(0, 50);
-          break;
-        }
-      }
-    }
-
-    var card = '<div class="adm-room">' +
+    html += '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
       '<div class="adm-room-name">' + ris.name + '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
-      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText].filter(Boolean).join(' · ') + '</div>' +
-      (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
+      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText, meetText].filter(Boolean).join('<br>') + '</div>';
 
+    // Log toggle
     if (r && r.log && r.log.length > 0) {
-      var filteredLog = r.log.filter(function(l) {
-        return l.indexOf('Cal:') === -1 && l.indexOf('showAs') === -1;
-      });
-      var logPreview = filteredLog.slice(-3).join('\n');
-      card += '<div class="adm-log" id="' + logId + '" style="font-size:9px;max-height:60px;overflow-y:auto;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap">' + logPreview + '</div>';
+      const logId = 'log-' + ris.name.toLowerCase();
+      html += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
     }
 
-    // Determine smart action based on room state
-    var fixCmd = null;
-    var fixLabel = null;
-    if (!r || !r.isOnline) {
-      fixCmd = 'reload'; fixLabel = '↻ Fix';
-    } else if (needsTap) {
-      fixCmd = 'auto_tap'; fixLabel = '👆 Fix';
-    }
+    // Action buttons
+    html += '<div class="adm-room-actions">' +
+      '<div class="adm-act reload" onclick="sendCmd(\'' + ris.email + '\',\'reload\')">↻ Reload</div>' +
+      '<div class="adm-act fullscreen" onclick="sendCmd(\'' + ris.email + '\',\'force_fullscreen\')">⛶ Fullscreen</div>' +
+      '<div class="adm-act clear" onclick="sendCmd(\'' + ris.email + '\',\'clear_tokens\')">🔑 Clear tokens</div>' +
+      '<div class="adm-act reauth" onclick="sendCmd(\'' + ris.email + '\',\'re_auth_remote\')">🔐 Re-auth</div>';
 
-    card += '<div class="adm-room-actions">';
-    if (fixCmd) {
-      card += '<div class="adm-act reauth" style="font-weight:700" onclick="sendCmd(\'' + ris.email + '\',\'' + fixCmd + '\')">' + fixLabel + '</div>';
-    }
+    // Log toggle button
     if (r && r.log && r.log.length > 0) {
-      card += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋</div>';
+      const logId = 'log-' + ris.name.toLowerCase();
+      html += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋 Log</div>';
     }
-    card += '</div></div>';
 
-    if (ris.zone === 'lobby') lobbyHtml += card;
-    else officeHtml += card;
+    html += '</div></div>';
   });
 
-  lobbyGrid.innerHTML = lobbyHtml || '<div class="adm-empty">No heartbeat yet</div>';
-  officeGrid.innerHTML = officeHtml || '<div class="adm-empty">No heartbeat yet</div>';
+  grid.innerHTML = html;
 }
 
 function renderAdminIncidents(incidents) {
@@ -1107,54 +1075,257 @@ function renderAdminIncidents(incidents) {
     return;
   }
 
-  // Group by day
-  const byDay = {};
-  var bkk = new Date(Date.now() + 7*60*60*1000);
-  const today = bkk.toISOString().slice(0, 10);
-  incidents.forEach(function(inc) {
-    const day = (inc.reportedAt || '').slice(0, 10);
-    if (!byDay[day]) byDay[day] = [];
-    byDay[day].push(inc);
-  });
-
-  // Sort days newest first, show last 7 days
-  const days = Object.keys(byDay).sort().reverse().slice(0, 7);
   let html = '';
-
-  days.forEach(function(day) {
-    const dayIncs = byDay[day];
-    const openCount = dayIncs.filter(function(i) { return !i.resolvedAt; }).length;
-    const label = day === today ? 'Today' : day;
-    html += '<div style="margin-bottom:10px">' +
-      '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;' +
-      'color:var(--muted);text-transform:uppercase;padding:3px 0;border-bottom:1px solid var(--border);margin-bottom:5px">' +
-      '<span>' + label + '</span>' +
-      '<span style="color:' + (openCount > 0 ? 'var(--red)' : 'var(--green)') + '">' +
-      openCount + ' open / ' + dayIncs.length + '</span></div>';
-
-    dayIncs.forEach(function(inc) {
-      const isOpen = !inc.resolvedAt;
-      const dotColor = isOpen ? '#ff3333' : '#00d68f';
-      const time = new Date(inc.reportedAt).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
-      const incKey = 'incident:' + (inc.reportedAt || '').slice(0, 10) + ':' + (inc.id || '');
-      const durHtml = isOpen
-        ? '<span class="adm-inc-dur open">OPEN</span>' +
-          '<button style="margin-left:4px;padding:2px 6px;background:rgba(0,214,143,.15);color:var(--green);' +
-          'border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;cursor:pointer" ' +
-          'onclick="resolveIncidentRemote(\'' + (inc.id||'') + '\',\'' + incKey + '\')">✓</button>'
-        : '<span class="adm-inc-dur resolved">' + (inc.durationMinutes || 0) + 'm</span>';
-
-      html += '<div class="adm-inc">' +
-        '<div class="adm-inc-dot" style="background:' + dotColor + '"></div>' +
-        '<div class="adm-inc-room">' + (inc.roomname || inc.room) + '</div>' +
-        '<div class="adm-inc-type">' + inc.type + '</div>' +
-        '<div class="adm-inc-time">' + time + durHtml + '</div>' +
-        '</div>';
+  incidents.forEach(inc => {
+    const isOpen = !inc.resolvedAt;
+    const dotColor = isOpen ? '#ff3333' : '#00d68f';
+    const time = new Date(inc.reportedAt).toLocaleString('en-US', {
+      month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
     });
-    html += '</div>';
+    const durHtml = isOpen
+      ? '<span class="adm-inc-dur open">OPEN</span><button style="margin-left:4px;padding:2px 8px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveIncidentRemote(\'' + (inc.id || '') + '\',\'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '') + '\')">✓ Resolve</button>'
+      : '<span class="adm-inc-dur resolved">' + (inc.durationMinutes || 0) + 'm</span>';
+
+    html += '<div class="adm-inc">' +
+      '<div class="adm-inc-dot" style="background:' + dotColor + '"></div>' +
+      '<div class="adm-inc-room">' + (inc.roomname || inc.room) + '</div>' +
+      '<div class="adm-inc-type">' + inc.type + (inc.detail ? ' — ' + inc.detail.substring(0, 40) : '') + '</div>' +
+      '<div class="adm-inc-time">' + time + durHtml + '</div>' +
+      '</div>';
   });
 
   list.innerHTML = html;
+}
+
+const _pendingCmds = {};
+async function sendCmd(room, command) {
+  const key = room + ':' + command;
+  if (_pendingCmds[key]) { showToast('Already pending...'); return; }
+  _pendingCmds[key] = true;
+  setTimeout(function() { delete _pendingCmds[key]; }, 10000);
+  if (!confirm('Send "' + command + '" to ' + room + '?')) return;
+  try {
+    const resp = await fetch(MONITOR_URL + 'command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({room, command, sentBy: 'admin-dashboard'})
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast('✓ ' + command);
+    } else {
+      delete _pendingCmds[key];
+      showToast('✗ ' + (data.error || 'Failed'), 'error');
+    }
+  } catch (e) {
+    delete _pendingCmds[key];
+    showToast('✗ ' + e.message, 'error');
+  }
+}
+
+function toggleLog(logId) {
+  const el = document.getElementById(logId);
+  if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+
+// ── SMART ISSUE DETECTION + BULK ACTIONS ──
+
+function analyzeRooms(rooms) {
+  const issues = {
+    needsFullscreen: [],
+    needsReauth: [],
+    needsReload: [],
+    offlineLong: [],
+    offlineRecent: [],
+    tokenExpiring: [],
+    healthy: []
+  };
+
+  RIS_ROOMS.forEach(ris => {
+    const r = rooms.find(rm => rm.room === ris.email);
+    if (!r) return; // no heartbeat yet — skip
+
+    const logText = (r.log || []).join(' ').toLowerCase();
+
+    if (!r.isOnline && r.lastSeenMinutes > 60) {
+      issues.offlineLong.push(ris);
+    } else if (!r.isOnline && r.lastSeenMinutes > 15) {
+      issues.offlineRecent.push(ris);
+    } else if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') {
+      issues.needsReauth.push(ris);
+    } else if (r.launchMode === 'browser' || (logText.indexOf('fullscreen denied') > -1 && !r.isFullscreen)) {
+      issues.needsFullscreen.push(ris);
+    } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
+      issues.needsReload.push(ris);
+    } else if (r.tokenMinsLeft > 0 && r.tokenMinsLeft < 10) {
+      issues.tokenExpiring.push(ris);
+    } else {
+      issues.healthy.push(ris);
+    }
+  });
+
+  return issues;
+}
+
+function renderSmartActions(rooms) {
+  const container = document.getElementById('adm-smart-actions');
+  if (!container) return;
+
+  const issues = analyzeRooms(rooms);
+  let html = '';
+
+  // Bulk actions bar
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  html += '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>';
+  html += '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'needsReload\')">↻ Reload all</button>';
+  html += '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth_remote\',\'all\')">🔐 Re-auth all</button>';
+  html += '</div>';
+
+  // Smart recommendations
+  if (issues.needsFullscreen.length > 0) {
+    html += '<div style="background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--green);font-weight:700">⛶ NOT FULLSCREEN</span> — ';
+    html += issues.needsFullscreen.map(r => r.name).join(', ');
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--green);color:#000;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">Fix all</button>';
+    html += '<div style="font-size:10px;color:var(--hint);margin-top:4px">Running in browser mode (not PWA). Fix: on tablet, Chrome menu → Add to Home Screen → reboot</div>';
+    html += '</div>';
+  }
+
+  if (issues.needsReauth.length > 0) {
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--red);font-weight:700">🔐 AUTH EXPIRED</span> — ';
+    html += issues.needsReauth.map(r => r.name).join(', ');
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--red);color:#fff;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">Fix remotely</button>';
+    html += '</div>';
+  }
+
+  if (issues.needsReload.length > 0) {
+    html += '<div style="background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--amber);font-weight:700">↻ NEEDS RELOAD</span> — ';
+    html += issues.needsReload.map(r => r.name).join(', ');
+    html += ' <button style="margin-left:8px;padding:3px 10px;background:var(--amber);color:#000;border:none;border-radius:4px;font-weight:600;font-size:11px;cursor:pointer" onclick="bulkCommand(\'reload\',\'needsReload\')">Fix all</button>';
+    html += '</div>';
+  }
+
+  if (issues.offlineLong.length > 0) {
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--red);font-weight:700">⚫ OFFLINE &gt;1 HOUR</span> — ';
+    html += issues.offlineLong.map(r => r.name).join(', ');
+    html += ' <span style="color:var(--muted);font-size:11px;margin-left:6px">⚠ Check power / WiFi physically</span>';
+    html += '</div>';
+  }
+
+  if (issues.offlineRecent.length > 0) {
+    html += '<div style="background:rgba(255,149,0,.06);border:1px solid rgba(255,149,0,.2);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--amber);font-weight:700">⏳ RECENTLY OFFLINE</span> — ';
+    html += issues.offlineRecent.map(r => r.name).join(', ');
+    html += ' <span style="color:var(--muted);font-size:11px;margin-left:6px">Waiting — may recover</span>';
+    html += '</div>';
+  }
+
+  if (issues.needsFullscreen.length === 0 && issues.needsReauth.length === 0 && 
+      issues.needsReload.length === 0 && issues.offlineLong.length === 0 && 
+      issues.offlineRecent.length === 0 && issues.healthy.length > 0) {
+    html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px">';
+    html += '<span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span> — ';
+    html += issues.healthy.length + ' rooms running normally';
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+let _lastAnalyzedRooms = [];
+
+async function bulkCommand(command, group) {
+  let targets = [];
+  
+  if (group === 'all') {
+    targets = RIS_ROOMS.filter(r => _lastAnalyzedRooms.find(rm => rm.room === r.email && rm.isOnline));
+  } else if (group === 'needsFullscreen' || group === 'needsReload' || group === 'needsReauth') {
+    const issues = analyzeRooms(_lastAnalyzedRooms);
+    targets = issues[group] || [];
+  }
+
+  if (targets.length === 0) {
+    showToast('No rooms need this action', 'warn');
+    return;
+  }
+
+  if (!confirm('Send "' + command + '" to ' + targets.length + ' rooms?')) return;
+
+  let sent = 0;
+  for (let i = 0; i < targets.length; i++) {
+    try {
+      const resp = await fetch(MONITOR_URL + 'command', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+        body: JSON.stringify({room: targets[i].email, command: command, sentBy: 'admin-bulk'})
+      });
+      if (resp.ok) sent++;
+    } catch(e) {}
+  }
+
+  showToast('✓ Sent "' + command + '" to ' + sent + '/' + targets.length + ' rooms');
+  setTimeout(refreshAdmin, 5000);
+}
+
+// ── DAILY REPORTS ──
+
+async function fetchReports() {
+  try {
+    const resp = await fetch(MONITOR_URL + 'reports?limit=7', {
+      headers: {'X-Admin-Key': adminKey}
+    });
+    if (resp.status === 401) return;
+    const data = await resp.json();
+    renderReports(data.reports || []);
+  } catch(e) {}
+}
+
+function renderReports(reports) {
+  const container = document.getElementById('adm-reports');
+  if (!container) return;
+
+  if (!reports.length) {
+    container.innerHTML = '<div class="adm-empty">No reports yet — first report generates at 20:00 today</div>';
+    return;
+  }
+
+  let html = '';
+  reports.forEach(rpt => {
+    const online = rpt.tabletsOnline || 0;
+    const deployed = rpt.tabletsDeployed || 0;
+    const inc = rpt.incidents || {};
+    const uptimeList = (rpt.rooms || []).map(r => 
+      (r.roomname || r.room.split('@')[0]) + ': ' + (r.uptime || 0) + 'm'
+    ).join(' · ');
+
+    html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    html += '<span style="font-size:14px;font-weight:700;color:#fff">' + rpt.date + '</span>';
+    
+    const allGood = (inc.open || 0) === 0 && online === deployed;
+    html += '<span style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600;' + 
+      (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">' + '✓ ALL GOOD' : 
+      'background:rgba(255,149,0,.15);color:var(--amber)">' + '⚠ ISSUES') + '</span>';
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;font-size:11px">';
+    html += '<div style="color:var(--muted)">Tablets: <span style="color:#fff;font-weight:600">' + online + '/' + deployed + '</span></div>';
+    html += '<div style="color:var(--muted)">Incidents: <span style="color:#fff;font-weight:600">' + (inc.total || 0) + '</span></div>';
+    html += '<div style="color:var(--muted)">Auto-fixed: <span style="color:var(--green);font-weight:600">' + (inc.autoResolved || 0) + '</span></div>';
+    html += '<div style="color:var(--muted)">Open: <span style="color:' + ((inc.open || 0) > 0 ? 'var(--red)' : 'var(--green)') + ';font-weight:600">' + (inc.open || 0) + '</span></div>';
+    html += '</div>';
+
+    if (uptimeList) {
+      html += '<div style="font-size:10px;color:var(--hint);margin-top:6px">Uptime: ' + uptimeList + '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
 }
 
 async function resolveIncidentRemote(incId, incKey) {
@@ -1209,243 +1380,6 @@ async function resolveAllIncidents() {
   }
   showToast('✓ Resolved ' + resolved + ' incidents');
   setTimeout(refreshAdmin, 1000);
-}
-
-function renderSmartActions(rooms) {
-  const container = document.getElementById('adm-smart-actions');
-  if (!container) return;
-
-  const issues = { needsFullscreen: [], needsReload: [], offlineLong: [], healthy: [] };
-  RIS_ROOMS.forEach(function(ris) {
-    const r = rooms.find(function(rm) { return rm.room === ris.email; });
-    if (!r) return;
-    if (!r.isOnline && r.lastSeenMinutes > 60) { issues.offlineLong.push(ris); return; }
-
-    if (r.launchMode === 'browser') { issues.needsFullscreen.push(ris); return; }
-    if ((r.log || []).join(' ').toLowerCase().indexOf('meet in touch') > -1) issues.needsReload.push(ris);
-  });
-
-  let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
-    '<button class="adm-refresh-btn" style="background:#7b1fa2" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">👆 Auto-tap all</button>' +
-    '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>' +
-    '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'all\')">↻ Reload all</button>' +
-    '</div>';
-
-  if (issues.needsFullscreen.length > 0) {
-    html += '<div style="background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
-      '<span style="color:var(--green);font-weight:700">⛶ NOT FULLSCREEN</span> — ' +
-      issues.needsFullscreen.map(function(r) { return r.name; }).join(', ') +
-      ' <button style="margin-left:8px;padding:2px 8px;background:var(--green);color:#000;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">Fix all</button></div>';
-  }
-
-  if (issues.offlineLong.length > 0) {
-    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
-      '<span style="color:var(--red);font-weight:700">⚫ OFFLINE >1HR</span> — ' +
-      issues.offlineLong.map(function(r) { return r.name; }).join(', ') + '</div>';
-  }
-  if (!issues.needsFullscreen.length && !issues.offlineLong.length && rooms.length > 0) {
-    html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:8px 12px;font-size:12px">' +
-      '<span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span></div>';
-  }
-  container.innerHTML = html;
-}
-
-async function bulkCommand(command, group) {
-  const issues = { needsFullscreen: [], needsReload: [], all: [] };
-  RIS_ROOMS.forEach(function(ris) {
-    const r = _lastAnalyzedRooms.find(function(rm) { return rm.room === ris.email; });
-    if (r && r.isOnline) issues.all.push(ris);
-    if (!r) return;
-
-    if (r.launchMode === 'browser') issues.needsFullscreen.push(ris);
-  });
-  const targets = issues[group] || issues.all;
-  if (!targets.length) { showToast('No rooms to target'); return; }
-  if (!confirm('Send "' + command + '" to ' + targets.length + ' rooms?')) return;
-  let sent = 0;
-  for (let i = 0; i < targets.length; i++) {
-    try {
-      const resp = await fetch(MONITOR_URL + 'command', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
-        body: JSON.stringify({room: targets[i].email, command: command, sentBy: 'admin-bulk'})
-      });
-      if ((await resp.json()).ok) sent++;
-    } catch(e) {}
-  }
-  showToast('✓ Sent to ' + sent + '/' + targets.length + ' rooms');
-  setTimeout(refreshAdmin, 3000);
-}
-
-async function fetchReports() {
-  try {
-    const resp = await fetch(MONITOR_URL + 'reports?limit=7', {headers: {'X-Admin-Key': adminKey}});
-    if (!resp.ok) return;
-    const data = await resp.json();
-    const container = document.getElementById('adm-reports');
-    if (!container) return;
-    const reports = data.reports || [];
-    if (!reports.length) {
-      container.innerHTML = '<div class="adm-empty">No reports yet — first generates at 19:30</div>';
-      return;
-    }
-    let html = '';
-    reports.forEach(function(rpt) {
-      const inc = rpt.incidents || {};
-      const allGood = (inc.open || 0) === 0;
-      html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px">' +
-        '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
-        '<span style="font-weight:700">' + rpt.date + '</span>' +
-        '<span style="font-size:11px;padding:2px 8px;border-radius:10px;' +
-        (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">✓ OK' : 'background:rgba(255,149,0,.15);color:var(--amber)">⚠ Issues') + '</span></div>' +
-        '<div style="font-size:11px;color:var(--muted)">Tablets: ' + (rpt.tabletsOnline||0) + '/' + (rpt.tabletsDeployed||0) +
-        ' · Incidents: ' + (inc.total||0) + ' · Open: ' + (inc.open||0) + '</div></div>';
-    });
-    container.innerHTML = html;
-  } catch(e) {}
-}
-
-
-async function generateReport() {
-  try {
-    const resp = await fetch(MONITOR_URL + 'reports/generate', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey}
-    });
-    const data = await resp.json();
-    if (data.ok) { showToast('✓ Report generated'); setTimeout(fetchReports, 1000); }
-    else showToast('✗ ' + (data.error||'Failed'), 'error');
-  } catch(e) { showToast('✗ ' + e.message, 'error'); }
-}
-
-
-const _pendingCmds = {};
-
-async function sendCmd(room, command) {
-  if (command === 're_auth_remote') { return sendReauth(room); }
-  const key = room + ':' + command;
-  if (_pendingCmds[key]) { showToast('Already pending...'); return; }
-  _pendingCmds[key] = true;
-  setTimeout(function() { delete _pendingCmds[key]; }, 10000);
-  try {
-    const resp = await fetch(MONITOR_URL + 'command', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
-      body: JSON.stringify({room: room, command: command, sentBy: 'admin-dashboard'})
-    });
-    const data = await resp.json();
-    if (data.ok) showToast('✓ ' + command + ' → ' + room.split('@')[0]);
-    else { delete _pendingCmds[key]; showToast('✗ ' + (data.error||'Failed'), 'error'); }
-  } catch(e) { delete _pendingCmds[key]; showToast('✗ ' + e.message, 'error'); }
-}
-
-async function sendReauth(room) {
-  const key = room + ':reauth';
-  if (_pendingCmds[key]) { showToast('Re-auth already in progress...'); return; }
-  _pendingCmds[key] = true;
-  const roomName = (RIS_ROOMS.find(function(r){return r.email===room;})||{}).name || room.split('@')[0];
-  showToast('🔐 Sending re-auth to ' + roomName + '...');
-  try {
-    const resp = await fetch(MONITOR_URL + 'command', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
-      body: JSON.stringify({room: room, command: 're_auth_remote', sentBy: 'admin-dashboard'})
-    });
-    const data = await resp.json();
-    if (!data.ok) {
-      delete _pendingCmds[key];
-      showToast('✗ Re-auth failed: ' + (data.error||'Unknown'), 'error');
-      return;
-    }
-    showToast('✓ Re-auth sent — auto-refresh in 15s');
-    setTimeout(function() { delete _pendingCmds[key]; refreshAdmin(); }, 15000);
-  } catch(e) { delete _pendingCmds[key]; showToast('✗ ' + e.message, 'error'); }
-}
-
-
-function analyzeRooms(rooms) {
-  const issues = {
-    needsFullscreen: [],
-
-    needsReload: [],
-    offlineLong: [],
-    offlineRecent: [],
-    healthy: []
-  };
-
-  RIS_ROOMS.forEach(ris => {
-    const r = rooms.find(rm => rm.room === ris.email);
-    if (!r) return; // no heartbeat yet — skip
-
-    const logText = (r.log || []).join(' ').toLowerCase();
-
-    if (!r.isOnline && r.lastSeenMinutes > 60) {
-      issues.offlineLong.push(ris);
-    } else if (!r.isOnline && r.lastSeenMinutes > 15) {
-      issues.offlineRecent.push(ris);
-    } else if (r.launchMode === 'browser' || (logText.indexOf('fullscreen denied') > -1 && !r.isFullscreen)) {
-      issues.needsFullscreen.push(ris);
-    } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
-      issues.needsReload.push(ris);
-    } else {
-      issues.healthy.push(ris);
-    }
-  });
-
-  return issues;
-}
-
-
-function renderReports(reports) {
-  const container = document.getElementById('adm-reports');
-  if (!container) return;
-
-  if (!reports.length) {
-    container.innerHTML = '<div class="adm-empty">No reports yet — first report generates at 20:00 today</div>';
-    return;
-  }
-
-  let html = '';
-  reports.forEach(rpt => {
-    const online = rpt.tabletsOnline || 0;
-    const deployed = rpt.tabletsDeployed || 0;
-    const inc = rpt.incidents || {};
-    const uptimeList = (rpt.rooms || []).map(r => 
-      (r.roomname || r.room.split('@')[0]) + ': ' + (r.uptime || 0) + 'm'
-    ).join(' · ');
-
-    html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-    html += '<span style="font-size:14px;font-weight:700;color:#fff">' + rpt.date + '</span>';
-    
-    const allGood = (inc.open || 0) === 0 && online === deployed;
-    html += '<span style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600;' + 
-      (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">' + '✓ ALL GOOD' : 
-      'background:rgba(255,149,0,.15);color:var(--amber)">' + '⚠ ISSUES') + '</span>';
-    html += '</div>';
-
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;font-size:11px">';
-    html += '<div style="color:var(--muted)">Tablets: <span style="color:#fff;font-weight:600">' + online + '/' + deployed + '</span></div>';
-    html += '<div style="color:var(--muted)">Incidents: <span style="color:#fff;font-weight:600">' + (inc.total || 0) + '</span></div>';
-    html += '<div style="color:var(--muted)">Auto-fixed: <span style="color:var(--green);font-weight:600">' + (inc.autoResolved || 0) + '</span></div>';
-    html += '<div style="color:var(--muted)">Open: <span style="color:' + ((inc.open || 0) > 0 ? 'var(--red)' : 'var(--green)') + ';font-weight:600">' + (inc.open || 0) + '</span></div>';
-    html += '</div>';
-
-    if (uptimeList) {
-      html += '<div style="font-size:10px;color:var(--hint);margin-top:6px">Uptime: ' + uptimeList + '</div>';
-    }
-
-    html += '</div>';
-  });
-
-  container.innerHTML = html;
-}
-
-
-
-function toggleLog(logId) {
-  var el = document.getElementById(logId);
-  if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
 }
 
 function showToast(msg, type) {

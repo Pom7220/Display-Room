@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a0a12">
 <title>RIS Rooms</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="ris-shared.js?v=13">
+<script src="ris-shared.js?v=12">
 </script>
 <script src="msal-v1.min.js">
 </script>
@@ -178,7 +178,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .adm-stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
 .adm-section{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
 .adm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
-.adm-room{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;position:relative;;min-width:0;overflow:hidden}
+.adm-room{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;position:relative;}
 .adm-room-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;}
 .adm-room-status{font-size:10px;margin-bottom:2px;}
 .adm-room-meta{font-size:9px;color:var(--hint);line-height:1.5;}
@@ -264,7 +264,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.1 (2026-06-28)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v2.9 (2026-06-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -324,7 +324,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   <div class="adm-refresh">
     <button class="adm-refresh-btn" id="adm-refresh-btn" onclick="refreshAdmin()">↻ Refresh</button>
     <span class="adm-last" id="adm-last-refresh">—</span>
-    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 30s</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--hint)">Auto-refresh: 60s</span>
   </div>
 
   <div class="adm-stats">
@@ -372,12 +372,6 @@ const SCOPES=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','Us
 // ROOMS loaded from ris-shared.js as RIS_ROOMS
 const ROOMS = RIS_ROOMS;
 
-// Admin panel variables — declared here to avoid TDZ when initDashboard() runs
-var adminVisible = false;
-var adminRefreshInterval = null;
-var _lastAnalyzedRooms = [];
-var adminKey = localStorage.getItem('ris_admin_key') || '';
-
 let msalInst=null, account=null, _token=null, _tokenExp=0, _redirectInProgress=false;
 let roomData={}, selectedRoom=null, selDurMin=60, bookStart=null;
 
@@ -415,9 +409,12 @@ function initMsal(){
         redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
+    // Handle redirect response (returning from Microsoft login)
     msalInst.handleRedirectCallback(function(err,resp){
-      _redirectInProgress=false;
+      _redirectInProgress=false; // always clear on return from Azure
       if(err){
+        console.warn('Redirect error:',err);
+        // interaction_required on prompt:none → show sign-in bar, don't loop
         const code=(err.errorCode||err.errorMessage||'').toLowerCase();
         if(code.indexOf('interaction_required')>-1||code.indexOf('login_required')>-1||
            code.indexOf('50196')>-1||code.indexOf('loop')>-1){
@@ -427,6 +424,7 @@ function initMsal(){
       }
       if(resp&&resp.account){
         account=resp.account;
+        // Save login hint — use JWT decode for reliability (account.username undefined on some browsers)
         var hint=getEmailFromJWT(resp.accessToken)||account.userName||account.username||'';
         if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
         if(resp.accessToken){
@@ -438,33 +436,12 @@ function initMsal(){
       }
     });
     account=msalInst.getAccount();
+    // Save hint if already signed in
     if(account){
       var hint=account.userName||account.username||'';
       if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
     }
   }catch(e){console.warn('MSAL init:',e);}
-}
-
-function startDashboardKeepalive(){
-  setInterval(async function(){
-    if(!account||!msalInst)return;
-    try{
-      const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
-      _token=r.accessToken;
-      _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
-    }catch(e){
-      const code=e?.errorCode||'';
-      if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
-        showSignInBar();
-      }
-    }
-  },2700000);
-}
-
-function initDashboard(){
-  // Admin panel only — room display uses initMsal() separately
-  refreshAdmin();
-  adminRefreshInterval = setInterval(refreshAdmin, 30000);
 }
 
 // Decode email from access token JWT — reliable on all browsers
@@ -491,7 +468,23 @@ function doSignIn(){
 
 // Session keepalive — same as kiosk v3.10.5
 // Pings acquireTokenSilent every 45 min to prevent Azure AD session timeout
-
+function startDashboardKeepalive(){
+  setInterval(async function(){
+    if(!account||!msalInst)return;
+    try{
+      const r=await msalInst.acquireTokenSilent({scopes:SCOPES,account});
+      _token=r.accessToken;
+      _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
+      console.log('Dashboard keepalive OK — session renewed');
+    }catch(e){
+      const code=e?.errorCode||'';
+      console.warn('Dashboard keepalive failed:',code);
+      if(code==='login_required'||code==='interaction_required'||code==='user_login_error'){
+        showSignInBar();
+      }
+    }
+  },2700000); // 45 minutes
+}
 
 async function getToken(){
   if(_token&&_tokenExp>Date.now()+120000)return _token;
@@ -535,26 +528,16 @@ async function getToken(){
   }
 }
 
-// Fetch room data directly from MS Graph using MSAL token
+// ES6 wrapper around shared fetchCalendarForRoom + deriveRoomStatus
 async function fetchRoom(room, tok){
   if(!tok) return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
   const now = new Date();
   const s = new Date(now); s.setHours(0,0,0,0);
   const e = new Date(now); e.setHours(23,59,59,999);
   try{
-    // Dashboard calls MS Graph DIRECTLY with MSAL token — bypasses Worker proxy
-    // ris-shared.js fetchCalendarForRoom now routes via Worker, so we call Graph here
-    const url = 'https://graph.microsoft.com/v1.0/users/'
-      + encodeURIComponent(room.email)
-      + '/calendarView'
-      + '?startDateTime=' + s.toISOString()
-      + '&endDateTime=' + e.toISOString()
-      + '&$select=subject,organizer,start,end,attendees,onlineMeeting,isOnlineMeeting,showAs,isCancelled'
-      + '&$orderby=start/dateTime&$top=60';
-    const resp = await fetch(url, {headers: {Authorization: 'Bearer ' + tok}});
-    if(!resp.ok) return {status:'unknown', meetings:[], cur:null, nxt:null, freeUntil:null};
-    const data = await resp.json();
-    const meetings = filterMeetings(data.value || []);
+    // fetchCalendarForRoom from ris-shared.js — returns filtered, sorted meetings array
+    const meetings = await fetchCalendarForRoom(room.email, tok, s.toISOString(), e.toISOString());
+    // deriveRoomStatus from ris-shared.js — same logic as kiosk getCur/getNext
     const derived = deriveRoomStatus(meetings);
     return {
       status: derived.status,
@@ -571,9 +554,9 @@ async function fetchRoom(room, tok){
 
 async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
+  // Show spinner on refresh button during fetch
   var refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
-  // Dashboard pulls directly from MS Graph via MSAL — independent of tablet key
   const tok = await getToken();
   const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
   ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
@@ -818,7 +801,8 @@ function buildDashTimeSlots(){
 
 function openBookModal(){
   if(!selectedRoom)return;
-  // Phase 4: no MSAL check needed — booking goes via Worker proxy
+  initMsal();
+  if(!account){show('auth-overlay');return;}
   selDurMin=60;
   el('book-name').value='';el('book-email').value='';el('book-title').value='';
   el('modal-room-name').textContent=`Book ${selectedRoom.name}`;
@@ -863,16 +847,9 @@ async function confirmBooking(){
   if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
   const s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
 
-  // ── CONFLICT CHECK — fetch room calendar directly from Graph with MSAL token ──
+  // ── CONFLICT CHECK — fetch room calendar for requested slot ──
   try{
-    const conflictUrl='https://graph.microsoft.com/v1.0/users/'
-      +encodeURIComponent(selectedRoom.email)
-      +'/calendarView?startDateTime='+s.toISOString()
-      +'&endDateTime='+e.toISOString()
-      +'&$select=subject,start,end,showAs,isCancelled&$top=20';
-    const conflictResp=await fetch(conflictUrl,{headers:{Authorization:'Bearer '+tok}});
-    const conflictData=conflictResp.ok?await conflictResp.json():{value:[]};
-    const existing=filterMeetings(conflictData.value||[]);
+    const existing=await fetchCalendarForRoom(selectedRoom.email,tok,s.toISOString(),e.toISOString());
     const conflict=existing.find(function(m){
       // Check overlap: meeting starts before our end AND ends after our start
       return !m.isPending&&(m.end-m.start)<86399000&&m.start<e&&m.end>s;
@@ -889,32 +866,46 @@ async function confirmBooking(){
     console.warn('Conflict check failed:',err.message);
   }
 
-  // Phase 4: booking via Worker proxy — no MSAL token needed
+  let tz='Asia/Bangkok';
+  try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch{}
   try{
-    const r=await fetch(MONITOR_URL.replace('/api/','') + '/api/book',{
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{
       method:'POST',
-      headers:{'Content-Type':'application/json','X-Admin-Key':adminKey},
+      headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},
       body:JSON.stringify({
-        room:selectedRoom.email,
-        roomName:selectedRoom.name,
         subject:title,
-        start:localISO(s),
-        end:localISO(e),
-        organizerName:name,
-        organizerEmail:email
+        body:{contentType:'text',content:`Booked by ${name} (${email}) via RIS Room Dashboard.`},
+        start:{dateTime:localISO(s),timeZone:tz},
+        end:{dateTime:localISO(e),timeZone:tz},
+        attendees:[
+          {emailAddress:{address:selectedRoom.email,name:selectedRoom.name},type:'resource'},
+          {emailAddress:{address:email,name:name},type:'required'}
+        ],
+        isOnlineMeeting:false
       })
     });
     btn.disabled=false;
     el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
-    const rd=await r.json();
-    if(!r.ok||rd.error){toast('Booking failed: '+(rd.error||r.status),'error');}
-    else{closeBookModal();toast('✓ Booked! Invitation sent to '+email,'success');setTimeout(fetchAllRooms,3000);}
+    if(!r.ok){const er=await r.json();toast('Booking failed: '+(er.error?.message||r.status),'error');}
+    else{closeBookModal();toast(`✓ Booked! Invitation sent to ${email}`,'success');setTimeout(fetchAllRooms,3000);}
   }catch(err){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Error: '+err.message,'error');}
 }
 
 el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))closeBookModal();});
 
-// Dashboard startup
+// ── IFRAME GUARD ──
+// Silent iframe renewal loads this page in a hidden iframe.
+// Only init MSAL to process the redirect hash, skip everything else.
+if(window!==window.top){
+  try{
+    new Msal.UserAgentApplication({
+      auth:{clientId:CLIENT,authority:'https://login.microsoftonline.com/'+TENANT,
+        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
+    });
+  }catch(e){}
+}else{
+
 startClock();
 initMsal();
 
@@ -926,16 +917,20 @@ if(!account){
   fetchAllRooms();
   startDashboardKeepalive();
 }
-setInterval(fetchAllRooms, 60000);
+setInterval(fetchAllRooms,60000);
 
-initDashboard();  // Admin panel
+} // end normal boot
 
 
 // ══════════════════════════════════════
 // ADMIN PANEL — remote monitoring
 // ══════════════════════════════════════
 const MONITOR_URL = 'https://ris-display.ris-display.workers.dev/api/';
-// admin vars declared below at top of script
+let adminVisible = false;
+let adminRefreshInterval = null;
+let _lastAnalyzedRooms = [];
+
+let adminKey = localStorage.getItem('ris_admin_key') || '';
 
 function toggleAdmin() {
   // If turning ON admin, check for key first
@@ -960,8 +955,7 @@ function toggleAdmin() {
     btn.textContent = 'ROOMS';
     if (mainContent) mainContent.style.display = 'none';
     refreshAdmin();
-    adminRefreshInterval = setInterval(refreshAdmin, 30000);
-
+    adminRefreshInterval = setInterval(refreshAdmin, 60000);
   } else {
     panel.classList.remove('visible');
     btn.classList.remove('active');
@@ -1012,8 +1006,7 @@ function renderAdminStats(rooms, incidents) {
   document.getElementById('adm-online').textContent = online;
   document.getElementById('adm-offline').textContent = offline;
   // Count only today's open incidents
-  var bkk = new Date(Date.now() + 7*60*60*1000);
-  const today = bkk.toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
   const todayOpen = incidents.filter(i => !i.resolvedAt && (i.reportedAt || '').startsWith(today)).length;
   document.getElementById('adm-incidents-open').textContent = todayOpen;
   document.getElementById('adm-avg-resolve').textContent = '—';
@@ -1035,12 +1028,13 @@ function renderAdminRooms(rooms) {
     roomIdx++;
     const r = roomMap[ris.email] || null;
     const isOnline = r && r.isOnline;
-    const needsAuth = false; // removed: proxy auth handles this
+    const needsAuth = r && (r.status === 'no_auth' || r.status === 'token_expired_no_refresh');
     const needsTap = r && isOnline && r.launchMode === 'browser';
     const dotColor = !r ? '#555' : (isOnline ? (needsAuth ? '#ff9500' : '#00d68f') : '#ff3333');
     const statusText = !r ? 'No heartbeat' :
       (isOnline ? 'Online — ' + r.status : 'Offline (' + r.lastSeenMinutes + 'm ago)');
-    const tokenText = ''; // removed: proxy auth — no token status needed
+    const tokenText = !r ? '' :
+      (r.hasRefreshToken ? '🔑 ' + (r.tokenMinsLeft > 0 ? r.tokenMinsLeft + 'm' : 'expired') + ' ✓' : '⚠ No token');
     const modeText = !r ? '' :
       (r.launchMode === 'pwa' ? '📱 PWA' : r.launchMode === 'fullscreen' ? '⛶ FS' : '🌐 Browser');
     const versionText = r ? 'v' + r.version : '';
@@ -1048,18 +1042,18 @@ function renderAdminRooms(rooms) {
     const logId = 'log-' + ris.name.toLowerCase().replace(/[^a-z]/g, '');
 
     // Show last meaningful log line in card meta
-    var lastLogLine = '';
+    let lastLogLine = '';
     if (r && r.log && r.log.length > 0) {
       for (var li = r.log.length - 1; li >= 0; li--) {
-        var logLine = r.log[li] || '';
-        if (logLine.length > 5 && logLine.indexOf('Heartbeat') === -1) {
-          lastLogLine = logLine.substring(0, 50);
+        const line = r.log[li] || '';
+        if (line.length > 5 && line.indexOf('Heartbeat') === -1) {
+          lastLogLine = line.substring(0, 50);
           break;
         }
       }
     }
 
-    var card = '<div class="adm-room">' +
+    let card = '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
       '<div class="adm-room-name">' + ris.name + '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
@@ -1067,25 +1061,18 @@ function renderAdminRooms(rooms) {
       (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
 
     if (r && r.log && r.log.length > 0) {
-      var filteredLog = r.log.filter(function(l) {
-        return l.indexOf('Cal:') === -1 && l.indexOf('showAs') === -1;
-      });
-      var logPreview = filteredLog.slice(-3).join('\n');
-      card += '<div class="adm-log" id="' + logId + '" style="font-size:9px;max-height:60px;overflow-y:auto;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap">' + logPreview + '</div>';
+      card += '<div class="adm-log" id="' + logId + '">' + r.log.join('\n') + '</div>';
     }
 
-    // Determine smart action based on room state
-    var fixCmd = null;
-    var fixLabel = null;
-    if (!r || !r.isOnline) {
-      fixCmd = 'reload'; fixLabel = '↻ Fix';
-    } else if (needsTap) {
-      fixCmd = 'auto_tap'; fixLabel = '👆 Fix';
+    card += '<div class="adm-room-actions">' +
+      '<div class="adm-act reload" onclick="sendCmd(\'' + ris.email + '\',\'reload\')">↻</div>';
+    if (needsTap) {
+      card += '<div class="adm-act fullscreen" onclick="sendCmd(\'' + ris.email + '\',\'auto_tap\')">👆 Tap</div>';
+    } else {
+      card += '<div class="adm-act fullscreen" onclick="sendCmd(\'' + ris.email + '\',\'force_fullscreen\')">⛶</div>';
     }
-
-    card += '<div class="adm-room-actions">';
-    if (fixCmd) {
-      card += '<div class="adm-act reauth" style="font-weight:700" onclick="sendCmd(\'' + ris.email + '\',\'' + fixCmd + '\')">' + fixLabel + '</div>';
+    if (needsAuth) {
+      card += '<div class="adm-act reauth" onclick="sendCmd(\'' + ris.email + '\',\'re_auth_remote\')">🔐 Re-auth</div>';
     }
     if (r && r.log && r.log.length > 0) {
       card += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋</div>';
@@ -1109,8 +1096,7 @@ function renderAdminIncidents(incidents) {
 
   // Group by day
   const byDay = {};
-  var bkk = new Date(Date.now() + 7*60*60*1000);
-  const today = bkk.toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
   incidents.forEach(function(inc) {
     const day = (inc.reportedAt || '').slice(0, 10);
     if (!byDay[day]) byDay[day] = [];
@@ -1215,12 +1201,12 @@ function renderSmartActions(rooms) {
   const container = document.getElementById('adm-smart-actions');
   if (!container) return;
 
-  const issues = { needsFullscreen: [], needsReload: [], offlineLong: [], healthy: [] };
+  const issues = { needsFullscreen: [], needsReauth: [], needsReload: [], offlineLong: [] };
   RIS_ROOMS.forEach(function(ris) {
     const r = rooms.find(function(rm) { return rm.room === ris.email; });
     if (!r) return;
     if (!r.isOnline && r.lastSeenMinutes > 60) { issues.offlineLong.push(ris); return; }
-
+    if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') { issues.needsReauth.push(ris); return; }
     if (r.launchMode === 'browser') { issues.needsFullscreen.push(ris); return; }
     if ((r.log || []).join(' ').toLowerCase().indexOf('meet in touch') > -1) issues.needsReload.push(ris);
   });
@@ -1229,6 +1215,7 @@ function renderSmartActions(rooms) {
     '<button class="adm-refresh-btn" style="background:#7b1fa2" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">👆 Auto-tap all</button>' +
     '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>' +
     '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'all\')">↻ Reload all</button>' +
+    '<button class="adm-refresh-btn" style="background:var(--red)" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">🔐 Re-auth all</button>' +
     '</div>';
 
   if (issues.needsFullscreen.length > 0) {
@@ -1237,13 +1224,18 @@ function renderSmartActions(rooms) {
       issues.needsFullscreen.map(function(r) { return r.name; }).join(', ') +
       ' <button style="margin-left:8px;padding:2px 8px;background:var(--green);color:#000;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">Fix all</button></div>';
   }
-
+  if (issues.needsReauth.length > 0) {
+    html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
+      '<span style="color:var(--red);font-weight:700">🔐 AUTH EXPIRED</span> — ' +
+      issues.needsReauth.map(function(r) { return r.name; }).join(', ') +
+      ' <button style="margin-left:8px;padding:2px 8px;background:var(--red);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="bulkCommand(\'re_auth_remote\',\'needsReauth\')">Fix remotely</button></div>';
+  }
   if (issues.offlineLong.length > 0) {
     html += '<div style="background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">' +
       '<span style="color:var(--red);font-weight:700">⚫ OFFLINE >1HR</span> — ' +
       issues.offlineLong.map(function(r) { return r.name; }).join(', ') + '</div>';
   }
-  if (!issues.needsFullscreen.length && !issues.offlineLong.length && rooms.length > 0) {
+  if (!issues.needsFullscreen.length && !issues.needsReauth.length && !issues.offlineLong.length && rooms.length > 0) {
     html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:8px 12px;font-size:12px">' +
       '<span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span></div>';
   }
@@ -1251,12 +1243,12 @@ function renderSmartActions(rooms) {
 }
 
 async function bulkCommand(command, group) {
-  const issues = { needsFullscreen: [], needsReload: [], all: [] };
+  const issues = { needsFullscreen: [], needsReauth: [], needsReload: [], all: [] };
   RIS_ROOMS.forEach(function(ris) {
     const r = _lastAnalyzedRooms.find(function(rm) { return rm.room === ris.email; });
     if (r && r.isOnline) issues.all.push(ris);
     if (!r) return;
-
+    if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') issues.needsReauth.push(ris);
     if (r.launchMode === 'browser') issues.needsFullscreen.push(ris);
   });
   const targets = issues[group] || issues.all;
@@ -1366,10 +1358,11 @@ async function sendReauth(room) {
 function analyzeRooms(rooms) {
   const issues = {
     needsFullscreen: [],
-
+    needsReauth: [],
     needsReload: [],
     offlineLong: [],
     offlineRecent: [],
+    tokenExpiring: [],
     healthy: []
   };
 
@@ -1383,10 +1376,14 @@ function analyzeRooms(rooms) {
       issues.offlineLong.push(ris);
     } else if (!r.isOnline && r.lastSeenMinutes > 15) {
       issues.offlineRecent.push(ris);
+    } else if (r.status === 'no_auth' || r.status === 'token_expired_no_refresh') {
+      issues.needsReauth.push(ris);
     } else if (r.launchMode === 'browser' || (logText.indexOf('fullscreen denied') > -1 && !r.isFullscreen)) {
       issues.needsFullscreen.push(ris);
     } else if (logText.indexOf('meet in touch') > -1 || logText.indexOf('chrome not foreground') > -1) {
       issues.needsReload.push(ris);
+    } else if (r.tokenMinsLeft > 0 && r.tokenMinsLeft < 10) {
+      issues.tokenExpiring.push(ris);
     } else {
       issues.healthy.push(ris);
     }

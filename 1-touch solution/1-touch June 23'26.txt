@@ -1,0 +1,1 @@
+VersionDeploy toris-boot-launcher-STABLE-v1.7.zipv1.7-stableGitHub → build APK → install on tabletsindex.htmlv3.10.22GitHub Pagessw.jsris-v3.10.22GitHub Pagesdashboard.htmlv2.7GitHub Pagesmsal-v1.min.jsv2.0 (PKCE)GitHub Pagesris-shared.jsv1.2GitHub Pagesmanifest.jsonCloudflare scopeGitHub Pagescloudflare-worker.jsv2.0Cloudflare editor (manual paste)

@@ -22,8 +22,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<script src="ris-shared.js?v=13"></script>
-<!-- Promise polyfill for Chrome 42 -->
+<script src="ris-shared.js?v=12"></script>
+<!-- Promise polyfill MUST load before msal-v1.min.js (Chrome 30 WebView) -->
 <script>
 if(typeof Promise==='undefined'){
   Promise=function(fn){
@@ -53,7 +53,7 @@ if(typeof Promise==='undefined'){
   };
 }
 </script>
-<!-- msal removed: Phase 4 uses Worker proxy auth -->
+<script src="msal-v1.min.js"></script>
 <!-- Polyfills for Chrome 42 / Android 4.4 -->
 <script>
 // Array.from polyfill
@@ -406,7 +406,7 @@ if('serviceWorker' in navigator){
 <body>
 
 <!-- CONFIG SCREEN -->
-<div id="config-screen" class="hidden" style="display:none">
+<div id="config-screen">
   <div class="cfg-logo">⬡ Room Display</div>
   <div class="cfg-title">Setup</div>
   <div class="cfg-sub">Meeting Room Kiosk — Configuration</div>
@@ -424,10 +424,6 @@ if('serviceWorker' in navigator){
     <div class="field"><label>Room Email (mailbox)</label><input type="text" id="cfg-roomemail" placeholder="rismacchiato@central.co.th"><div class="hint">Shared room mailbox in Exchange / M365</div></div>
     <div class="field"><label>Auto-release (min without check-in)</label>
       <select id="cfg-release"><option value="0">Disabled</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
-      <div class="cfg-label" style="margin-top:10px">Heartbeat interval <span style="color:var(--hint);font-size:10px">(5–60 min · default 20 · use 30 for 12 tablets)</span></div>
-      <select id="cfg-heartbeat-mins" class="cfg-input"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20" selected>20 min</option><option value="30">30 min</option><option value="60">60 min</option></select>
-      <div class="cfg-label" style="margin-top:10px">Tablet key <span style="color:var(--hint);font-size:10px">(same value as RIS_ADMIN_KEY in Cloudflare)</span></div>
-      <input class="cfg-input" id="cfg-tabletkey" type="text" placeholder="auto-filled via set_tablet_key command">
     </div>
   </div>
   <div class="cfg-card">
@@ -505,7 +501,7 @@ if('serviceWorker' in navigator){
 </div>
 
 <!-- Sticky save bar - always visible at bottom of config screen -->
-<div id="cfg-sticky-bar" class="hidden" style="display:none;position:fixed;bottom:0;left:0;right:0;padding:12px 20px;background:#0a0a12;border-top:2px solid #2979ff;z-index:1001;">
+<div id="cfg-sticky-bar" style="position:fixed;bottom:0;left:0;right:0;padding:12px 20px;background:#0a0a12;border-top:2px solid #2979ff;z-index:1001;">
   <button style="display:block;width:100%;padding:16px;background:#2979ff;border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;" onclick="saveConfig()">Save &amp; Launch Display</button>
 </div>
 
@@ -692,7 +688,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 40,
+  patch: 34,
   date: '2026-06-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1031,7 +1027,7 @@ function saveConfig(){
   dbg('saveConfig called');
   function v(id){return el(id).value.trim();}
   function b(id){return el(id).checked;}
-  dbg('saveConfig: room='+v('cfg-roomemail')+' key='+(v('cfg-tabletkey')?'set':'MISSING'));
+  dbg('tenant='+v('cfg-tenant').substring(0,8)+'... client='+v('cfg-client').substring(0,8)+'...');
   if(!v('cfg-tenant')||!v('cfg-client')||!v('cfg-roomname')||!v('cfg-roomemail')){alert('Fill in all required fields.');return;}
   if(b('cfg-booking')&&b('cfg-approval')&&!v('cfg-owner')){alert('Enter room owner email for approval.');return;}
   dbg('Validation passed, saving config...');
@@ -1042,23 +1038,12 @@ function saveConfig(){
     var em=roomRows[ri].querySelector('.rr-email').value.trim();
     if(nm&&em)extraRooms.push({name:nm,email:em});
   }
-  var hbMinsVal=parseInt(el('cfg-heartbeat-mins')?el('cfg-heartbeat-mins').value:20)||20;
-  if(hbMinsVal<5)hbMinsVal=5; if(hbMinsVal>60)hbMinsVal=60;
-  var tkVal=el('cfg-tabletkey')?el('cfg-tabletkey').value.trim():(cfg.tabletKey||'');
   cfg={tenant:v('cfg-tenant'),client:v('cfg-client'),roomname:v('cfg-roomname'),
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
-    extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false,
-    heartbeatMins:hbMinsVal,tabletKey:tkVal};
+    extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
-  // Phase 4: bypass MSAL — launch directly via Worker proxy
-  if(cfg.tabletKey){
-    dbg('tabletKey found — launching via Worker proxy');
-    launch();
-  } else {
-    dbg('No tabletKey — falling back to MSAL');
-    initMsal();
-  }
+  initMsal();
 }
 
 function showConfig(){
@@ -1071,8 +1056,6 @@ function showConfig(){
   if(cfg.roomname)el('cfg-roomname').value=cfg.roomname;
   if(cfg.roomemail)el('cfg-roomemail').value=cfg.roomemail;
   if(cfg.release!=null)el('cfg-release').value=cfg.release;
-  if(el('cfg-heartbeat-mins')&&cfg.heartbeatMins)el('cfg-heartbeat-mins').value=cfg.heartbeatMins;
-  if(el('cfg-tabletkey')&&cfg.tabletKey)el('cfg-tabletkey').value=cfg.tabletKey;
   el('cfg-booking').checked=cfg.booking!==false; // default ON
   el('cfg-approval').checked=!!cfg.approval;      // default OFF
   el('cfg-teams').checked=cfg.teamsBtn!==false;   // default ON
@@ -1308,23 +1291,6 @@ function doReauth(){
     }
   }catch(e){}
   dbg('doReauth loginHint: '+(loginHint||'EMPTY'));
-  // Send SYNCHRONOUS heartbeat before navigating away
-  // Must complete before Chrome navigates to Azure
-  try{
-    var hbXhr=new XMLHttpRequest();
-    hbXhr.open('POST',_monitorUrl+'heartbeat',false); // false = SYNCHRONOUS
-    hbXhr.setRequestHeader('Content-Type','application/json');
-    var hbData={
-      room:cfg.roomemail||'',roomname:cfg.roomname||'',
-      status:'reauth_redirect',version:APP_VERSION.label(),
-      launchMode:'browser',isFullscreen:false,
-      tokenMinsLeft:0,hasRefreshToken:false,
-      uptime:Math.round((Date.now()-_startTime)/60000),
-      meetingCount:0,log:dbgLines.slice(-5)
-    };
-    hbXhr.send(JSON.stringify(hbData));
-    dbg('Pre-redirect sync heartbeat sent');
-  }catch(e){dbg('Pre-redirect heartbeat failed: '+e.message);}
   try{localStorage.removeItem('roomdisplay_token');}catch(e){}
   // Clear ALL MSAL cache — removes personal accounts, only loginHint survives
   try{
@@ -1451,7 +1417,6 @@ function getToken(){
 
 // Proactive token refresh — check every 5 min, refresh if expiring within 20 min
 function startTokenRefreshTimer(){
-  if(cfg.tabletKey){dbg('Token refresh timer skipped — Worker proxy handles auth');return;}
   setInterval(function(){
     if(!account||!msalInst)return;
     var scopes=['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read'];
@@ -1504,7 +1469,7 @@ function startTokenRefreshTimer(){
 // LAUNCH
 // ══════════════════════════════════════
 function launch(){
-  hide('auth-overlay');hide('config-screen');hide('booking-modal');show('app');
+  hide('auth-overlay');show('app');
   var vt=el('ver-tag');if(vt)vt.textContent=APP_VERSION.label();
   var vc=el('ver-corner');if(vc)vc.textContent=APP_VERSION.label();
   el('cfg-sticky-bar').style.display='none';
@@ -1530,14 +1495,12 @@ function launch(){
 // ══════════════════════════════════════
 function startMonitoring(){
   if(!cfg.roomemail)return;
-  // log moved below after _hbMins is defined
+  dbg('Monitoring started — heartbeat every 20m, commands every 30s');
 
   // Initial heartbeat after 30 seconds (let app settle)
   setTimeout(sendHeartbeat,30000);
-  // Heartbeat interval: configurable via cfg.heartbeatMins (default 20)
-  var _hbMins=(cfg.heartbeatMins&&cfg.heartbeatMins>=5&&cfg.heartbeatMins<=60)?cfg.heartbeatMins:20;
-  setInterval(sendHeartbeat,_hbMins*60*1000);
-  dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 30s');
+  // Then every 20 minutes
+  setInterval(sendHeartbeat,1200000);
 
   // Poll for commands every 30s
   setTimeout(pollCommand,15000);
@@ -1557,8 +1520,7 @@ function getMonitorStatus(){
   }
 
   var status='ok';
-  if(window._reauthInProgress)status='reauth_redirect';
-  else if(!_cachedToken&&!hasRefresh)status='no_auth';
+  if(!_cachedToken&&!hasRefresh)status='no_auth';
   else if(_tokenExpiry>0&&_tokenExpiry<Date.now()&&!hasRefresh)status='token_expired_no_refresh';
   else if(_tokenExpiry>0&&_tokenExpiry<Date.now())status='token_expired';
 
@@ -1709,13 +1671,8 @@ function executeCommand(cmd){
     dbg('Auto-tap triggered');
   }
   else if(action==='re_auth'){
-    if(cfg.tabletKey){
-      // Worker proxy flow — admin should use re_auth_remote (ROPC) instead
-      dbg('re_auth ignored — using Worker proxy, no MSAL redirect');
-    } else {
-      reportIncident('remote_reauth','Admin triggered re-authentication',true);
-      doReauth();
-    }
+    reportIncident('remote_reauth','Admin triggered re-authentication',true);
+    doReauth();
   }
   else if(action==='inject_tokens'){
     dbg('inject_tokens received from Worker');
@@ -1740,18 +1697,6 @@ function executeCommand(cmd){
       setTimeout(sendHeartbeat,3000);
     } else {
       dbg('inject_tokens: no access_token in payload');
-    }
-  }
-  else if(action==='set_tablet_key'){
-    // Pre-seed tablet key before Phase 4 SW update
-    var newKey=cmd.value||'';
-    if(newKey){
-      try{
-        cfg.tabletKey=newKey;
-        localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
-        dbg('Tablet key stored in cfg: '+newKey.substring(0,4)+'***');
-        sendHeartbeat();
-      }catch(e){dbg('set_tablet_key failed: '+e.message);}
     }
   }
   else{
@@ -2008,16 +1953,17 @@ function startClock(){
 // CALENDAR FETCH — 7 days
 // ══════════════════════════════════════
 function fetchCal(){
-  var s=new Date();s.setHours(0,0,0,0);
-  var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
-  var tabletKey=cfg.tabletKey||'';
-  if(!tabletKey){
-    dbg('fetchCal: no tabletKey — check config screen');
-    setTimeout(fetchCal,10000);
-    return;
-  }
-  fetchCalendarForRoom(activeRoom.email,tabletKey,s.toISOString(),e.toISOString())
-  .then(function(filtered){
+  getToken().then(function(tok){
+    if(!tok){
+      // Token not ready yet — retry in 5 seconds
+      dbg('fetchCal: no token, retry in 5s');
+      setTimeout(fetchCal,5000);
+      return null;
+    }
+    var s=new Date();s.setHours(0,0,0,0);
+    var e=new Date();e.setDate(e.getDate()+7);e.setHours(23,59,59,999);
+    return fetchCalendarForRoom(activeRoom.email,tok,s.toISOString(),e.toISOString());
+  }).then(function(filtered){
     if(!filtered)return; // null from retry path or error
     meetings=filtered;
     // Debug — log showAs values to diagnose pending/free status on Macchiato
@@ -2459,20 +2405,37 @@ function confirmBooking(){
 }
 
 function createDirect(name,email,title,s,e,done){
-  var tabletKey=cfg.tabletKey||'';
-  if(!tabletKey){toast('Booking not available — tablet key not set','error');if(done)done();return;}
-  fetchBookRoom(tabletKey,activeRoom.email,activeRoom.name,title,localISO(s),localISO(e),name,email)
-  .then(function(d){
+  getToken().then(function(tok){
+    if(!tok){closeModal();if(done)done();return;}
+    var tz='Asia/Bangkok';
+    try{var t=Intl.DateTimeFormat().resolvedOptions().timeZone;if(t)tz=t;}catch(ex){}
+    var body={
+      subject:title,
+      body:{contentType:'text',content:'Booked by '+name+' ('+email+') from the RIS Room Display.'},
+      start:{dateTime:localISO(s),timeZone:tz},
+      end:{dateTime:localISO(e),timeZone:tz},
+      attendees:[
+        // Room as resource — Exchange auto-accepts/declines, conflict detection applies
+        {emailAddress:{address:activeRoom.email,name:activeRoom.name},type:'resource'},
+        // Requester as required attendee — receives meeting invitation
+        {emailAddress:{address:email,name:name},type:'required'}
+      ],
+      isOnlineMeeting:false
+    };
+    // POST to /me/events — resource booking approach
+    // Exchange processes room invite: auto-accepts if free, auto-declines if busy
+    return fetch('https://graph.microsoft.com/v1.0/me/events',
+      {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }).then(function(r){
+    if(!r)return;
+    if(!r.ok){return r.json().then(function(er){toast('Booking failed: '+((er.error&&er.error.message)||r.status),'error');closeModal();if(done)done();});}
     closeModal();toast('Room booked! Invitation sent to '+email,'success');
     meetings.push({id:'loc-'+Date.now(),title:title,organizer:name,start:s,end:e,attendees:1,isPending:false,joinUrl:null,isOnline:false});
     meetings.sort(function(a,b){return a.start-b.start;});
     updateCurrentCard();renderBadges();renderMeetList();
     setTimeout(fetchCal,6000);
     if(done)done();
-  }).catch(function(err){
-    toast('Booking failed: '+err.message,'error');
-    closeModal();if(done)done();
-  });
+  }).catch(function(err){toast('Error: '+err.message,'error');closeModal();if(done)done();});
 }
 
 function sendApproval(name,email,title,s,e,done){
@@ -2666,12 +2629,7 @@ function handleTap(e){
   if(upId(t,'err-settings-btn')){
     var btn=el('err-settings-btn');
     if(btn&&btn.getAttribute('data-action')==='reauth'){
-      if(cfg.tabletKey){
-        // Worker proxy flow — open config to re-enter tablet key
-        openPinOverlay();
-      } else {
-        doReauth();
-      }
+      doReauth();
     } else {
       openPinOverlay();
     }
@@ -2932,21 +2890,12 @@ loadCfg();
 })();
 // Restore debug state
 try{dbgEnabled=localStorage.getItem('roomdisplay_debug')==='1';}catch(e){}
-dbg('Boot check: room='+(cfg.roomemail||'MISSING')+
-  ' name='+(cfg.roomname||'MISSING')+
-  ' tabletKey='+(cfg.tabletKey?'ok':'MISSING')+
-  ' mode='+(cfg.tabletKey?'proxy':'msal'));
-if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
-  // Phase 4: Worker proxy flow — no MSAL needed
-  dbg('tabletKey found — launching via Worker proxy');
-  launch();
-} else if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail){
-  // Legacy MSAL flow — no tabletKey yet
-  dbg('No tabletKey — falling back to MSAL flow');
-  initMsal();
-} else {
-  showConfig();el('cfg-sticky-bar').style.display='block';
-}
+dbg('Boot check: tenant='+(cfg.tenant?'ok':'MISSING')+
+  ' client='+(cfg.client?'ok':'MISSING')+
+  ' roomname='+(cfg.roomname||'MISSING')+
+  ' roomemail='+(cfg.roomemail||'MISSING'));
+if(cfg.tenant&&cfg.client&&cfg.roomname&&cfg.roomemail)initMsal();
+else{showConfig();el('cfg-sticky-bar').style.display='block';}
 } // end normal boot
 </script>
 <!-- NEXT 5 DAYS SLIDE PANEL -->
@@ -2960,7 +2909,7 @@ if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
 </div>
 
 <!-- FULLSCREEN TAP OVERLAY — tap anywhere to enter fullscreen, no PIN needed -->
-<div id="fs-overlay" style="display:none" onclick="doFullscreen();this.style.display='none';">
+<div id="fs-overlay" onclick="doFullscreen();this.style.display='none';">
   <div class="fs-icon">&#9974;</div>
   <div class="fs-title">Tap anywhere to continue</div>
   <div class="fs-sub" style="max-width:320px;line-height:1.8;">

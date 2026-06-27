@@ -1,0 +1,167 @@
+A new approach - Moving from Client-Auth to a Proxy/BFF Architecture., with goal to "zero maintenance" goal i.e, no client session loss, Centralized debugging, remote auto-correction, no 1-touch needed each morning.
+
+
+
+Objectives
+
+
+
+1. Eliminate Token Expiration Loops: Move OAuth token management from the legacy tablet browser to the Cloudflare Worker using Azure Client Credentials (Application Permissions).
+
+2. Remove MSAL Dependency: Completely strip `msal-v1.min.js` from the frontend to fix compatibility and session persistence issues on older Android implementations.
+
+3. Secure the Architecture: Implement a static `X-Tablet-Key` validation system to protect the proxy endpoint.
+
+1. Cloudflare Worker Implementation (`cloudflare-worker.js`)
+
+Replace or update your Cloudflare Worker script with the following code. Ensure that `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `RIS_TABLET_KEY` are provisioned in your Worker’s environment variables.
+
+
+
+2. Shared Service Adjustments (`ris-shared.js`)
+
+Update the `fetchCalendarForRoom` function to target your running Cloudflare Worker proxy endpoint instead of calling Microsoft Graph directly from the browser. Keep the logic ES5-compliant for older Android runtimes. // ris-shared.js — Updated for Client Credentials Proxy Architecture
+
+// ES5 ONLY — Chrome 42 / Android 4.2 Compatible
+
+function fetchCalendarForRoom(email, tabletKey, startISO, endISO) {
+
+  var workerOrigin = window.location.origin;
+
+  var url = workerOrigin + '/api/calendar'
+
+    + '?room=' + encodeURIComponent(email)
+
+    + '&startDateTime=' + startISO
+
+    + '&endDateTime=' + endISO;
+
+  return fetch(url, { 
+
+    headers: { 
+
+      'X-Tablet-Key': tabletKey 
+
+    } 
+
+  })
+
+    .then(function(r) {
+
+      if (!r.ok) return { value: [] };
+
+      return r.json();
+
+    })
+
+    .then(function(d) {
+
+      return filterMeetings(d.value || []);
+
+    })
+
+    .catch(function() { 
+
+      return []; 
+
+    });
+
+}
+
+
+
+3. Main Interface Updates (`index.html`)
+
+
+
+1. Remove MSAL Script Tag: Locate and delete `<script src="js/msal-v1.min.js"></script>` from the HTML header.
+
+2. Update Core Initialization Script: Strip out all interactive `UserAgentApplication` declarations, redirect callbacks, and dynamic user login logic. Replace your standard lifecycle refresh loop with this simplified workflow:
+
+// Configuration state setup
+
+var cfg = {
+
+  roomemail: localStorage.getItem('roomdisplay_email'),
+
+  roomname: localStorage.getItem('roomdisplay_name'),
+
+  tabletkey: localStorage.getItem('roomdisplay_tabletkey') || 'YOUR_STATIC_TABLET_SECRET'
+
+};
+
+function refreshData() {
+
+  if (!cfg.roomemail || !cfg.tabletkey) {
+
+    showConfig();
+
+    return;
+
+  }
+
+  var start = new Date();
+
+  start.setHours(0, 0, 0, 0);
+
+  var end = new Date();
+
+  end.setDate(end.getDate() + 5);
+
+  dbg('Fetching data from Cloudflare Worker Proxy for ' + cfg.roomname);
+
+  fetchCalendarForRoom(cfg.roomemail, cfg.tabletkey, start.toISOString(), end.toISOString())
+
+    .then(function(meetings) {
+
+      // Direct pass-through to your existing layout rendering functions
+
+      renderUi(meetings);
+
+      sendHeartbeat('OK', 'Synced successfully via Worker proxy');
+
+    })
+
+    .catch(function(err) {
+
+      dbg('Error loading calendar content: ' + err.message);
+
+      sendHeartbeat('ERROR', 'Proxy fetching failure: ' + err.message);
+
+    });
+
+}
+
+
+
+4. Service Worker Pre-Caching Update (`sw.js`)
+
+Remove the deleted `msal-v1.min.js` reference from your static assets pre-cache manifest array to optimize memory overhead.
+
+
+
+// sw.js — Updated for Proxy Architecture
+
+var CACHE_VERSION = 'ris-v4.0.0';
+
+var CACHE_NAME = CACHE_VERSION;
+
+var CACHE_FILES = [
+
+  './',
+
+  './index.html',
+
+  './ris-shared.js'
+
+];
+
+
+
+Let me know what your thought? Before we start modify
+
+1/ backup on what we have, in case a fallback
+
+2/ move to new Claude Code, what needed to hand over
+
+3/ Start build new/changes on Claude code, should we have new github's project so that backup can be remained usable due to massive changes on the concept.
