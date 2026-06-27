@@ -763,8 +763,7 @@ function buildDashTimeSlots(){
 
 function openBookModal(){
   if(!selectedRoom)return;
-  initMsal();
-  if(!account){show('auth-overlay');return;}
+  // Phase 4: no MSAL check needed — booking goes via Worker proxy
   selDurMin=60;
   el('book-name').value='';el('book-email').value='';el('book-title').value='';
   el('modal-room-name').textContent=`Book ${selectedRoom.name}`;
@@ -856,18 +855,6 @@ el('book-modal').addEventListener('click',e=>{if(e.target===el('book-modal'))clo
 // Phase 4: no MSAL — dashboard uses Worker proxy
 startClock();
 initDashboard();
-
-if(!account){
-  showSignInBar();
-  renderRooms();
-  selectDefaultRoom();
-} else {
-  fetchAllRooms();
-  startDashboardKeepalive();
-}
-setInterval(fetchAllRooms,60000);
-
-// end Phase 4 dashboard init
 
 
 // ══════════════════════════════════════
