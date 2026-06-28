@@ -2672,17 +2672,10 @@ function upData(el,attr){return up(el,function(n){return n.getAttribute&&n.getAt
 
 var _lastTouchTime=0;
 function handleTap(e){
-  // Prevent double-fire: touchstart + click both call handleTap
-  // On touchstart: process + mark as handled
-  // On click: skip if already handled by touchstart within 500ms
+  // Debounce — ignore if within 300ms of last tap (prevents double-fire)
   var now=Date.now();
-  if(e.type==='touchstart'){
-    _lastTouchTime=now;
-    e.preventDefault(); // prevents subsequent click event on Chrome 42
-  } else if(e.type==='click'){
-    if(now-_lastTouchTime<500)return; // click fired after touchstart — already handled
-    _lastTouchTime=now;
-  }
+  if(now-_lastTouchTime<300)return;
+  _lastTouchTime=now;
 
   var t=e.target;
 
