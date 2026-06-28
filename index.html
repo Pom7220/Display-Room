@@ -206,12 +206,12 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .prog{height:6px;background:#333344;-webkit-border-radius:3px;border-radius:3px;overflow:hidden;margin-bottom:20px;}
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;}
-.abtn{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:110px;padding:22px 12px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:block;}
-.abtn-checkin{background:#1a4a8a;color:#88ccff;border:2px solid #2266bb;}
+.abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:110px;padding:22px 12px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:block;}
+.abtn-checkin{touch-action:manipulation;background:#1a4a8a;color:#88ccff;border:2px solid #2266bb;}
 .abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;}
-.abtn-end{background:#6a0000;color:#ff8888;border:2px solid #cc2222;}
-.abtn-extend{background:#4a2a00;color:#ffcc44;border:2px solid #cc7700;}
+.abtn-end{touch-action:manipulation;background:#6a0000;color:#ff8888;border:2px solid #cc2222;}
+.abtn-extend{touch-action:manipulation;background:#4a2a00;color:#ffcc44;border:2px solid #cc7700;}
 .abtn-teams{background:#1a1a5a;color:#aaaaff;border:2px solid #3333aa;}
 .abtn-pend{background:#3a2200;color:#ffcc44;border:2px solid #886600;cursor:default;-webkit-box-flex:2;-webkit-flex:2;flex:2;}
 .rel-warn{font-size:15px;color:#ffaa33;margin-top:10px;text-align:center;}
@@ -304,8 +304,8 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .dchip.asel .dchip-lbl{color:#ffaa33;}
 .dchip.asel .dchip-end{color:#cc7700;}
 .mactions{display:-webkit-box;display:-webkit-flex;display:flex;gap:12px;}
-.mcancel{-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:120px;padding:18px;background:#111122;border:2px solid #222233;-webkit-border-radius:12px;border-radius:12px;color:#7788aa;font-size:16px;font-weight:600;cursor:pointer;}
-.mconfirm{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:18px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;}
+.mcancel{-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:120px;padding:18px;background:#111122;border:2px solid #222233;-webkit-border-radius:12px;border-radius:12px;color:#7788aa;font-size:16px;font-weight:600;cursor:pointer;touch-action:manipulation;}
+.mconfirm{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:18px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;touch-action:manipulation;}
 .mconfirm.inst{background:#2979ff;color:#ffffff;}
 .mconfirm.appr{background:#ff9500;color:#1a0800;}
 .mconfirm:disabled{opacity:.5;cursor:default;}
@@ -334,8 +334,8 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .cdlg-title{font-size:22px;font-weight:800;color:#ffffff;margin-bottom:8px;}
 .cdlg-sub{font-size:16px;color:#aabbcc;margin-bottom:26px;line-height:1.5;}
 .cdlg-btns{display:-webkit-box;display:-webkit-flex;display:flex;gap:12px;}
-.cdlg-cancel{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:15px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:12px;border-radius:12px;color:#aabbcc;font-size:16px;font-weight:700;cursor:pointer;}
-.cdlg-ok{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:15px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;background:#cc1111;color:#ffffff;}
+.cdlg-cancel{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:15px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:12px;border-radius:12px;color:#aabbcc;font-size:16px;font-weight:700;cursor:pointer;}
+.cdlg-ok{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:15px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;background:#cc1111;color:#ffffff;}
 
 /* ── PIN OVERLAY ── */
 #pin-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.88);z-index:9500;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
@@ -349,7 +349,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .pin-dot.error{background:#cc1111;border-color:#cc1111;}
 .pin-grid{width:100%;margin-bottom:14px;}
 .pin-row{display:table;width:100%;margin-bottom:10px;}
-.pin-key{display:table-cell;width:33%;padding:26px 8px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:14px;border-radius:14px;font-size:30px;font-weight:600;color:#ffffff;cursor:pointer;text-align:center;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.pin-key{touch-action:manipulation;-ms-touch-action:manipulation;display:table-cell;width:33%;padding:26px 8px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:14px;border-radius:14px;font-size:30px;font-weight:600;color:#ffffff;cursor:pointer;text-align:center;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .pin-key:active{background:#2a2a4a;}
 .pin-key+.pin-key{border-left:none;-webkit-border-radius:0;border-radius:0;}
 .pin-key:first-child{-webkit-border-radius:14px 0 0 14px;border-radius:14px 0 0 14px;}
@@ -382,7 +382,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .dp-hdr{display:table;width:100%;margin-bottom:18px;}
 .dp-title{display:table-cell;font-size:20px;font-weight:800;color:#ffffff;vertical-align:middle;}
 .dp-close{display:table-cell;width:40px;text-align:right;vertical-align:middle;}
-.dp-close-btn{width:36px;height:36px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:50%;border-radius:50%;color:#ffffff;font-size:20px;cursor:pointer;line-height:32px;text-align:center;padding:0;}
+.dp-close-btn{touch-action:manipulation;-ms-touch-action:manipulation;width:36px;height:36px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:50%;border-radius:50%;color:#ffffff;font-size:20px;cursor:pointer;line-height:32px;text-align:center;padding:0;}
 .dp-day{margin-bottom:16px;background:#111122;-webkit-border-radius:10px;border-radius:10px;padding:12px 14px;}
 .dp-day-hdr{font-size:15px;font-weight:700;color:#ccddee;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #1a1a2e;}
 .dp-day-hdr .wkend{color:#7788aa;font-weight:400;}
@@ -692,7 +692,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 42,
+  patch: 43,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2745,6 +2745,11 @@ function handleTap(e){
     renderMeetList();return;
   }
 
+  // Days panel close
+  if(upId(t,'days-panel-overlay')||upCls(t,'dp-close-btn')){
+    closeDaysPanel();return;
+  }
+
   // More days
   if(upId(t,'btn-more-days')||upCls(t,'vtab-more')){
     if(moreDaysOpen)closeDaysPanel();else openDaysPanel();
@@ -2985,11 +2990,11 @@ if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
 } // end normal boot
 </script>
 <!-- NEXT 5 DAYS SLIDE PANEL -->
-<div id="days-panel-overlay" onclick="closeDaysPanel()"></div>
+<div id="days-panel-overlay"></div>
 <div id="days-panel">
   <div class="dp-hdr">
     <div class="dp-title">Next 5 Days</div>
-    <div class="dp-close"><button class="dp-close-btn" onclick="closeDaysPanel()">&#215;</button></div>
+    <div class="dp-close"><button class="dp-close-btn">&#215;</button></div>
   </div>
   <div id="days-panel-content"></div>
 </div>
