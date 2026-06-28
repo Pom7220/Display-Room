@@ -2746,7 +2746,7 @@ function handleTap(e){
   }
 
   // More days
-  if(upId(t,'btn-more-days')){
+  if(upId(t,'btn-more-days')||upCls(t,'vtab-more')){
     if(moreDaysOpen)closeDaysPanel();else openDaysPanel();
     return;
   }
