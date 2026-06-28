@@ -398,6 +398,22 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').then(function(reg){
       // Force check for SW update on every page load
       reg.update();
+      // Also check every 5 minutes — tablets run 24/7 without reload
+      setInterval(function(){
+        reg.update();
+      }, 5 * 60 * 1000);
+      // When new SW is waiting, reload to activate it
+      reg.addEventListener('updatefound', function(){
+        var newSW = reg.installing;
+        if(newSW){
+          newSW.addEventListener('statechange', function(){
+            if(newSW.state === 'installed' && navigator.serviceWorker.controller){
+              // New SW ready — reload to activate (skipWaiting handles the rest)
+              setTimeout(function(){ location.reload(); }, 3000);
+            }
+          });
+        }
+      });
     }).catch(function(){});
   });
 }
