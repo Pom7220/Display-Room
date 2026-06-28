@@ -692,8 +692,8 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 40,
-  date: '2026-06-21',
+  patch: 41,
+  date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -2338,10 +2338,28 @@ function extendMeeting(){
     }
     return;
   }
+  // Update UI immediately
   cur.end=proposed;
   updateCurrentCard();
   renderBadges();
   toast('+30 min extended','success');
+  // Persist to Exchange via Worker — prevents fetchCal() from reverting
+  if(cur.id&&cfg.tabletKey&&cfg.roomemail){
+    var patchBody=JSON.stringify({
+      room:cfg.roomemail,
+      eventId:cur.id,
+      end:localISO(proposed)
+    });
+    fetch('https://ris-display.ris-display.workers.dev/api/event',{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','X-Tablet-Key':cfg.tabletKey||''},
+      body:patchBody
+    }).then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error){dbg('Extend failed: '+d.error);}
+      else{dbg('Meeting extended in Exchange ✓');}
+    }).catch(function(e){dbg('Extend error: '+e.message);});
+  }
 }
 function joinTeams(url){
   var clean=url.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"');
@@ -2470,6 +2488,7 @@ function createDirect(name,email,title,s,e,done){
     setTimeout(fetchCal,6000);
     if(done)done();
   }).catch(function(err){
+    dbg('BOOKING ERROR: '+err.message);
     toast('Booking failed: '+err.message,'error');
     closeModal();if(done)done();
   });
@@ -2637,10 +2656,17 @@ function upData(el,attr){return up(el,function(n){return n.getAttribute&&n.getAt
 
 var _lastTouchTime=0;
 function handleTap(e){
-  // Debounce — ignore if within 300ms of last tap (prevents double-fire on click after touchstart)
+  // Prevent double-fire: touchstart + click both call handleTap
+  // On touchstart: process + mark as handled
+  // On click: skip if already handled by touchstart within 500ms
   var now=Date.now();
-  if(now-_lastTouchTime<300)return;
-  _lastTouchTime=now;
+  if(e.type==='touchstart'){
+    _lastTouchTime=now;
+    e.preventDefault(); // prevents subsequent click event on Chrome 42
+  } else if(e.type==='click'){
+    if(now-_lastTouchTime<500)return; // click fired after touchstart — already handled
+    _lastTouchTime=now;
+  }
 
   var t=e.target;
 
