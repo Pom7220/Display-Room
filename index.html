@@ -566,7 +566,7 @@ if('serviceWorker' in navigator){
       <div class="view-tabs" id="view-tabs">
         <div class="vtab active" data-view="today">Today <span class="vtab-badge" id="vbadge-today">0</span></div>
         <div class="vtab" data-view="tomorrow">Tomorrow <span class="vtab-badge" id="vbadge-tomorrow">0</span></div>
-        <button class="vtab-more" id="btn-more-days">More +</button>
+        <div class="vtab-more" id="btn-more-days">More +</div>
       </div>
 
       <!-- Meeting list -->
@@ -1522,14 +1522,7 @@ function launch(){
   startAutoRelaunch();
   startTokenRefreshTimer();
   startMonitoring();
-  // Direct touch listener on More button for Chrome 42 reliability
-  var moreBtn=el('btn-more-days');
-  if(moreBtn){
-    moreBtn.addEventListener('touchstart',function(e){
-      e.preventDefault();e.stopPropagation();
-      if(moreDaysOpen)closeDaysPanel();else openDaysPanel();
-    },{passive:false});
-  }
+
 }
 
 
