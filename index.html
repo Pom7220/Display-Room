@@ -1522,6 +1522,14 @@ function launch(){
   startAutoRelaunch();
   startTokenRefreshTimer();
   startMonitoring();
+  // Direct touch listener on More button for Chrome 42 reliability
+  var moreBtn=el('btn-more-days');
+  if(moreBtn){
+    moreBtn.addEventListener('touchstart',function(e){
+      e.preventDefault();e.stopPropagation();
+      if(moreDaysOpen)closeDaysPanel();else openDaysPanel();
+    },{passive:false});
+  }
 }
 
 
@@ -1557,10 +1565,18 @@ function getMonitorStatus(){
   }
 
   var status='ok';
-  if(window._reauthInProgress)status='reauth_redirect';
-  else if(!_cachedToken&&!hasRefresh)status='no_auth';
-  else if(_tokenExpiry>0&&_tokenExpiry<Date.now()&&!hasRefresh)status='token_expired_no_refresh';
-  else if(_tokenExpiry>0&&_tokenExpiry<Date.now())status='token_expired';
+  if(cfg.tabletKey){
+    // Worker proxy mode — no MSAL token needed
+    status='ok';
+  } else if(window._reauthInProgress){
+    status='reauth_redirect';
+  } else if(!_cachedToken&&!hasRefresh){
+    status='no_auth';
+  } else if(_tokenExpiry>0&&_tokenExpiry<Date.now()&&!hasRefresh){
+    status='token_expired_no_refresh';
+  } else if(_tokenExpiry>0&&_tokenExpiry<Date.now()){
+    status='token_expired';
+  }
 
   // Detect launch mode
   var launchMode='browser';
@@ -2670,6 +2686,13 @@ function handleTap(e){
 
   var t=e.target;
 
+  // fs-overlay — fullscreen tap (must be first, z-index covers everything)
+  if(upId(t,'fs-overlay')||t.id==='fs-overlay'){
+    doFullscreen();
+    var ov=el('fs-overlay');if(ov)ov.style.display='none';
+    return;
+  }
+
   // Config toggles
   if(upId(t,'cfg-booking'))toggleApproval();
   if(upId(t,'cfg-approval'))toggleOwner();
@@ -2986,7 +3009,7 @@ if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
 </div>
 
 <!-- FULLSCREEN TAP OVERLAY — tap anywhere to enter fullscreen, no PIN needed -->
-<div id="fs-overlay" style="display:none" onclick="doFullscreen();this.style.display='none';">
+<div id="fs-overlay" style="display:none">
   <div class="fs-icon">&#9974;</div>
   <div class="fs-title">Tap anywhere to continue</div>
   <div class="fs-sub" style="max-width:320px;line-height:1.8;">
