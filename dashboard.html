@@ -1039,7 +1039,8 @@ function renderAdminRooms(rooms) {
     const needsTap = r && isOnline && r.launchMode === 'browser';
     const dotColor = !r ? '#555' : (isOnline ? (needsAuth ? '#ff9500' : '#00d68f') : '#ff3333');
     const statusText = !r ? 'No heartbeat' :
-      (isOnline ? 'Online — ' + r.status : 'Offline (' + r.lastSeenMinutes + 'm ago)');
+      (isOnline ? (r.status === 'needs_tap' ? '👆 Waiting for tap' :
+        'Online — ' + r.status) : 'Offline (' + r.lastSeenMinutes + 'm ago)');
     const tokenText = ''; // removed: proxy auth — no token status needed
     const modeText = !r ? '' :
       (r.launchMode === 'pwa' ? '📱 PWA' : r.launchMode === 'fullscreen' ? '⛶ FS' : '🌐 Browser');
@@ -1079,7 +1080,7 @@ function renderAdminRooms(rooms) {
     var fixLabel = null;
     if (!r || !r.isOnline) {
       fixCmd = 'reload'; fixLabel = '↻ Fix';
-    } else if (needsTap) {
+    } else if (r.status === 'needs_tap' || needsTap) {
       fixCmd = 'auto_tap'; fixLabel = '👆 Fix';
     }
 

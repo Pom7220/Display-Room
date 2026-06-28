@@ -708,7 +708,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 43,
+  patch: 44,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1598,12 +1598,17 @@ function getMonitorStatus(){
   var isFullscreen=!!(document.fullscreenElement||document.webkitFullscreenElement);
   if(isFullscreen)launchMode='fullscreen';
 
+  // Detect if fs-overlay is visible (waiting for tap to enter fullscreen)
+  var fsOv=el('fs-overlay');
+  var needsTap=!!(fsOv&&fsOv.style.display!=='none'&&fsOv.style.display!=='');
+
   return {
     room: cfg.roomemail||'',
     roomname: cfg.roomname||'',
-    status: status,
+    status: needsTap?'needs_tap':status,
     launchMode: launchMode,
     isFullscreen: isFullscreen,
+    needsTap: needsTap,
     tokenMinsLeft: tokenMinsLeft,
     hasRefreshToken: hasRefresh,
     version: APP_VERSION.label(),
