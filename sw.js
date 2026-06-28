@@ -10,10 +10,10 @@ var CACHE_FILES = [
   './ris-shared.js',
 ];
 
-// Install — cache core files
-// NOTE: No skipWaiting() — new SW waits for page to be closed/reopened
-// This prevents mid-session disruption to the kiosk display
+// Install — cache core files + skipWaiting to activate immediately
+// Network-first fetch means new code always served from network — no disruption risk
 self.addEventListener('install', function(e) {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll(CACHE_FILES);
