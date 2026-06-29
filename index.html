@@ -176,7 +176,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .body-scroll::-webkit-scrollbar{display:none;}
 
 /* ── CURRENT CARD ── */
-.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:36px 24px 24px 26%;margin-bottom:22px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
+.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:36px 24px 24px 26%;margin-bottom:36px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
 .cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:20%;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
 .cur-card.st-busy{border-color:#ff3333;background:#4a0000;}
 .cur-card.st-busy::before{background:#ff3333;}
@@ -708,7 +708,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 44,
+  patch: 45,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2142,13 +2142,12 @@ function updateCurrentCard(){
     if(ip){
       btns='<button class="abtn abtn-pend" disabled>'+svgClock()+' Awaiting approval&#8230;</button>';
     } else {
-      // When checked in — remove the checked-in button, card colour is sufficient
       if(!checkedIn){
-        btns+='<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>';
-      }
-      // All-day room bookings: hide End and +30m — can't extend or end a full-day block from kiosk
-      if(!isAllDay(cur)){
-        btns+='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
+        // Not checked in — show ONLY Check In button (clean single action)
+        btns='<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>';
+      } else if(!isAllDay(cur)){
+        // Checked in — show End and +30m (Check In already done)
+        btns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
         btns+='<button class="abtn abtn-extend" id="ext-btn">+ +30m</button>';
       }
       // Teams join button removed — kiosk tablets don't have Teams installed
