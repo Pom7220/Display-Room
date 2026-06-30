@@ -206,12 +206,12 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .prog{height:6px;background:#333344;-webkit-border-radius:3px;border-radius:3px;overflow:hidden;margin-bottom:20px;}
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;}
-.abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:110px;padding:22px 12px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:block;}
+.abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:110px;min-height:64px;padding:22px 12px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:block;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .abtn-checkin{touch-action:manipulation;background:#1a4a8a;color:#88ccff;border:2px solid #2266bb;}
 .abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;}
-.abtn-end{touch-action:manipulation;background:#6a0000;color:#ff8888;border:2px solid #cc2222;}
-.abtn-extend{touch-action:manipulation;background:#4a2a00;color:#ffcc44;border:2px solid #cc7700;}
+.abtn-end{touch-action:manipulation;background:#4a0a30;color:#ff7ab8;border:2px solid #b8205c;}
+.abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:0;-webkit-border-radius:50%;border-radius:50%;background:#4a2a00;color:#ffcc44;border:2px solid #cc7700;font-size:13px;font-weight:700;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;text-align:center;line-height:1.1;}
 .abtn-teams{background:#1a1a5a;color:#aaaaff;border:2px solid #3333aa;}
 .abtn-pend{background:#3a2200;color:#ffcc44;border:2px solid #886600;cursor:default;-webkit-box-flex:2;-webkit-flex:2;flex:2;}
 .rel-warn{font-size:15px;color:#ffaa33;margin-top:10px;text-align:center;}
@@ -731,7 +731,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 50,
+  patch: 51,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2103,11 +2103,15 @@ function fetchCal(){
       var savedCI=localStorage.getItem('roomdisplay_checkedin');
       if(savedCI){
         var ci=JSON.parse(savedCI);
-        var stillCur=getCur();
+        // Check against EITHER current or next meeting — an early check-in
+        // (done before the meeting officially starts) must survive a reload
+        // that happens while the meeting is still upcoming, not just once
+        // it becomes current.
+        var stillMatch=getCur()||getNext();
         if(ci.room&&ci.room!==activeRoom.email){
           // Saved check-in belongs to a different room — leave it untouched, not ours to clear
           checkedIn=false;
-        } else if(stillCur&&stillCur.id===ci.id&&Math.abs(stillCur.start.getTime()-ci.start)<60000){
+        } else if(stillMatch&&stillMatch.id===ci.id&&Math.abs(stillMatch.start.getTime()-ci.start)<60000){
           checkedIn=true;
         } else {
           // Same room, meeting ended or changed — stale record, safe to clear
@@ -2192,7 +2196,7 @@ function updateCurrentCard(){
       } else if(!isAllDay(cur)){
         // Checked in — show End and +30m (Check In already done)
         btns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
-        btns+='<button class="abtn abtn-extend" id="ext-btn">+ +30m</button>';
+        btns+='<button class="abtn abtn-extend" id="ext-btn">+30<br>min</button>';
       }
       // Teams join button removed — kiosk tablets don't have Teams installed
       // TEAMS badge in meeting list is sufficient indicator
@@ -2227,7 +2231,7 @@ function updateCurrentCard(){
     var checkinBtn=earlyCheckin
       ? (checkedIn
           ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
-          : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Early Check In</button>')
+          : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>')
       : '<button class="abtn abtn-checkin off" disabled>Check In opens in '+sharedFmtDur(m-15)+'</button>';
     var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
     cont.innerHTML=
@@ -2377,7 +2381,10 @@ function doCheckin(){
     sc.remove();
     checkedIn=true;updateCurrentCard();toast('Checked in','success');
     // Persist check-in so it survives page reload (SW auto-update, manual refresh, etc.)
-    var cur=getCur();
+    // Use getCur() OR getNext() — "Early Check In" (up to 15 min before start)
+    // calls this same function while the meeting is still upcoming, not current,
+    // so getCur() alone would return null and silently skip persisting.
+    var cur=getCur()||getNext();
     if(cur&&cur.id){
       try{localStorage.setItem('roomdisplay_checkedin',JSON.stringify({id:cur.id,start:cur.start.getTime(),room:activeRoom.email}));}catch(e){}
     }
