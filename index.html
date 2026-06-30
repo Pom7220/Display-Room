@@ -426,17 +426,31 @@ function checkForNewVersion(){
       var serverPatch=parseInt(m[1],10);
       var currentPatch=(typeof APP_VERSION!=='undefined'&&APP_VERSION.patch)?APP_VERSION.patch:0;
       if(serverPatch>currentPatch){
-        // Newer version deployed — force a clean reload.
-        // Unregister the SW first so its cache is dropped too, then
-        // reload to fetch everything fresh from network.
+        // Newer version deployed — navigate to a cache-busted URL, NOT a
+        // plain location.reload(). Plain reload() re-requests the exact
+        // same URL with no unique parameter, which can be silently served
+        // from the browser's regular HTTP cache (separate from the Service
+        // Worker's Cache Storage) if the host sends any Cache-Control
+        // max-age — meaning the update is correctly DETECTED but the
+        // reload itself can still load stale content. A unique query
+        // string guarantees a real network fetch, same pattern already
+        // used by the admin 'reload' command.
+        var freshUrl=location.protocol+'//'+location.host+location.pathname+'?nocache='+Date.now();
+        // Preserve room identity in the URL too, matching the admin
+        // 'reload' command's pattern — defensive safety net in case
+        // localStorage doesn't survive the navigation for any reason.
+        try{
+          if(cfg&&cfg.roomemail)freshUrl+='&room='+encodeURIComponent(cfg.roomemail);
+          if(cfg&&cfg.roomname)freshUrl+='&roomname='+encodeURIComponent(cfg.roomname);
+        }catch(e){}
         if('serviceWorker' in navigator){
           navigator.serviceWorker.getRegistration().then(function(reg){
             if(reg)reg.unregister();
           }).then(function(){
-            location.reload();
-          }).catch(function(){ location.reload(); });
+            location.href=freshUrl;
+          }).catch(function(){ location.href=freshUrl; });
         } else {
-          location.reload();
+          location.href=freshUrl;
         }
       }
     };
@@ -738,7 +752,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 52,
+  patch: 53,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
