@@ -443,6 +443,19 @@ function checkForNewVersion(){
           if(cfg&&cfg.roomemail)freshUrl+='&room='+encodeURIComponent(cfg.roomemail);
           if(cfg&&cfg.roomname)freshUrl+='&roomname='+encodeURIComponent(cfg.roomname);
         }catch(e){}
+        // Tag this as a self-triggered reload so the NEXT page load can
+        // report a clear, specific incident instead of an ambiguous
+        // "boot_detected". Reporting now (before navigating away) risks
+        // the request being cancelled by the page unload — safer to
+        // just leave a note and report once the new page has settled.
+        try{
+          localStorage.setItem('ris_reload_reason',JSON.stringify({
+            reason:'auto_update_reload',
+            fromVersion:currentPatch,
+            toVersion:serverPatch,
+            at:Date.now()
+          }));
+        }catch(e){}
         if('serviceWorker' in navigator){
           navigator.serviceWorker.getRegistration().then(function(reg){
             if(reg)reg.unregister();
@@ -752,7 +765,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 53,
+  patch: 54,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1739,6 +1752,11 @@ function executeCommand(cmd){
 
   if(action==='reload'){
     dbg('Remote reload command received — reloading in 1s');
+    // Tag this as admin-triggered so the next load reports a specific
+    // incident instead of an ambiguous "boot_detected".
+    try{
+      localStorage.setItem('ris_reload_reason',JSON.stringify({reason:'admin_reload',at:Date.now()}));
+    }catch(e){}
     setTimeout(function(){
       // Include room params so config survives even if localStorage is cleared
       var url=location.protocol+'//'+location.host+location.pathname+'?nocache='+Date.now();
@@ -3080,6 +3098,52 @@ dbg('Boot check: room='+(cfg.roomemail||'MISSING')+
   ' name='+(cfg.roomname||'MISSING')+
   ' tabletKey='+(cfg.tabletKey?'ok':'MISSING')+
   ' mode='+(cfg.tabletKey?'proxy':'msal'));
+
+// Report WHY this page load happened — distinguishes our own intentional
+// reloads (auto-update / admin command) from anything else (genuine OS
+// reboot, Chrome crash recovery, Meet in Touch relaunch, manual tap
+// recovery). Without this, every fresh load looks identical in the
+// admin incident log, making "was this tablet actually rebooted?"
+// impossible to answer without physically checking.
+try{
+  var reloadReasonRaw=localStorage.getItem('ris_reload_reason');
+  if(reloadReasonRaw){
+    var rr=JSON.parse(reloadReasonRaw);
+    var ageMs=Date.now()-(rr.at||0);
+    localStorage.removeItem('ris_reload_reason');
+    if(ageMs<120000){
+      // Recent and ours — report the specific, self-explained reason
+      // These are informational log entries, not problems needing
+      // action — auto-resolve immediately so they don't clutter the
+      // incident list as perpetually "OPEN".
+      if(rr.reason==='auto_update_reload'){
+        reportIncident('auto_update_reload',
+          'Auto-update v'+rr.fromVersion+' \u2192 v'+rr.toVersion,true,function(key){
+            resolveIncident(key,'Self-triggered version update — informational only');
+          });
+      } else if(rr.reason==='admin_reload'){
+        reportIncident('admin_reload','Admin-triggered reload command',true,function(key){
+          resolveIncident(key,'Admin-requested — informational only');
+        });
+      }
+    } else {
+      // Stale flag (>2min old) — something interrupted the normal flow
+      // between setting it and this load actually happening. Treat as
+      // an unexplained boot rather than trusting a possibly-stale tag.
+      // Leave OPEN — this one IS worth a human glance, since the cause
+      // is genuinely unclear.
+      reportIncident('boot_detected',
+        'Fresh page load, stale reload-reason flag ignored ('+Math.round(ageMs/1000)+'s old)',true);
+    }
+  } else {
+    // No flag at all — this load was NOT caused by our own code.
+    // Genuine device reboot, Chrome crash recovery, Meet in Touch
+    // relaunch, or manual physical tap recovery. Leave this one OPEN —
+    // it's the one that actually warrants a look.
+    reportIncident('boot_detected','Fresh page load with no prior reload tag — likely device reboot or crash recovery',true);
+  }
+}catch(e){}
+
 if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
   // Phase 4: Worker proxy flow — no MSAL needed
   dbg('tabletKey found — launching via Worker proxy');
