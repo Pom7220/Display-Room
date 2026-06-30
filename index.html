@@ -708,7 +708,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 45,
+  patch: 46,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2341,8 +2341,11 @@ function endMeeting(){
   el('cdlg-icon').textContent='Stop';
   el('cdlg-ok').textContent='End Meeting';
   el('cdlg-ok').style.background='#f32b2b';
-  el('cdlg-ok').onclick=function(){
-    hide('confirm-dialog');
+  // Use dlg._cb (read by handleTap) instead of .onclick —
+  // handleTap hides the dialog on touchstart before native onclick can fire,
+  // causing the click event to fall through to whatever is underneath (e.g. +30m button).
+  // dlg._cb is called directly by handleTap BEFORE hiding, avoiding the race.
+  el('confirm-dialog')._cb=function(){
     if(cur.id)locallyEnded.push(cur.id);
     var idx=meetings.indexOf(cur);
     if(idx>-1)meetings.splice(idx,1);
@@ -2737,8 +2740,11 @@ function handleTap(e){
   if(upId(t,'cdlg-cancel')||t===el('confirm-dialog')){hide('confirm-dialog');return;}
   if(upId(t,'cdlg-ok')){
     var dlg=el('confirm-dialog');
-    if(dlg&&dlg._cb)dlg._cb();
-    hide('confirm-dialog');return;
+    var cb=dlg&&dlg._cb;
+    hide('confirm-dialog');
+    if(dlg)dlg._cb=null;
+    if(cb)cb();
+    return;
   }
 
   // PIN overlay
