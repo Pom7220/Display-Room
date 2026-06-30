@@ -1,7 +1,7 @@
 // sw.js — RIS Room Display Service Worker
 // VERSION must be bumped on every deploy — triggers cache clear on all clients
 // Match this to APP_VERSION in index.html
-var CACHE_VERSION = 'ris-v3.10.46';
+var CACHE_VERSION = 'ris-v3.10.47';
 var CACHE_NAME = CACHE_VERSION;
 
 var CACHE_FILES = [
@@ -27,16 +27,21 @@ self.addEventListener('install', function(e) {
 // NOTE: No clients.claim() — avoids taking over live sessions mid-display
 self.addEventListener('activate', function(e) {
   e.waitUntil(
-    caches.keys().then(function(keys) {
-      return Promise.all(
-        keys.filter(function(key) {
-          return key !== CACHE_NAME;
-        }).map(function(key) {
-          console.log('SW deleting old cache:', key);
-          return caches.delete(key);
-        })
-      );
-    })
+    Promise.all([
+      caches.keys().then(function(keys) {
+        return Promise.all(
+          keys.filter(function(key) {
+            return key !== CACHE_NAME;
+          }).map(function(key) {
+            console.log('SW deleting old cache:', key);
+            return caches.delete(key);
+          })
+        );
+      }),
+      // Take control of open pages immediately — triggers controllerchange event
+      // Page-side controllerchange listener handles the reload safely
+      self.clients.claim()
+    ])
   );
 });
 
