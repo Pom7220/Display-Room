@@ -703,7 +703,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 47,
+  patch: 49,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2067,6 +2067,27 @@ function fetchCal(){
       meetings=meetings.filter(function(m){return locallyEnded.indexOf(m.id)===-1;});
     }
     meetings.sort(function(a,b){return a.start-b.start;});
+    // Restore check-in state after reload — match by room + meeting ID + start time
+    // Only clear the saved record if we're checking the SAME room it belongs to
+    // and the meeting no longer matches (genuinely ended/changed) — switching to a
+    // different room temporarily must NOT wipe out another room's check-in record.
+    try{
+      var savedCI=localStorage.getItem('roomdisplay_checkedin');
+      if(savedCI){
+        var ci=JSON.parse(savedCI);
+        var stillCur=getCur();
+        if(ci.room&&ci.room!==activeRoom.email){
+          // Saved check-in belongs to a different room — leave it untouched, not ours to clear
+          checkedIn=false;
+        } else if(stillCur&&stillCur.id===ci.id&&Math.abs(stillCur.start.getTime()-ci.start)<60000){
+          checkedIn=true;
+        } else {
+          // Same room, meeting ended or changed — stale record, safe to clear
+          localStorage.removeItem('roomdisplay_checkedin');
+          checkedIn=false;
+        }
+      }
+    }catch(e){}
     clearErr();
     updateCurrentCard();renderBadges();renderMeetList();renderMoreDays();
   }).catch(function(e){setErr(e.message);});
@@ -2327,6 +2348,11 @@ function doCheckin(){
   sleep(1200).then(function(){
     sc.remove();
     checkedIn=true;updateCurrentCard();toast('Checked in','success');
+    // Persist check-in so it survives page reload (SW auto-update, manual refresh, etc.)
+    var cur=getCur();
+    if(cur&&cur.id){
+      try{localStorage.setItem('roomdisplay_checkedin',JSON.stringify({id:cur.id,start:cur.start.getTime(),room:activeRoom.email}));}catch(e){}
+    }
   });
 }
 function endMeeting(){
@@ -2345,6 +2371,7 @@ function endMeeting(){
     var idx=meetings.indexOf(cur);
     if(idx>-1)meetings.splice(idx,1);
     checkedIn=false;
+    try{localStorage.removeItem('roomdisplay_checkedin');}catch(e){}
     updateCurrentCard();renderBadges();renderMeetList();
     toast('Meeting ended','success');
     setTimeout(fetchCal,5000);
