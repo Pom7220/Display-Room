@@ -414,7 +414,14 @@ function checkForNewVersion(){
     xhr.open('GET',url,true);
     xhr.onload=function(){
       if(xhr.status!==200)return;
-      var m=xhr.responseText.match(/patch:\s*(\d+)/);
+      // Anchor to the APP_VERSION object literal specifically — a plain
+      // /patch:\s*(\d+)/ search matches the FIRST "patch:" anywhere in the
+      // whole document, including this very fallback expression a few
+      // lines below (APP_VERSION.patch:0), which sits earlier in the file
+      // than the real APP_VERSION declaration — causing it to always
+      // read 0 and never detect a real update. Matching within
+      // "major: 3,...patch: N" makes this specific to the real version object.
+      var m=xhr.responseText.match(/major:\s*\d+[\s\S]{0,80}?patch:\s*(\d+)/);
       if(!m)return;
       var serverPatch=parseInt(m[1],10);
       var currentPatch=(typeof APP_VERSION!=='undefined'&&APP_VERSION.patch)?APP_VERSION.patch:0;
@@ -731,7 +738,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 51,
+  patch: 52,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
