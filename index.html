@@ -391,27 +391,55 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 
 </style>
 <script>
-// Register service worker — auto-updates when sw.js version changes
-// No need to change URL on LG tablet after deploys
+// Register service worker for offline caching purposes only.
+// Chrome 42 (circa 2015) has partial/unreliable Service Worker spec
+// compliance — SW lifecycle events (statechange, controllerchange) do
+// not fire consistently on it, so they are NOT used to detect updates.
+// Instead, checkForNewVersion() below fetches the live index.html
+// directly (cache-busted) and compares its version number to what's
+// currently running — plain fetch() with cache-busting is far more
+// reliably supported across browser versions than SW lifecycle events.
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('sw.js').then(function(reg){
       reg.update();
-      // Chrome 42 has unreliable SW statechange events — use controllerchange instead,
-      // which fires reliably when a new SW takes control (works with skipWaiting)
-      var reloaded=false;
-      navigator.serviceWorker.addEventListener('controllerchange',function(){
-        if(reloaded)return;
-        reloaded=true;
-        setTimeout(function(){ location.reload(); }, 1000);
-      });
-      // Check every 5 minutes — tablets run 24/7 without reload
-      setInterval(function(){
-        reg.update();
-      }, 5 * 60 * 1000);
     }).catch(function(){});
   });
 }
+
+function checkForNewVersion(){
+  try{
+    var url=location.protocol+'//'+location.host+location.pathname+'?vcheck='+Date.now();
+    var xhr=new XMLHttpRequest();
+    xhr.open('GET',url,true);
+    xhr.onload=function(){
+      if(xhr.status!==200)return;
+      var m=xhr.responseText.match(/patch:\s*(\d+)/);
+      if(!m)return;
+      var serverPatch=parseInt(m[1],10);
+      var currentPatch=(typeof APP_VERSION!=='undefined'&&APP_VERSION.patch)?APP_VERSION.patch:0;
+      if(serverPatch>currentPatch){
+        // Newer version deployed — force a clean reload.
+        // Unregister the SW first so its cache is dropped too, then
+        // reload to fetch everything fresh from network.
+        if('serviceWorker' in navigator){
+          navigator.serviceWorker.getRegistration().then(function(reg){
+            if(reg)reg.unregister();
+          }).then(function(){
+            location.reload();
+          }).catch(function(){ location.reload(); });
+        } else {
+          location.reload();
+        }
+      }
+    };
+    xhr.onerror=function(){};
+    xhr.send();
+  }catch(e){}
+}
+// Check 30s after load (let everything settle first), then every 5 minutes
+setTimeout(checkForNewVersion,30000);
+setInterval(checkForNewVersion, 5 * 60 * 1000);
 </script>
 </head>
 <body>
@@ -703,7 +731,7 @@ if('serviceWorker' in navigator){
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 49,
+  patch: 50,
   date: '2026-06-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';

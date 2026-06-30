@@ -1,7 +1,7 @@
 // sw.js — RIS Room Display Service Worker
 // VERSION must be bumped on every deploy — triggers cache clear on all clients
 // Match this to APP_VERSION in index.html
-var CACHE_VERSION = 'ris-v3.10.49';
+var CACHE_VERSION = 'ris-v3.10.50';
 var CACHE_NAME = CACHE_VERSION;
 
 var CACHE_FILES = [
@@ -23,8 +23,12 @@ self.addEventListener('install', function(e) {
   );
 });
 
-// Activate — delete ALL old caches
-// NOTE: No clients.claim() — avoids taking over live sessions mid-display
+// Activate — delete ALL old caches, take control of any open pages.
+// NOTE: clients.claim() here no longer triggers any reload logic —
+// index.html (v3.10.50+) detects new versions itself via direct fetch
+// version-check, not via SW lifecycle events (Chrome 42 has unreliable
+// SW spec support). This SW now exists purely for offline fallback
+// caching — see the fetch handler below.
 self.addEventListener('activate', function(e) {
   e.waitUntil(
     Promise.all([
@@ -38,8 +42,6 @@ self.addEventListener('activate', function(e) {
           })
         );
       }),
-      // Take control of open pages immediately — triggers controllerchange event
-      // Page-side controllerchange listener handles the reload safely
       self.clients.claim()
     ])
   );
