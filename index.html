@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 63,
+  patch: 64,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2477,15 +2477,15 @@ function extendMeeting(){
       eventId:cur.id,
       end:localISO(proposed)
     });
-    fetch('https://ris-display.ris-display.workers.dev/api/event',{
-      method:'PATCH',
-      headers:{'Content-Type':'application/json','X-Tablet-Key':cfg.tabletKey||''},
-      body:patchBody
-    }).then(function(r){return r.json();})
-    .then(function(d){
-      if(d.error){dbg('Extend failed: '+d.error);}
-      else{dbg('Meeting extended in Exchange ✓');}
-    }).catch(function(e){dbg('Extend error: '+e.message);});
+    try{
+      var xp=new XMLHttpRequest();
+      xp.open('PATCH','https://ris-display.ris-display.workers.dev/api/event',true);
+      xp.setRequestHeader('Content-Type','application/json');
+      xp.setRequestHeader('X-Tablet-Key',cfg.tabletKey||'');
+      xp.onload=function(){try{var d=JSON.parse(xp.responseText);if(d.error){dbg('Extend failed: '+d.error);}else{dbg('Meeting extended in Exchange ✓');}}catch(e){}};
+      xp.onerror=function(){dbg('Extend error: network');};
+      xp.send(patchBody);
+    }catch(e){dbg('Extend error: '+e.message);}
   }
 }
 function joinTeams(url){
@@ -2650,8 +2650,17 @@ function sendApproval(name,email,title,s,e,done){
       body:{contentType:'html',content:emailHtml},
       toRecipients:[{emailAddress:{address:cfg.owner}}]
     },saveToSentItems:true};
-    return fetch('https://graph.microsoft.com/v1.0/me/sendMail',
-      {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(mail)});
+    return new Promise(function(resolve,reject){
+      try{
+        var xm=new XMLHttpRequest();
+        xm.open('POST','https://graph.microsoft.com/v1.0/me/sendMail',true);
+        xm.setRequestHeader('Authorization','Bearer '+tok);
+        xm.setRequestHeader('Content-Type','application/json');
+        xm.onload=function(){resolve({ok:xm.status>=200&&xm.status<300,status:xm.status});};
+        xm.onerror=function(){reject(new Error('Network error'));};
+        xm.send(JSON.stringify(mail));
+      }catch(e){reject(e);}
+    });
   }).then(function(r){
     if(!r)return;
     if(!r.ok&&r.status!==202){toast('Email failed','error');closeModal();if(done)done();return;}

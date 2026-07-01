@@ -152,23 +152,25 @@ function deriveRoomStatus(meetings) {
 // Worker handles Client Credentials auth — no user token needed on tablet
 // ES5 ONLY — no const/let/arrows/template literals
 function fetchCalendarForRoom(email, tabletKey, startISO, endISO) {
-  // Always use the Worker URL directly — window.location may point to GitHub Pages
+  // XHR-based — fetch API not available in Android 4.4 WebView (Chromium 30)
   var workerOrigin = 'https://ris-display.ris-display.workers.dev';
   var url = workerOrigin + '/api/calendar'
     + '?room=' + encodeURIComponent(email)
     + '&startDateTime=' + encodeURIComponent(startISO)
     + '&endDateTime=' + encodeURIComponent(endISO);
-  return fetch(url, {
-    headers: { 'X-Tablet-Key': tabletKey || '' }
-  })
-    .then(function(r) {
-      if (!r.ok) return { value: [] };
-      return r.json();
-    })
-    .then(function(d) {
-      return filterMeetings(d.value || []);
-    })
-    .catch(function() { return []; });
+  return new Promise(function(resolve) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open('GET', url, true);
+      x.setRequestHeader('X-Tablet-Key', tabletKey || '');
+      x.onload = function() {
+        try { var d = JSON.parse(x.responseText); resolve(filterMeetings(d.value || [])); }
+        catch(e) { resolve([]); }
+      };
+      x.onerror = function() { resolve([]); };
+      x.send();
+    } catch(e) { resolve([]); }
+  });
 }
 
 // Book a room via Cloudflare Worker proxy — returns Promise
@@ -186,20 +188,23 @@ function fetchBookRoom(tabletKey, roomEmail, roomName, subject, startISO, endISO
     organizerName: organizerName || '',
     organizerEmail: organizerEmail || ''
   });
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Tablet-Key': tabletKey || ''
-    },
-    body: body
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      if (d.error) throw new Error(d.error + (d.detail ? ' | ' + d.detail : '') + (d.status ? ' (HTTP '+d.status+')' : ''));
-      return d;
-    })
-    .catch(function(e) { throw e; });
+  return new Promise(function(resolve, reject) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open('POST', url, true);
+      x.setRequestHeader('Content-Type', 'application/json');
+      x.setRequestHeader('X-Tablet-Key', tabletKey || '');
+      x.onload = function() {
+        try {
+          var d = JSON.parse(x.responseText);
+          if (d.error) { reject(new Error(d.error + (d.detail ? ' | ' + d.detail : '') + (d.status ? ' (HTTP '+d.status+')' : ''))); return; }
+          resolve(d);
+        } catch(e) { reject(e); }
+      };
+      x.onerror = function() { reject(new Error('Network error')); };
+      x.send(body);
+    } catch(e) { reject(e); }
+  });
 }
 
 // Format duration in minutes to human readable e.g. "3h 45m" or "45m"
