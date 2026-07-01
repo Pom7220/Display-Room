@@ -66,6 +66,12 @@ public class KioskWebViewActivity extends Activity {
         final String roomEmail = prefs.getString("room_email", "");
         final String roomName = prefs.getString("room_name", "");
 
+        if (roomEmail.isEmpty()) {
+            startActivity(new Intent(this, MainActivity.class));
+            finish();
+            return;
+        }
+
         new Thread(new Runnable() {
             @Override
             public void run() {

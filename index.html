@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 60,
+  patch: 61,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -3069,6 +3069,11 @@ loadCfg();
         if(typeof cfg.approval==='undefined')cfg.approval=false;
         try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
         dbg('URL param config injected: '+room+' ('+roomname+')');
+        if(cfg.tenant&&cfg.client&&cfg.roomemail&&cfg.roomname){
+          setTimeout(function(){
+            try{hide('config-screen');el('cfg-sticky-bar').style.display='none';launch();}catch(e){}
+          },100);
+        }
       }
       // kiosk=1 means launched from APK — note it in log
       if(kiosk==='1'){

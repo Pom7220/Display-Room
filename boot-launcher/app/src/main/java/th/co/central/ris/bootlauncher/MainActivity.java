@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -55,6 +56,7 @@ public class MainActivity extends Activity {
     private View selectedView = null;
     private TextView statusText;
     private Button launchBtn;
+    private EditText tabletKeyInput;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,8 +103,31 @@ public class MainActivity extends Activity {
         updateStatus();
         statusText.setTextSize(12);
         statusText.setGravity(Gravity.CENTER);
-        statusText.setPadding(0, 0, 0, dp(16));
+        statusText.setPadding(0, 0, 0, dp(8));
         root.addView(statusText);
+
+        // Tablet key input
+        TextView keyLabel = new TextView(this);
+        keyLabel.setText("Tablet Key (from admin dashboard)");
+        keyLabel.setTextColor(Color.parseColor("#6b82a8"));
+        keyLabel.setTextSize(11);
+        keyLabel.setPadding(0, 0, 0, dp(4));
+        root.addView(keyLabel);
+
+        tabletKeyInput = new EditText(this);
+        tabletKeyInput.setHint("RIS-TABLET-KEY2026");
+        tabletKeyInput.setTextColor(Color.WHITE);
+        tabletKeyInput.setHintTextColor(Color.parseColor("#3a4d6b"));
+        tabletKeyInput.setBackgroundColor(Color.parseColor("#111d35"));
+        tabletKeyInput.setPadding(dp(12), dp(10), dp(12), dp(10));
+        tabletKeyInput.setTextSize(13);
+        tabletKeyInput.setSingleLine(true);
+        tabletKeyInput.setText(prefs.getString("admin_key", ""));
+        LinearLayout.LayoutParams keyLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        keyLp.setMargins(0, 0, 0, dp(16));
+        tabletKeyInput.setLayoutParams(keyLp);
+        root.addView(tabletKeyInput);
 
         // Lobby header
         root.addView(makeZoneHeader("LOBBY AREA — rooms 1-6"));
@@ -262,10 +287,12 @@ public class MainActivity extends Activity {
 
                 selectedEmail = room[1];
                 selectedName = room[0];
+                String tabletKey = tabletKeyInput.getText().toString().trim();
                 // Save to SharedPreferences
                 prefs.edit()
                     .putString("room_email", selectedEmail)
                     .putString("room_name", selectedName)
+                    .putString("admin_key", tabletKey)
                     .apply();
 
                 updateStatus();
