@@ -83,14 +83,14 @@ public class KioskWebViewActivity extends Activity {
                     @Override
                     public void run() {
                         if (webView == null) return;
-                        loadWithTokens(roomEmail, roomName, tokens);
+                        loadWithTokens(roomEmail, roomName, adminKey, tokens);
                     }
                 });
             }
         }).start();
     }
 
-    private void loadWithTokens(String roomEmail, String roomName,
+    private void loadWithTokens(String roomEmail, String roomName, String adminKey,
                                  TokenFetcher.TokenResult tokens) {
         StringBuilder url = new StringBuilder(BASE_URL);
 
@@ -100,6 +100,8 @@ public class KioskWebViewActivity extends Activity {
             url.append("&room=").append(Uri.encode(roomEmail));
         if (roomName.length() > 0)
             url.append("&roomname=").append(Uri.encode(roomName));
+        if (adminKey.length() > 0)
+            url.append("&tabletkey=").append(Uri.encode(adminKey));
 
         // Encode tokens as base64 JSON in URL hash
         // index.html reads #t= BEFORE MSAL initializes

@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 61,
+  patch: 62,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -3059,16 +3059,18 @@ loadCfg();
       var room=get('room');
       var roomname=get('roomname');
       var kiosk=get('kiosk');
+      var tabletkey=get('tabletkey');
       if(room){
         // Pre-fill config with room from APK
         if(!cfg.tenant)cfg.tenant='817e531d-191b-4cf5-8812-f0061d89b53d';
         if(!cfg.client)cfg.client='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
         cfg.roomemail=room;
         if(roomname)cfg.roomname=roomname;
+        if(tabletkey)cfg.tabletKey=tabletkey;
         cfg.booking=true;
         if(typeof cfg.approval==='undefined')cfg.approval=false;
         try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
-        dbg('URL param config injected: '+room+' ('+roomname+')');
+        dbg('URL param config injected: '+room+' ('+roomname+') tabletkey:'+(tabletkey?'yes':'NO'));
         if(cfg.tenant&&cfg.client&&cfg.roomemail&&cfg.roomname){
           setTimeout(function(){
             try{hide('config-screen');el('cfg-sticky-bar').style.display='none';launch();}catch(e){}
