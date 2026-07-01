@@ -739,7 +739,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 56,
+  patch: 57,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -800,6 +800,7 @@ var APP_VERSION = {
 // v3.10.15 2026-06-12 - All-day room bookings correctly show as IN USE; status text 'Booked All Day'; End/+30m hidden for all-day cur; ris-shared.js deriveRoomStatus includes all-day in cur
 // v3.10.55 2026-07-01 - Check-In button GREEN, End button RED, +30m button GREEN; buttons compact pill size matching Book Room; Book Room visible in all states; more space between card and Today/Tomorrow tabs; soon theme background dark green
 // v3.10.56 2026-07-01 - Auto-update uses location.reload() instead of location.href navigation — preserves PWA standalone/fullscreen, no tap required after update
+// v3.10.57 2026-07-01 - All remaining reload paths (admin reload, away >5min, bfcache) switched to location.reload() — tap-free across all scenarios
 
 // ══════════════════════════════════════
 // STATE
@@ -1733,13 +1734,7 @@ function executeCommand(cmd){
     try{
       localStorage.setItem('ris_reload_reason',JSON.stringify({reason:'admin_reload',at:Date.now()}));
     }catch(e){}
-    setTimeout(function(){
-      // Include room params so config survives even if localStorage is cleared
-      var url=location.protocol+'//'+location.host+location.pathname+'?nocache='+Date.now();
-      if(cfg.roomemail)url+='&room='+encodeURIComponent(cfg.roomemail);
-      if(cfg.roomname)url+='&roomname='+encodeURIComponent(cfg.roomname);
-      location.href=url;
-    },1000);
+    setTimeout(function(){location.reload();},1000);
   }
   else if(action==='clear_tokens'){
     reportIncident('remote_clear_tokens','Admin cleared auth tokens',true);
@@ -1906,7 +1901,7 @@ function startAutoRelaunch(){
     dbg('App returned, was away: '+Math.round(away/1000)+'s');
     if(away>300000){
       dbg('Away >5min, reloading fresh');
-      location.href=getRelaunchUrl();
+      location.reload();
     } else {
       setTimeout(function(){doFullscreen();},400);
     }
@@ -1933,7 +1928,7 @@ function startAutoRelaunch(){
     }
     if(e&&e.persisted){
       dbg('Pageshow from bfcache — reloading fresh');
-      location.href=getRelaunchUrl();
+      location.reload();
       return;
     }
     setTimeout(handleReturn,800);
