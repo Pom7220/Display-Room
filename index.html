@@ -205,19 +205,19 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .book-big{width:100%;padding:20px;background:#2979ff;border:none;-webkit-border-radius:14px;border-radius:14px;color:#ffffff;font-size:22px;font-weight:700;cursor:pointer;display:block;text-align:center;}
 .prog{height:6px;background:#333344;-webkit-border-radius:3px;border-radius:3px;overflow:hidden;margin-bottom:20px;}
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
-.action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;}
-.abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:110px;min-height:64px;padding:22px 12px;border:none;-webkit-border-radius:12px;border-radius:12px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:block;-webkit-box-sizing:border-box;box-sizing:border-box;}
-.abtn-checkin{touch-action:manipulation;background:#1a4a8a;color:#88ccff;border:2px solid #2266bb;}
+.action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
+.abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.abtn-checkin{touch-action:manipulation;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;}
 .abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;}
-.abtn-end{touch-action:manipulation;background:#4a0a30;color:#ff7ab8;border:2px solid #b8205c;}
-.abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:0;-webkit-border-radius:50%;border-radius:50%;background:#4a2a00;color:#ffcc44;border:2px solid #cc7700;font-size:13px;font-weight:700;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;text-align:center;line-height:1.1;}
+.abtn-end{touch-action:manipulation;background:#8a0a0a;color:#ffaaaa;border:2px solid #cc2222;}
+.abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:0;-webkit-border-radius:50%;border-radius:50%;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;font-size:13px;font-weight:700;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;text-align:center;line-height:1.1;}
 .abtn-teams{background:#1a1a5a;color:#aaaaff;border:2px solid #3333aa;}
 .abtn-pend{background:#3a2200;color:#ffcc44;border:2px solid #886600;cursor:default;-webkit-box-flex:2;-webkit-flex:2;flex:2;}
 .rel-warn{font-size:15px;color:#ffaa33;margin-top:10px;text-align:center;}
 
 /* ── TODAY/TOMORROW TABS ── */
-.view-tabs{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;margin-bottom:16px;-webkit-align-items:center;align-items:center;}
+.view-tabs{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;margin-top:28px;margin-bottom:16px;-webkit-align-items:center;align-items:center;}
 .vtab{touch-action:manipulation;-ms-touch-action:manipulation;padding:14px 24px;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:600;color:#7788aa;background:#1a1a2e;border:2px solid #2a2a3a;cursor:pointer;display:inline-block;}
 .vtab.active{background:#1a3a6a;border-color:#2979ff;color:#ffffff;}
 .vtab-badge{background:#2a3a5a;-webkit-border-radius:10px;border-radius:10px;padding:3px 10px;font-size:15px;font-weight:700;margin-left:6px;display:inline-block;}
@@ -765,8 +765,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 54,
-  date: '2026-06-28',
+  patch: 55,
+  date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -824,6 +824,7 @@ var APP_VERSION = {
 // v3.10.9 2026-06-11 - Chrome42 fix: detect Chrome<=45, use prompt:login not prompt:none (cookie blocking); clear all MSAL accounts on reauth; removes personal account from picker
 // v3.10.14 2026-06-11 - Proper loginHint fix: getEmailFromJWT decodes access token JWT directly; cfg.loginHint persists across cookie clears; no new UI fields; based on v3.10.9
 // v3.10.15 2026-06-12 - All-day room bookings correctly show as IN USE; status text 'Booked All Day'; End/+30m hidden for all-day cur; ris-shared.js deriveRoomStatus includes all-day in cur
+// v3.10.55 2026-07-01 - Check-In button GREEN, End button RED, +30m button GREEN; buttons compact pill size matching Book Room; Book Room visible in all states; more space between card and Today/Tomorrow tabs; soon theme background dark green
 
 // ══════════════════════════════════════
 // STATE
@@ -2168,11 +2169,11 @@ function fetchCal(){
 // THEME
 // ══════════════════════════════════════
 function setTheme(status){
-  var bgMap={available:'#071428',busy:'#300000',soon:'#201000',pending:'#201000'};
+  var bgMap={available:'#071428',busy:'#300000',soon:'#071a0e',pending:'#201000'};
   el('bg').style.background=bgMap[status]||bgMap.available;
   // Update theme-color meta for PWA status bar
   var tc=el('meta-theme-color');
-  var tcMap={available:'#071428',busy:'#300000',soon:'#201000',pending:'#201000'};
+  var tcMap={available:'#071428',busy:'#300000',soon:'#071a0e',pending:'#201000'};
   if(tc)tc.setAttribute('content',tcMap[status]||tcMap.available);
   // Update card class
   var card=el('cur-card');
@@ -2258,7 +2259,7 @@ function updateCurrentCard(){
       (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
       (!isAllDay(cur)?'<div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:#ff4444"></div></div>':'')+
       '<div class="action-row">'+btns+'</div>'+warn;
-    el('nav-book-btn').style.display='none';
+    el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else if(nxt){
     // ── AVAILABLE BUT UPCOMING SOON ──
