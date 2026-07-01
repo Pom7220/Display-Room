@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 62,
+  patch: 63,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -3072,6 +3072,8 @@ loadCfg();
         try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
         dbg('URL param config injected: '+room+' ('+roomname+') tabletkey:'+(tabletkey?'yes':'NO'));
         if(cfg.tenant&&cfg.client&&cfg.roomemail&&cfg.roomname){
+          // Signal enterKiosk() to skip tap overlay — Android fullscreen is already active via APK
+          try{sessionStorage.setItem('ris_from_reload','1');}catch(e){}
           setTimeout(function(){
             try{hide('config-screen');el('cfg-sticky-bar').style.display='none';launch();}catch(e){}
           },100);
