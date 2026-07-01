@@ -40,9 +40,26 @@ export default {
 
     // ── API ROUTES ──
     if (path.startsWith('/api/')) {
-      // Require KV binding
-      if (!env.RIS_KV) {
+      // Require KV binding (except calendar/book/event which only need ROPC secrets)
+      var calendarPaths = ['/api/calendar', '/api/book', '/api/event'];
+      var isCalendarPath = calendarPaths.indexOf(path) > -1;
+      if (!env.RIS_KV && !isCalendarPath) {
         return jsonResponse({ error: 'KV not configured' }, 500);
+      }
+
+      // GET /api/calendar — fetch room calendar via service account
+      if (path === '/api/calendar' && method === 'GET') {
+        return handleCalendar(request, url, env);
+      }
+
+      // POST /api/book — book a room via service account
+      if (path === '/api/book' && method === 'POST') {
+        return handleBook(request, env);
+      }
+
+      // PATCH /api/event — extend a meeting via service account
+      if (path === '/api/event' && method === 'PATCH') {
+        return handleEventPatch(request, env);
       }
 
       // POST /api/heartbeat — tablet sends health report
@@ -601,6 +618,136 @@ async function handleReportsList(url, env) {
 // ═══════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════
+
+// ═══════════════════════════════════════
+// CALENDAR — fetch room events via service account
+// ═══════════════════════════════════════
+
+async function handleCalendar(request, url, env) {
+  var tabletKey = request.headers.get('X-Tablet-Key') || '';
+  var expectedKey = env.RIS_ADMIN_KEY || '';
+  if (!tabletKey || (expectedKey && tabletKey !== expectedKey)) {
+    return jsonResponse({ error: 'Unauthorized' }, 401);
+  }
+  var room = url.searchParams.get('room') || '';
+  var start = url.searchParams.get('startDateTime') || '';
+  var end = url.searchParams.get('endDateTime') || '';
+  if (!room) return jsonResponse({ error: 'Missing room' }, 400);
+
+  var token = await getServiceToken(env);
+  if (!token) return jsonResponse({ error: 'Auth failed — check RIS_SVC_USER/PASSWORD/TENANT_ID/CLIENT_ID' }, 401);
+
+  try {
+    var graphUrl = 'https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(room)
+      + '/calendarView?startDateTime=' + encodeURIComponent(start)
+      + '&endDateTime=' + encodeURIComponent(end)
+      + '&$select=id,subject,start,end,showAs,isAllDay,organizer,attendees,onlineMeeting,bodyPreview'
+      + '&$top=50';
+    var resp = await fetch(graphUrl, { headers: { 'Authorization': 'Bearer ' + token } });
+    var data = await resp.json();
+    if (data.error) return jsonResponse({ error: data.error.message, value: [] }, 200);
+    return jsonResponse({ value: data.value || [] });
+  } catch (e) {
+    return jsonResponse({ error: e.message, value: [] }, 200);
+  }
+}
+
+// ═══════════════════════════════════════
+// BOOK — create room event via service account
+// ═══════════════════════════════════════
+
+async function handleBook(request, env) {
+  var tabletKey = request.headers.get('X-Tablet-Key') || '';
+  var expectedKey = env.RIS_ADMIN_KEY || '';
+  if (!tabletKey || (expectedKey && tabletKey !== expectedKey)) {
+    return jsonResponse({ error: 'Unauthorized' }, 401);
+  }
+  var body;
+  try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
+  if (!body.room || !body.start || !body.end) return jsonResponse({ error: 'Missing room/start/end' }, 400);
+
+  var token = await getServiceToken(env);
+  if (!token) return jsonResponse({ error: 'Auth failed' }, 401);
+
+  try {
+    var event = {
+      subject: body.subject || 'Meeting',
+      start: { dateTime: body.start, timeZone: 'Asia/Bangkok' },
+      end: { dateTime: body.end, timeZone: 'Asia/Bangkok' },
+      location: { displayName: body.roomName || body.room },
+      attendees: [{ emailAddress: { address: body.room }, type: 'resource' }]
+    };
+    if (body.organizerEmail) {
+      event.attendees.push({ emailAddress: { address: body.organizerEmail, name: body.organizerName || '' }, type: 'required' });
+    }
+    var resp = await fetch('https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(body.room) + '/events', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(event)
+    });
+    var data = await resp.json();
+    if (data.error) return jsonResponse({ error: data.error.message }, 400);
+    return jsonResponse({ ok: true, id: data.id });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
+// EVENT PATCH — extend meeting end time
+// ═══════════════════════════════════════
+
+async function handleEventPatch(request, env) {
+  var tabletKey = request.headers.get('X-Tablet-Key') || '';
+  var expectedKey = env.RIS_ADMIN_KEY || '';
+  if (!tabletKey || (expectedKey && tabletKey !== expectedKey)) {
+    return jsonResponse({ error: 'Unauthorized' }, 401);
+  }
+  var body;
+  try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
+  if (!body.room || !body.eventId || !body.end) return jsonResponse({ error: 'Missing room/eventId/end' }, 400);
+
+  var token = await getServiceToken(env);
+  if (!token) return jsonResponse({ error: 'Auth failed' }, 401);
+
+  try {
+    var resp = await fetch('https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(body.room) + '/events/' + body.eventId, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ end: { dateTime: body.end, timeZone: 'Asia/Bangkok' } })
+    });
+    var data = await resp.json();
+    if (data.error) return jsonResponse({ error: data.error.message }, 400);
+    return jsonResponse({ ok: true });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
+// SERVICE TOKEN — ROPC for Graph API calls
+// ═══════════════════════════════════════
+
+async function getServiceToken(env) {
+  var svcUser = env.RIS_SVC_USER || '';
+  var svcPass = env.RIS_SVC_PASSWORD || '';
+  var tenantId = env.RIS_TENANT_ID || '';
+  var clientId = env.RIS_CLIENT_ID || '';
+  if (!svcUser || !svcPass || !tenantId || !clientId) return null;
+  try {
+    var resp = await fetch('https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'client_id=' + encodeURIComponent(clientId)
+        + '&scope=' + encodeURIComponent('Calendars.ReadWrite Calendars.ReadWrite.Shared User.Read')
+        + '&username=' + encodeURIComponent(svcUser)
+        + '&password=' + encodeURIComponent(svcPass)
+        + '&grant_type=password'
+    });
+    var data = await resp.json();
+    return data.access_token || null;
+  } catch(e) { return null; }
+}
 
 function corsHeaders() {
   return {
