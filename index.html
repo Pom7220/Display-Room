@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 58,
+  patch: 59,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -803,6 +803,7 @@ var APP_VERSION = {
 // v3.10.56 2026-07-01 - Auto-update uses location.reload() instead of location.href navigation — preserves PWA standalone/fullscreen, no tap required after update
 // v3.10.57 2026-07-01 - All remaining reload paths (admin reload, away >5min, bfcache) switched to location.reload() — tap-free across all scenarios
 // v3.10.58 2026-07-01 - sessionStorage ris_from_reload flag set before every reload; enterKiosk() skips tap overlay on programmatic reloads (browser mode, APK launch)
+// v3.10.59 2026-07-01 - Fix: read ris_reload_reason into _progReload global early (before boot-reason clears it); enterKiosk checks both _progReload + sessionStorage — covers older versions reloading into v59
 
 // ══════════════════════════════════════
 // STATE
@@ -848,6 +849,16 @@ var activeRoom={name:'',email:''};
 var curView='today'; // 'today' | 'tomorrow'
 var moreDaysOpen=false;
 var locallyEnded=[]; // meeting IDs ended locally
+// Read ris_reload_reason NOW before boot-reason code clears it (~line 3100+).
+// All versions (v55+) set this before any programmatic reload, so even an
+// older version reloading into v58 will have this flag in localStorage.
+var _progReload=false;
+(function(){
+  try{
+    var _r=JSON.parse(localStorage.getItem('ris_reload_reason')||'null');
+    if(_r&&(Date.now()-(_r.at||0))<120000&&(_r.reason==='auto_update_reload'||_r.reason==='admin_reload'))_progReload=true;
+  }catch(e){}
+})();
 
 // ══════════════════════════════════════
 // HELPERS
@@ -1984,10 +1995,14 @@ function enterKiosk(){
     return;
   }
   // Browser launch (boot launcher or direct URL)
-  // If this is a programmatic reload (auto-update / admin / away-return),
-  // skip the tap overlay — sessionStorage flag set before location.reload().
-  var fromReload=false;
-  try{fromReload=sessionStorage.getItem('ris_from_reload')==='1';sessionStorage.removeItem('ris_from_reload');}catch(e){}
+  // Skip tap overlay if this was a programmatic reload. Two signals:
+  // 1. _progReload — read from ris_reload_reason (localStorage) early at startup,
+  //    covers all versions (v55+) reloading into this version.
+  // 2. sessionStorage.ris_from_reload — set by v58+ before location.reload(),
+  //    covers away>5min and bfcache cases within the same session.
+  var fromReload=_progReload;
+  _progReload=false;
+  try{if(sessionStorage.getItem('ris_from_reload')==='1'){fromReload=true;}sessionStorage.removeItem('ris_from_reload');}catch(e){}
   if(fromReload){
     dbg('Programmatic reload detected — auto-fullscreen, no tap overlay');
     setTimeout(function(){doFullscreen();},800);
