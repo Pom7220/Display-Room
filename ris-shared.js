@@ -1,7 +1,7 @@
 // ris-shared.js — RIS Room Display shared logic
 // ES5 ONLY — loaded by both index.html (Chrome 42) and dashboard.html
 // DO NOT use: const/let, arrows, template literals, async/await, optional chaining
-// Version: 1.3 (2026-06-28) — Phase 2: fetchCalendarForRoom + fetchBookRoom via Worker proxy (Client Credentials)
+// Version: 1.4 (2026-07-01) — fetch→XHR in fetchCalendarForRoom+fetchBookRoom (Chromium 30 WebView safe)
 
 // ── ROOM DEFINITIONS ──
 var RIS_ROOMS = [
@@ -149,32 +149,33 @@ function deriveRoomStatus(meetings) {
 }
 
 // Fetch calendar for a single room via Cloudflare Worker proxy — returns Promise
-// Worker handles Client Credentials auth — no user token needed on tablet
-// ES5 ONLY — no const/let/arrows/template literals
+// Worker handles ROPC auth — no user token needed on tablet
+// XHR only — no fetch() — safe for Chromium 30 WebView (Android 4.4.2)
 function fetchCalendarForRoom(email, tabletKey, startISO, endISO) {
-  // Always use the Worker URL directly — window.location may point to GitHub Pages
   var workerOrigin = 'https://ris-display.ris-display.workers.dev';
   var url = workerOrigin + '/api/calendar'
     + '?room=' + encodeURIComponent(email)
     + '&startDateTime=' + encodeURIComponent(startISO)
     + '&endDateTime=' + encodeURIComponent(endISO);
-  return fetch(url, {
-    headers: { 'X-Tablet-Key': tabletKey || '' }
-  })
-    .then(function(r) {
-      if (!r.ok) return { value: [] };
-      return r.json();
-    })
-    .then(function(d) {
-      return filterMeetings(d.value || []);
-    })
-    .catch(function() { return []; });
+  return new Promise(function(resolve) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('X-Tablet-Key', tabletKey || '');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      try {
+        var d = JSON.parse(xhr.responseText);
+        resolve(filterMeetings(d.value || []));
+      } catch(e) { resolve([]); }
+    };
+    xhr.onerror = function() { resolve([]); };
+    xhr.send();
+  });
 }
 
 // Book a room via Cloudflare Worker proxy — returns Promise
-// ES5 ONLY
+// XHR only — no fetch() — safe for Chromium 30 WebView (Android 4.4.2)
 function fetchBookRoom(tabletKey, roomEmail, roomName, subject, startISO, endISO, organizerName, organizerEmail) {
-  // Always use the Worker URL directly
   var workerOrigin = 'https://ris-display.ris-display.workers.dev';
   var url = workerOrigin + '/api/book';
   var body = JSON.stringify({
@@ -186,20 +187,25 @@ function fetchBookRoom(tabletKey, roomEmail, roomName, subject, startISO, endISO
     organizerName: organizerName || '',
     organizerEmail: organizerEmail || ''
   });
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Tablet-Key': tabletKey || ''
-    },
-    body: body
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      if (d.error) throw new Error(d.error + (d.detail ? ' | ' + d.detail : '') + (d.status ? ' (HTTP '+d.status+')' : ''));
-      return d;
-    })
-    .catch(function(e) { throw e; });
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-Tablet-Key', tabletKey || '');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      try {
+        var d = JSON.parse(xhr.responseText);
+        if (d.error) {
+          reject(new Error(d.error + (d.detail ? ' | ' + d.detail : '') + (d.status ? ' (HTTP '+d.status+')' : '')));
+        } else {
+          resolve(d);
+        }
+      } catch(e) { reject(e); }
+    };
+    xhr.onerror = function() { reject(new Error('Network error')); };
+    xhr.send(body);
+  });
 }
 
 // Format duration in minutes to human readable e.g. "3h 45m" or "45m"
