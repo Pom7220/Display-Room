@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 59,
+  patch: 60,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -934,63 +934,66 @@ var WX_ICONS={
 };
 
 function fetchWeather(){
-  // Try wttr.in first (JSON format, often allowed by corporate firewalls)
-  fetch('https://wttr.in/Bangkok?format=j1')
-  .then(function(r){
-    if(!r.ok)throw new Error('wttr failed');
-    return r.json();
-  })
-  .then(function(d){
+  // XHR-based — fetch API not available in Android 4.4 WebView (Chromium 30)
+  var _fetchDone=false;
+  function wxShow(icon,temp,feels,desc){
     try{
-      var cur=d.current_condition[0];
-      var temp=cur.temp_C;
-      var feels=cur.FeelsLikeC;
-      var desc=cur.weatherDesc[0].value;
-      // Simple icon mapping from description
-      var icon='🌡';
-      var dl=desc.toLowerCase();
-      if(dl.indexOf('sun')>-1||dl.indexOf('clear')>-1)icon='☀️';
-      else if(dl.indexOf('cloud')>-1&&dl.indexOf('part')>-1)icon='⛅';
-      else if(dl.indexOf('overcast')>-1||dl.indexOf('cloud')>-1)icon='☁️';
-      else if(dl.indexOf('rain')>-1||dl.indexOf('shower')>-1)icon='🌧';
-      else if(dl.indexOf('thunder')>-1||dl.indexOf('storm')>-1)icon='⛈';
-      else if(dl.indexOf('fog')>-1||dl.indexOf('mist')>-1)icon='🌫';
       el('wx-icon').textContent=icon;
       el('wx-temp').textContent=temp+'°C';
       el('wx-desc').textContent=desc;
-      try{var wf=el('wx-feels');if(wf)wf.textContent='Feels '+feels+'°';}catch(e){}
-      //
-      //
+      try{var wf=el('wx-feels');if(wf)wf.textContent=feels?'Feels '+feels+'°':'';}catch(e){}
       el('weather-strip').style.display='inline-block';
     }catch(e){}
-  })
-  .catch(function(){
-    // Try open-meteo as second option
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok')
-    .then(function(r){if(!r.ok)return null;return r.json();})
-    .then(function(d){
-      if(!d)return;
-      var c=d.current;
-      var temp=Math.round(c.temperature_2m);
-      var feels=Math.round(c.apparent_temperature);
-      var code=c.weather_code;
-      el('wx-icon').textContent=WX_ICONS[code]||'\uD83C\uDF21';
-      el('wx-temp').textContent=temp+'°C';
-      el('wx-desc').textContent=WX_CODES[code]||'--';
-      try{var wf=el('wx-feels');if(wf)wf.textContent='Feels '+feels+'°';}catch(e){}
-      el('weather-strip').style.display='inline-block';
-    })
-    .catch(function(){
-      // Both failed - show static Bangkok weather estimate
-      // Bangkok avg: 34°C, hot and humid
-      el('wx-icon').textContent='🌤';
-      el('wx-temp').textContent='34°C';
-      el('wx-desc').textContent='Bangkok';
-      try{var wf=el('wx-feels');if(wf)wf.textContent='';}catch(e){}
-      //
-      el('weather-strip').style.display='inline-block';
-    });
-  });
+  }
+  function wxIcon(desc){
+    var dl=(desc||'').toLowerCase();
+    if(dl.indexOf('sun')>-1||dl.indexOf('clear')>-1)return'sunny';
+    if(dl.indexOf('cloud')>-1&&dl.indexOf('part')>-1)return'partly';
+    if(dl.indexOf('overcast')>-1||dl.indexOf('cloud')>-1)return'cloudy';
+    if(dl.indexOf('rain')>-1||dl.indexOf('shower')>-1)return'rainy';
+    if(dl.indexOf('thunder')>-1||dl.indexOf('storm')>-1)return'storm';
+    if(dl.indexOf('fog')>-1||dl.indexOf('mist')>-1)return'fog';
+    return'wx';
+  }
+  function wxIconEmoji(desc){
+    var k=wxIcon(desc);
+    if(k==='sunny')return'☀️';
+    if(k==='partly')return'⛅';
+    if(k==='cloudy')return'☁️';
+    if(k==='rainy')return'🌧';
+    if(k==='storm')return'⛈';
+    if(k==='fog')return'🌫';
+    return'🌡';
+  }
+  function tryOpenMeteo(){
+    if(_fetchDone)return;
+    try{
+      var x2=new XMLHttpRequest();
+      x2.open('GET','https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok',true);
+      x2.onload=function(){
+        if(_fetchDone)return;_fetchDone=true;
+        try{var d=JSON.parse(x2.responseText);var c=d.current;wxShow(WX_ICONS[c.weather_code]||'🌡',Math.round(c.temperature_2m),Math.round(c.apparent_temperature),WX_CODES[c.weather_code]||'--');}
+        catch(e){wxShow('🌤','34','','Bangkok');}
+      };
+      x2.onerror=function(){if(!_fetchDone){_fetchDone=true;wxShow('🌤','34','','Bangkok');}};
+      x2.send();
+    }catch(e){wxShow('🌤','34','','Bangkok');}
+  }
+  try{
+    var x=new XMLHttpRequest();
+    x.open('GET','https://wttr.in/Bangkok?format=j1',true);
+    x.onload=function(){
+      if(_fetchDone)return;
+      try{
+        var d=JSON.parse(x.responseText);
+        var cur=d.current_condition[0];
+        _fetchDone=true;
+        wxShow(wxIconEmoji(cur.weatherDesc[0].value),cur.temp_C,cur.FeelsLikeC,cur.weatherDesc[0].value);
+      }catch(e){tryOpenMeteo();}
+    };
+    x.onerror=function(){tryOpenMeteo();};
+    x.send();
+  }catch(e){tryOpenMeteo();}
 }
 
 // ══════════════════════════════════════
