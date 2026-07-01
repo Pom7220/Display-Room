@@ -10,17 +10,12 @@ import android.os.IBinder;
 import java.util.List;
 
 /**
- * Background watchdog service — keeps Chrome in the foreground.
+ * Background watchdog — keeps KioskWebViewActivity in the foreground.
  *
- * Checks every 5 minutes if Chrome is the top app. If something else
- * (e.g., Meet in Touch, home screen, another app) is on top, it
- * brings Chrome back to the foreground automatically.
+ * Checks every 5 minutes if the kiosk app is the top app. If something else
+ * (e.g., home screen, another app) is on top, it relaunches KioskWebViewActivity.
  *
- * This runs as an Android Service in the APK — NOT in Chrome's
- * JavaScript. So it works even when Chrome is backgrounded/suspended.
- *
- * Also detects if Chrome has crashed (not in recent tasks at all)
- * and relaunches it with the room URL.
+ * Runs as an Android Service — works even when the WebView is suspended.
  */
 public class ForegroundWatchService extends Service {
 
@@ -41,10 +36,8 @@ public class ForegroundWatchService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (!running) {
             running = true;
-            // Start checking after initial delay (let boot launcher finish)
             handler.postDelayed(checkRunnable, INITIAL_DELAY_MS);
         }
-        // Restart service if killed by system
         return START_STICKY;
     }
 
@@ -52,7 +45,6 @@ public class ForegroundWatchService extends Service {
         @Override
         public void run() {
             checkAndRestore();
-            // Schedule next check
             handler.postDelayed(this, CHECK_INTERVAL_MS);
         }
     };
@@ -62,17 +54,16 @@ public class ForegroundWatchService extends Service {
             ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
             if (am == null) return;
 
-            // getRunningTasks is deprecated in API 21+ but works fine on API 19 (Android 4.4)
+            // getRunningTasks works on API 19 (Android 4.4)
             List<ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
             if (tasks == null || tasks.isEmpty()) return;
 
             String topPackage = tasks.get(0).topActivity.getPackageName();
-
             String ownPackage = getPackageName();
-            // Check if our WebView OR Chrome is in foreground
-            if (!CHROME_PACKAGE.equals(topPackage) && !ownPackage.equals(topPackage)) {
-                // Neither our app nor Chrome is on top — bring kiosk back
-                BootReceiver.bringChromeToFront(getApplicationContext());
+
+            if (!ownPackage.equals(topPackage)) {
+                // Kiosk activity is not on top — relaunch it
+                BootReceiver.launchKioskActivity(getApplicationContext());
             }
         } catch (Exception e) {
             // Non-critical — will retry on next interval
