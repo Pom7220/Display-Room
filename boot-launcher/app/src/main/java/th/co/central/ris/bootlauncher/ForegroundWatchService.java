@@ -24,7 +24,6 @@ import java.util.List;
  */
 public class ForegroundWatchService extends Service {
 
-    private static final String CHROME_PACKAGE = "com.android.chrome";
     private static final long CHECK_INTERVAL_MS = 300000; // 5 minutes
     private static final long INITIAL_DELAY_MS = 240000;  // 4 minutes (let boot sequence finish)
 
@@ -69,10 +68,9 @@ public class ForegroundWatchService extends Service {
             String topPackage = tasks.get(0).topActivity.getPackageName();
 
             String ownPackage = getPackageName();
-            // Check if our WebView OR Chrome is in foreground
-            if (!CHROME_PACKAGE.equals(topPackage) && !ownPackage.equals(topPackage)) {
-                // Neither our app nor Chrome is on top — bring kiosk back
-                BootReceiver.bringChromeToFront(getApplicationContext());
+            // If our WebView is not in foreground — relaunch it
+            if (!ownPackage.equals(topPackage)) {
+                BootReceiver.launchWebView(getApplicationContext());
             }
         } catch (Exception e) {
             // Non-critical — will retry on next interval
