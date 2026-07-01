@@ -122,7 +122,7 @@ public class MainActivity extends Activity {
         tabletKeyInput.setPadding(dp(12), dp(10), dp(12), dp(10));
         tabletKeyInput.setTextSize(13);
         tabletKeyInput.setSingleLine(true);
-        tabletKeyInput.setText(prefs.getString("admin_key", ""));
+        tabletKeyInput.setText(prefs.getString("admin_key", "RIS-TABLET-KEY2026"));
         LinearLayout.LayoutParams keyLp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         keyLp.setMargins(0, 0, 0, dp(16));
