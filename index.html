@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<script src="ris-shared.js?v=14"></script>
+<script src="ris-shared.js?v=13"></script>
 <!-- Promise polyfill for Chrome 42 -->
 <script>
 if(typeof Promise==='undefined'){
@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 65,
+  patch: 59,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -934,66 +934,63 @@ var WX_ICONS={
 };
 
 function fetchWeather(){
-  // XHR-based — fetch API not available in Android 4.4 WebView (Chromium 30)
-  var _fetchDone=false;
-  function wxShow(icon,temp,feels,desc){
+  // Try wttr.in first (JSON format, often allowed by corporate firewalls)
+  fetch('https://wttr.in/Bangkok?format=j1')
+  .then(function(r){
+    if(!r.ok)throw new Error('wttr failed');
+    return r.json();
+  })
+  .then(function(d){
     try{
+      var cur=d.current_condition[0];
+      var temp=cur.temp_C;
+      var feels=cur.FeelsLikeC;
+      var desc=cur.weatherDesc[0].value;
+      // Simple icon mapping from description
+      var icon='🌡';
+      var dl=desc.toLowerCase();
+      if(dl.indexOf('sun')>-1||dl.indexOf('clear')>-1)icon='☀️';
+      else if(dl.indexOf('cloud')>-1&&dl.indexOf('part')>-1)icon='⛅';
+      else if(dl.indexOf('overcast')>-1||dl.indexOf('cloud')>-1)icon='☁️';
+      else if(dl.indexOf('rain')>-1||dl.indexOf('shower')>-1)icon='🌧';
+      else if(dl.indexOf('thunder')>-1||dl.indexOf('storm')>-1)icon='⛈';
+      else if(dl.indexOf('fog')>-1||dl.indexOf('mist')>-1)icon='🌫';
       el('wx-icon').textContent=icon;
       el('wx-temp').textContent=temp+'°C';
       el('wx-desc').textContent=desc;
-      try{var wf=el('wx-feels');if(wf)wf.textContent=feels?'Feels '+feels+'°':'';}catch(e){}
+      try{var wf=el('wx-feels');if(wf)wf.textContent='Feels '+feels+'°';}catch(e){}
+      //
+      //
       el('weather-strip').style.display='inline-block';
     }catch(e){}
-  }
-  function wxIcon(desc){
-    var dl=(desc||'').toLowerCase();
-    if(dl.indexOf('sun')>-1||dl.indexOf('clear')>-1)return'sunny';
-    if(dl.indexOf('cloud')>-1&&dl.indexOf('part')>-1)return'partly';
-    if(dl.indexOf('overcast')>-1||dl.indexOf('cloud')>-1)return'cloudy';
-    if(dl.indexOf('rain')>-1||dl.indexOf('shower')>-1)return'rainy';
-    if(dl.indexOf('thunder')>-1||dl.indexOf('storm')>-1)return'storm';
-    if(dl.indexOf('fog')>-1||dl.indexOf('mist')>-1)return'fog';
-    return'wx';
-  }
-  function wxIconEmoji(desc){
-    var k=wxIcon(desc);
-    if(k==='sunny')return'☀️';
-    if(k==='partly')return'⛅';
-    if(k==='cloudy')return'☁️';
-    if(k==='rainy')return'🌧';
-    if(k==='storm')return'⛈';
-    if(k==='fog')return'🌫';
-    return'🌡';
-  }
-  function tryOpenMeteo(){
-    if(_fetchDone)return;
-    try{
-      var x2=new XMLHttpRequest();
-      x2.open('GET','https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok',true);
-      x2.onload=function(){
-        if(_fetchDone)return;_fetchDone=true;
-        try{var d=JSON.parse(x2.responseText);var c=d.current;wxShow(WX_ICONS[c.weather_code]||'🌡',Math.round(c.temperature_2m),Math.round(c.apparent_temperature),WX_CODES[c.weather_code]||'--');}
-        catch(e){wxShow('🌤','34','','Bangkok');}
-      };
-      x2.onerror=function(){if(!_fetchDone){_fetchDone=true;wxShow('🌤','34','','Bangkok');}};
-      x2.send();
-    }catch(e){wxShow('🌤','34','','Bangkok');}
-  }
-  try{
-    var x=new XMLHttpRequest();
-    x.open('GET','https://wttr.in/Bangkok?format=j1',true);
-    x.onload=function(){
-      if(_fetchDone)return;
-      try{
-        var d=JSON.parse(x.responseText);
-        var cur=d.current_condition[0];
-        _fetchDone=true;
-        wxShow(wxIconEmoji(cur.weatherDesc[0].value),cur.temp_C,cur.FeelsLikeC,cur.weatherDesc[0].value);
-      }catch(e){tryOpenMeteo();}
-    };
-    x.onerror=function(){tryOpenMeteo();};
-    x.send();
-  }catch(e){tryOpenMeteo();}
+  })
+  .catch(function(){
+    // Try open-meteo as second option
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=13.7248&longitude=100.5253&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia/Bangkok')
+    .then(function(r){if(!r.ok)return null;return r.json();})
+    .then(function(d){
+      if(!d)return;
+      var c=d.current;
+      var temp=Math.round(c.temperature_2m);
+      var feels=Math.round(c.apparent_temperature);
+      var code=c.weather_code;
+      el('wx-icon').textContent=WX_ICONS[code]||'\uD83C\uDF21';
+      el('wx-temp').textContent=temp+'°C';
+      el('wx-desc').textContent=WX_CODES[code]||'--';
+      try{var wf=el('wx-feels');if(wf)wf.textContent='Feels '+feels+'°';}catch(e){}
+      el('weather-strip').style.display='inline-block';
+    })
+    .catch(function(){
+      // Both failed - show static Bangkok weather estimate
+      // Bangkok avg: 34°C, hot and humid
+      el('wx-icon').textContent='🌤';
+      el('wx-temp').textContent='34°C';
+      el('wx-desc').textContent='Bangkok';
+      try{var wf=el('wx-feels');if(wf)wf.textContent='';}catch(e){}
+      //
+      el('weather-strip').style.display='inline-block';
+    });
+  });
 }
 
 // ══════════════════════════════════════
@@ -2477,15 +2474,15 @@ function extendMeeting(){
       eventId:cur.id,
       end:localISO(proposed)
     });
-    try{
-      var xp=new XMLHttpRequest();
-      xp.open('PATCH','https://ris-display.ris-display.workers.dev/api/event',true);
-      xp.setRequestHeader('Content-Type','application/json');
-      xp.setRequestHeader('X-Tablet-Key',cfg.tabletKey||'');
-      xp.onload=function(){try{var d=JSON.parse(xp.responseText);if(d.error){dbg('Extend failed: '+d.error);}else{dbg('Meeting extended in Exchange ✓');}}catch(e){}};
-      xp.onerror=function(){dbg('Extend error: network');};
-      xp.send(patchBody);
-    }catch(e){dbg('Extend error: '+e.message);}
+    fetch('https://ris-display.ris-display.workers.dev/api/event',{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','X-Tablet-Key':cfg.tabletKey||''},
+      body:patchBody
+    }).then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error){dbg('Extend failed: '+d.error);}
+      else{dbg('Meeting extended in Exchange ✓');}
+    }).catch(function(e){dbg('Extend error: '+e.message);});
   }
 }
 function joinTeams(url){
@@ -2650,17 +2647,8 @@ function sendApproval(name,email,title,s,e,done){
       body:{contentType:'html',content:emailHtml},
       toRecipients:[{emailAddress:{address:cfg.owner}}]
     },saveToSentItems:true};
-    return new Promise(function(resolve,reject){
-      try{
-        var xm=new XMLHttpRequest();
-        xm.open('POST','https://graph.microsoft.com/v1.0/me/sendMail',true);
-        xm.setRequestHeader('Authorization','Bearer '+tok);
-        xm.setRequestHeader('Content-Type','application/json');
-        xm.onload=function(){resolve({ok:xm.status>=200&&xm.status<300,status:xm.status});};
-        xm.onerror=function(){reject(new Error('Network error'));};
-        xm.send(JSON.stringify(mail));
-      }catch(e){reject(e);}
-    });
+    return fetch('https://graph.microsoft.com/v1.0/me/sendMail',
+      {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(mail)});
   }).then(function(r){
     if(!r)return;
     if(!r.ok&&r.status!==202){toast('Email failed','error');closeModal();if(done)done();return;}
@@ -3068,25 +3056,16 @@ loadCfg();
       var room=get('room');
       var roomname=get('roomname');
       var kiosk=get('kiosk');
-      var tabletkey=get('tabletkey');
       if(room){
         // Pre-fill config with room from APK
         if(!cfg.tenant)cfg.tenant='817e531d-191b-4cf5-8812-f0061d89b53d';
         if(!cfg.client)cfg.client='80648895-4acf-4ac5-b4a3-c5bf6bc98983';
         cfg.roomemail=room;
         if(roomname)cfg.roomname=roomname;
-        if(tabletkey)cfg.tabletKey=tabletkey;
         cfg.booking=true;
         if(typeof cfg.approval==='undefined')cfg.approval=false;
         try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
-        dbg('URL param config injected: '+room+' ('+roomname+') tabletkey:'+(tabletkey?'yes':'NO'));
-        if(cfg.tenant&&cfg.client&&cfg.roomemail&&cfg.roomname){
-          // Signal enterKiosk() to skip tap overlay — Android fullscreen is already active via APK
-          try{sessionStorage.setItem('ris_from_reload','1');}catch(e){}
-          setTimeout(function(){
-            try{hide('config-screen');el('cfg-sticky-bar').style.display='none';launch();}catch(e){}
-          },100);
-        }
+        dbg('URL param config injected: '+room+' ('+roomname+')');
       }
       // kiosk=1 means launched from APK — note it in log
       if(kiosk==='1'){

@@ -40,8 +40,8 @@ export default {
 
     // ── API ROUTES ──
     if (path.startsWith('/api/')) {
-      // Require KV binding (except /api/token which uses only ROPC secrets)
-      if (!env.RIS_KV && path !== '/api/token') {
+      // Require KV binding
+      if (!env.RIS_KV) {
         return jsonResponse({ error: 'KV not configured' }, 500);
       }
 
@@ -116,16 +116,6 @@ export default {
         } catch(e) {
           return jsonResponse({ ok: false, error: e.message });
         }
-      }
-
-      // POST /api/token — APK fetches ROPC tokens on boot (TokenFetcher.java)
-      if (path === '/api/token' && method === 'POST') {
-        var adminKey = env.RIS_ADMIN_KEY || '';
-        var providedKey = request.headers.get('X-Admin-Key') || '';
-        if (!adminKey || providedKey !== adminKey) {
-          return jsonResponse({ error: 'Unauthorized' }, 401);
-        }
-        return handleTokenFetch(env);
       }
 
       // POST /api/reports/generate — manually trigger report generation
@@ -609,66 +599,14 @@ async function handleReportsList(url, env) {
 }
 
 // ═══════════════════════════════════════
-// TOKEN FETCH — ROPC tokens for APK boot
-// ═══════════════════════════════════════
-// Called by TokenFetcher.java on every boot.
-// Returns tokens directly (not queued as a command).
-
-async function handleTokenFetch(env) {
-  var svcUser = env.RIS_SVC_USER || '';
-  var svcPass = env.RIS_SVC_PASSWORD || '';
-  var tenantId = env.RIS_TENANT_ID || '';
-  var clientId = env.RIS_CLIENT_ID || '';
-
-  if (!svcUser || !svcPass || !tenantId || !clientId) {
-    return jsonResponse({
-      ok: false,
-      error: 'Token fetch not configured. Set RIS_SVC_USER, RIS_SVC_PASSWORD, RIS_TENANT_ID, RIS_CLIENT_ID in Worker secrets.'
-    }, 400);
-  }
-
-  try {
-    var tokenUrl = 'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token';
-    var body = 'client_id=' + encodeURIComponent(clientId)
-      + '&scope=' + encodeURIComponent('Calendars.ReadWrite Calendars.ReadWrite.Shared Mail.Send User.Read openid profile offline_access')
-      + '&username=' + encodeURIComponent(svcUser)
-      + '&password=' + encodeURIComponent(svcPass)
-      + '&grant_type=password';
-
-    var resp = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body
-    });
-
-    var data = await resp.json();
-
-    if (data.error) {
-      return jsonResponse({ ok: false, error: data.error_description || data.error }, 401);
-    }
-
-    return jsonResponse({
-      ok: true,
-      access_token: data.access_token || '',
-      refresh_token: data.refresh_token || '',
-      id_token: data.id_token || '',
-      client_id: clientId,
-      expires_in: data.expires_in || 3600
-    });
-  } catch (e) {
-    return jsonResponse({ ok: false, error: e.message }, 500);
-  }
-}
-
-// ═══════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════
 
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Tablet-Key, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
     'Access-Control-Max-Age': '86400'
   };
 }

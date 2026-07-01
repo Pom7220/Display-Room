@@ -35,13 +35,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".KioskWebViewActivity"
-            android:label="RIS Kiosk Display"
-            android:screenOrientation="portrait"
-            android:theme="@android:style/Theme.Holo.NoActionBar.Fullscreen"
-            android:exported="false" />
-
         <service
             android:name=".ForegroundWatchService"
             android:exported="false" />

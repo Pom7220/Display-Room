@@ -56,13 +56,7 @@ public class TokenFetcher {
             if (code == 200) {
                 br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             } else {
-                java.io.InputStream es = conn.getErrorStream();
-                if (es == null) {
-                    result.ok = false;
-                    result.error = "HTTP " + code;
-                    return result;
-                }
-                br = new BufferedReader(new InputStreamReader(es));
+                br = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
             }
 
             StringBuilder sb = new StringBuilder();
