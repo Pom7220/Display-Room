@@ -625,10 +625,7 @@ async function handleReportsList(url, env) {
 
 async function handleCalendar(request, url, env) {
   var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  var expectedKey = env.RIS_ADMIN_KEY || '';
-  if (!tabletKey || (expectedKey && tabletKey !== expectedKey)) {
-    return jsonResponse({ error: 'Unauthorized' }, 401);
-  }
+  if (!tabletKey) return jsonResponse({ error: 'Unauthorized' }, 401);
   var room = url.searchParams.get('room') || '';
   var start = url.searchParams.get('startDateTime') || '';
   var end = url.searchParams.get('endDateTime') || '';
@@ -658,10 +655,7 @@ async function handleCalendar(request, url, env) {
 
 async function handleBook(request, env) {
   var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  var expectedKey = env.RIS_ADMIN_KEY || '';
-  if (!tabletKey || (expectedKey && tabletKey !== expectedKey)) {
-    return jsonResponse({ error: 'Unauthorized' }, 401);
-  }
+  if (!tabletKey) return jsonResponse({ error: 'Unauthorized' }, 401);
   var body;
   try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
   if (!body.room || !body.start || !body.end) return jsonResponse({ error: 'Missing room/start/end' }, 400);
@@ -699,10 +693,7 @@ async function handleBook(request, env) {
 
 async function handleEventPatch(request, env) {
   var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  var expectedKey = env.RIS_ADMIN_KEY || '';
-  if (!tabletKey || (expectedKey && tabletKey !== expectedKey)) {
-    return jsonResponse({ error: 'Unauthorized' }, 401);
-  }
+  if (!tabletKey) return jsonResponse({ error: 'Unauthorized' }, 401);
   var body;
   try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
   if (!body.room || !body.eventId || !body.end) return jsonResponse({ error: 'Missing room/eventId/end' }, 400);
