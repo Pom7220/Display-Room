@@ -40,8 +40,8 @@ export default {
 
     // ── API ROUTES ──
     if (path.startsWith('/api/')) {
-      // Require KV binding
-      if (!env.RIS_KV) {
+      // Require KV binding (except /api/token which uses only ROPC secrets)
+      if (!env.RIS_KV && path !== '/api/token') {
         return jsonResponse({ error: 'KV not configured' }, 500);
       }
 
@@ -120,7 +120,11 @@ export default {
 
       // POST /api/token — APK fetches ROPC tokens on boot (TokenFetcher.java)
       if (path === '/api/token' && method === 'POST') {
-        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        var adminKey = env.RIS_ADMIN_KEY || '';
+        var providedKey = request.headers.get('X-Admin-Key') || '';
+        if (!adminKey || providedKey !== adminKey) {
+          return jsonResponse({ error: 'Unauthorized' }, 401);
+        }
         return handleTokenFetch(env);
       }
 
