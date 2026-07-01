@@ -115,7 +115,9 @@ export default {
         }
         try {
           var tokenUrl = 'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token';
+          var clientSecret = env.RIS_CLIENT_SECRET || '';
           var body = 'client_id=' + encodeURIComponent(clientId)
+            + (clientSecret ? '&client_secret=' + encodeURIComponent(clientSecret) : '')
             + '&scope=' + encodeURIComponent('Calendars.ReadWrite openid offline_access')
             + '&username=' + encodeURIComponent(svcUser)
             + '&password=' + encodeURIComponent(svcPass)
@@ -295,7 +297,9 @@ async function handleRemoteReauth(room, sentBy, env) {
   try {
     // ROPC token request to Azure AD
     var tokenUrl = 'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token';
+    var clientSecret = env.RIS_CLIENT_SECRET || '';
     var body = 'client_id=' + encodeURIComponent(clientId)
+      + (clientSecret ? '&client_secret=' + encodeURIComponent(clientSecret) : '')
       + '&scope=' + encodeURIComponent('Calendars.ReadWrite Calendars.ReadWrite.Shared Mail.Send User.Read openid profile offline_access')
       + '&username=' + encodeURIComponent(svcUser)
       + '&password=' + encodeURIComponent(svcPass)
@@ -724,12 +728,14 @@ async function getServiceToken(env) {
   var svcPass = env.RIS_SVC_PASSWORD || '';
   var tenantId = env.RIS_TENANT_ID || '';
   var clientId = env.RIS_CLIENT_ID || '';
+  var clientSecret = env.RIS_CLIENT_SECRET || '';
   if (!svcUser || !svcPass || !tenantId || !clientId) return null;
   try {
     var resp = await fetch('https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: 'client_id=' + encodeURIComponent(clientId)
+        + (clientSecret ? '&client_secret=' + encodeURIComponent(clientSecret) : '')
         + '&scope=' + encodeURIComponent('Calendars.ReadWrite Calendars.ReadWrite.Shared User.Read')
         + '&username=' + encodeURIComponent(svcUser)
         + '&password=' + encodeURIComponent(svcPass)
@@ -743,8 +749,8 @@ async function getServiceToken(env) {
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Tablet-Key, Authorization',
     'Access-Control-Max-Age': '86400'
   };
 }
