@@ -19,6 +19,7 @@ import java.util.List;
  */
 public class ForegroundWatchService extends Service {
 
+    // CHROME_PACKAGE is accepted as a valid foreground state (Chrome fallback from launchKioskActivity)
     private static final String CHROME_PACKAGE = "com.android.chrome";
     private static final long CHECK_INTERVAL_MS = 300000; // 5 minutes
     private static final long INITIAL_DELAY_MS = 240000;  // 4 minutes (let boot sequence finish)
@@ -61,9 +62,9 @@ public class ForegroundWatchService extends Service {
             String topPackage = tasks.get(0).topActivity.getPackageName();
             String ownPackage = getPackageName();
 
-            if (!ownPackage.equals(topPackage)) {
-                // Kiosk activity is not on top — relaunch it
-                BootReceiver.launchKioskActivity(getApplicationContext());
+            if (!ownPackage.equals(topPackage) && !CHROME_PACKAGE.equals(topPackage)) {
+                // Neither kiosk app nor Chrome is on top — bring kiosk back
+                BootReceiver.bringKioskToFront(getApplicationContext());
             }
         } catch (Exception e) {
             // Non-critical — will retry on next interval

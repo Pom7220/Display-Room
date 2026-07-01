@@ -73,6 +73,14 @@ public class BootReceiver extends BroadcastReceiver {
         }
     }
 
+    static void bringKioskToFront(Context context) {
+        try {
+            Intent intent = new Intent(context, KioskWebViewActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        } catch (Exception e) {}
+    }
+
     static void bringChromeToFront(Context context) {
         try {
             Intent intent = new Intent(Intent.ACTION_MAIN);
