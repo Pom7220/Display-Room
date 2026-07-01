@@ -3056,6 +3056,8 @@ loadCfg();
       var room=get('room');
       var roomname=get('roomname');
       var kiosk=get('kiosk');
+      var tabletkey=get('tabletkey');
+      var webview=get('webview');
       if(room){
         // Pre-fill config with room from APK
         if(!cfg.tenant)cfg.tenant='817e531d-191b-4cf5-8812-f0061d89b53d';
@@ -3066,6 +3068,18 @@ loadCfg();
         if(typeof cfg.approval==='undefined')cfg.approval=false;
         try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
         dbg('URL param config injected: '+room+' ('+roomname+')');
+      }
+      // tabletkey param — save to cfg so Worker proxy is used instead of MSAL
+      if(tabletkey){
+        cfg.tabletKey=tabletkey;
+        try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
+        dbg('tabletKey injected from URL param');
+      }
+      // webview=1 — launched from WebView APK, already fullscreen at OS level
+      // Set ris_from_reload so enterKiosk() skips the tap overlay
+      if(webview==='1'){
+        try{sessionStorage.setItem('ris_from_reload','1');}catch(e){}
+        dbg('WebView launch detected — tap overlay suppressed');
       }
       // kiosk=1 means launched from APK — note it in log
       if(kiosk==='1'){

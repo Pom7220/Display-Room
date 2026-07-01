@@ -293,8 +293,7 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Tap a room card first", Toast.LENGTH_LONG).show();
             return;
         }
-        // Launch Chrome with room URL
-        BootReceiver.launchChrome(this);
+        BootReceiver.launchWebView(this);
         finish();
     }
 

@@ -2,38 +2,27 @@ package th.co.central.ris.bootlauncher;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
-import android.net.http.SslError;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.util.Base64;
 import android.view.Window;
 import android.view.WindowManager;
-import android.webkit.SslErrorHandler;
-import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 /**
- * Fullscreen WebView kiosk with URL hash token injection.
- *
- * Token passing flow (Chrome 30 compatible):
- * 1. Fetch ROPC tokens from Worker /api/token
- * 2. Encode as base64 JSON in URL hash: #t={base64}
- * 3. index.html reads hash BEFORE MSAL runs
- * 4. Tokens stored in localStorage → MSAL finds account → no login
- * 5. Room config in URL params → no config screen
- * 6. Zero touch required
+ * Fullscreen WebView kiosk — no MSAL, no token injection.
+ * Worker proxy handles auth via X-Tablet-Key header (set from URL param).
+ * webview=1 param tells index.html to skip the tap overlay.
  */
 public class KioskWebViewActivity extends Activity {
 
     private static final String BASE_URL =
         "https://ris-display.ris-display.workers.dev/";
+    private static final String TABLET_KEY = "RIS-TABLET-KEY2026";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
 
     private WebView webView;
-    private Handler handler = new Handler();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,75 +37,22 @@ public class KioskWebViewActivity extends Activity {
         webView = new WebView(this);
         setContentView(webView);
         setupWebView();
-
-        // Show loading screen
-        webView.loadData(
-            "<html><body style='background:#0a0a12;margin:0;display:table;width:100%;height:100%'>" +
-            "<div style='display:table-cell;vertical-align:middle;text-align:center;color:#3b9eff;font-family:sans-serif'>" +
-            "<div style='font-size:60px;font-weight:900'>RIS</div>" +
-            "<div style='font-size:16px;margin-top:12px;color:#6b82a8'>Starting room display...</div>" +
-            "</div></body></html>",
-            "text/html", "utf-8");
-
-        // Fetch tokens then load real page
-        final SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        final String adminKey = prefs.getString("admin_key", "");
-        final String roomEmail = prefs.getString("room_email", "");
-        final String roomName = prefs.getString("room_name", "");
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final TokenFetcher.TokenResult tokens =
-                    TokenFetcher.fetchTokens(adminKey);
-
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (webView == null) return;
-                        loadWithTokens(roomEmail, roomName, tokens);
-                    }
-                });
-            }
-        }).start();
+        loadDisplay();
     }
 
-    private void loadWithTokens(String roomEmail, String roomName,
-                                 TokenFetcher.TokenResult tokens) {
-        StringBuilder url = new StringBuilder(BASE_URL);
+    private void loadDisplay() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String roomEmail = prefs.getString("room_email", "");
+        String roomName  = prefs.getString("room_name", "");
 
-        // Room config as URL params
+        StringBuilder url = new StringBuilder(BASE_URL);
         url.append("?nocache=").append(System.currentTimeMillis());
+        url.append("&tabletkey=").append(Uri.encode(TABLET_KEY));
+        url.append("&webview=1");
         if (roomEmail.length() > 0)
             url.append("&room=").append(Uri.encode(roomEmail));
         if (roomName.length() > 0)
             url.append("&roomname=").append(Uri.encode(roomName));
-
-        // Encode tokens as base64 JSON in URL hash
-        // index.html reads #t= BEFORE MSAL initializes
-        if (tokens != null && tokens.isValid()) {
-            try {
-                StringBuilder json = new StringBuilder("{");
-                json.append("\"a\":\"").append(tokens.accessToken).append("\"");
-                json.append(",\"r\":\"").append(
-                    tokens.refreshToken != null ? tokens.refreshToken : "").append("\"");
-                json.append(",\"i\":\"").append(
-                    tokens.idToken != null ? tokens.idToken : "").append("\"");
-                json.append(",\"c\":\"").append(
-                    tokens.clientId != null ? tokens.clientId : "").append("\"");
-                json.append(",\"e\":").append(tokens.expiresIn);
-                json.append("}");
-
-                String b64 = Base64.encodeToString(
-                    json.toString().getBytes("UTF-8"),
-                    Base64.NO_WRAP | Base64.URL_SAFE);
-
-                url.append("#t=").append(b64);
-            } catch (Exception e) {
-                // If encoding fails, load without tokens
-                // User will see login screen as fallback
-            }
-        }
 
         webView.loadUrl(url.toString());
     }
@@ -128,32 +64,20 @@ public class KioskWebViewActivity extends Activity {
         s.setUseWideViewPort(true);
         s.setLoadWithOverviewMode(true);
         s.setSupportZoom(false);
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Keep all navigation in WebView
-                // Azure OAuth redirect will come back here
-                // That's OK — after redirect, URL has #code= not #t=
-                // MSAL will process the code, but we've already injected
-                // tokens so it should find account and skip login
                 view.loadUrl(url);
                 return true;
             }
-
-            @Override
-            public void onReceivedSslError(WebView view,
-                    SslErrorHandler handler, SslError error) {
-                handler.proceed();
-            }
         });
-
-        webView.setWebChromeClient(new WebChromeClient());
     }
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
+        // Block back button in kiosk mode
     }
 
     @Override
