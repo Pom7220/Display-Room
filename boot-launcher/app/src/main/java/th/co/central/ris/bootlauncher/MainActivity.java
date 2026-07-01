@@ -320,8 +320,11 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Tap a room card first", Toast.LENGTH_LONG).show();
             return;
         }
-        // Launch Chrome with room URL
-        BootReceiver.launchChrome(this);
+        // Save tablet key before launching
+        String tabletKey = tabletKeyInput.getText().toString().trim();
+        prefs.edit().putString("admin_key", tabletKey).apply();
+        // Launch WebView kiosk (not Chrome browser)
+        BootReceiver.launchKioskActivity(this);
         finish();
     }
 
