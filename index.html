@@ -437,6 +437,7 @@ function checkForNewVersion(){
             toVersion:serverPatch,
             at:Date.now()
           }));
+          sessionStorage.setItem('ris_from_reload','1');
         }catch(e){}
         location.reload();
       }
@@ -739,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 57,
+  patch: 58,
   date: '2026-07-01',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -801,6 +802,7 @@ var APP_VERSION = {
 // v3.10.55 2026-07-01 - Check-In button GREEN, End button RED, +30m button GREEN; buttons compact pill size matching Book Room; Book Room visible in all states; more space between card and Today/Tomorrow tabs; soon theme background dark green
 // v3.10.56 2026-07-01 - Auto-update uses location.reload() instead of location.href navigation — preserves PWA standalone/fullscreen, no tap required after update
 // v3.10.57 2026-07-01 - All remaining reload paths (admin reload, away >5min, bfcache) switched to location.reload() — tap-free across all scenarios
+// v3.10.58 2026-07-01 - sessionStorage ris_from_reload flag set before every reload; enterKiosk() skips tap overlay on programmatic reloads (browser mode, APK launch)
 
 // ══════════════════════════════════════
 // STATE
@@ -1734,7 +1736,7 @@ function executeCommand(cmd){
     try{
       localStorage.setItem('ris_reload_reason',JSON.stringify({reason:'admin_reload',at:Date.now()}));
     }catch(e){}
-    setTimeout(function(){location.reload();},1000);
+    setTimeout(function(){try{sessionStorage.setItem('ris_from_reload','1');}catch(e){}location.reload();},1000);
   }
   else if(action==='clear_tokens'){
     reportIncident('remote_clear_tokens','Admin cleared auth tokens',true);
@@ -1901,6 +1903,7 @@ function startAutoRelaunch(){
     dbg('App returned, was away: '+Math.round(away/1000)+'s');
     if(away>300000){
       dbg('Away >5min, reloading fresh');
+      try{sessionStorage.setItem('ris_from_reload','1');}catch(e){}
       location.reload();
     } else {
       setTimeout(function(){doFullscreen();},400);
@@ -1928,6 +1931,7 @@ function startAutoRelaunch(){
     }
     if(e&&e.persisted){
       dbg('Pageshow from bfcache — reloading fresh');
+      try{sessionStorage.setItem('ris_from_reload','1');}catch(e){}
       location.reload();
       return;
     }
@@ -1980,18 +1984,24 @@ function enterKiosk(){
     return;
   }
   // Browser launch (boot launcher or direct URL)
-  // Try auto-fullscreen first — Chrome 42 allows requestFullscreen from
-  // a timer after programmatic navigation (same mechanism as Layer 3).
-  // If Chrome rejects it, fall back to the tap overlay.
+  // If this is a programmatic reload (auto-update / admin / away-return),
+  // skip the tap overlay — sessionStorage flag set before location.reload().
+  var fromReload=false;
+  try{fromReload=sessionStorage.getItem('ris_from_reload')==='1';sessionStorage.removeItem('ris_from_reload');}catch(e){}
+  if(fromReload){
+    dbg('Programmatic reload detected — auto-fullscreen, no tap overlay');
+    setTimeout(function(){doFullscreen();},800);
+    return;
+  }
+  // Fresh launch — try auto-fullscreen; show tap overlay only if it fails.
   dbg('Browser mode — trying auto-fullscreen after delay');
   setTimeout(function(){
     doFullscreen();
-    // Check if fullscreen worked after a brief delay
     setTimeout(function(){
       var inFS=!!(document.fullscreenElement||document.webkitFullscreenElement);
       if(inFS){
         dbg('Auto-fullscreen succeeded in browser mode');
-      setTimeout(sendHeartbeat,1000);
+        setTimeout(sendHeartbeat,1000);
         var ov=el('fs-overlay');if(ov)ov.style.display='none';
       } else {
         dbg('Auto-fullscreen denied — showing tap overlay');
