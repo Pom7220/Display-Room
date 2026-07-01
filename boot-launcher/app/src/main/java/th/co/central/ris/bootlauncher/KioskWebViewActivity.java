@@ -1,6 +1,7 @@
 package th.co.central.ris.bootlauncher;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.http.SslError;
 import android.net.Uri;
