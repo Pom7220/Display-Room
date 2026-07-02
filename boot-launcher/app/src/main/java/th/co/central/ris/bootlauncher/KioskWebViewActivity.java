@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
@@ -36,6 +37,7 @@ public class KioskWebViewActivity extends Activity {
 
         webView = new WebView(this);
         setContentView(webView);
+        hideSystemUI();
         setupWebView();
         loadDisplay();
     }
@@ -75,6 +77,28 @@ public class KioskWebViewActivity extends Activity {
         });
     }
 
+    private void hideSystemUI() {
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        );
+        // Re-hide if system briefly shows nav bar (e.g. on touch)
+        getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(
+            new View.OnSystemUiVisibilityChangeListener() {
+                @Override
+                public void onSystemUiVisibilityChange(int visibility) {
+                    if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+                        hideSystemUI();
+                    }
+                }
+            }
+        );
+    }
+
     @Override
     public void onBackPressed() {
         // Block back button in kiosk mode
@@ -84,6 +108,7 @@ public class KioskWebViewActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
+        hideSystemUI();
     }
 
     @Override
