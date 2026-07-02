@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 74,
+  patch: 75,
   date: '2026-07-02',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -3126,14 +3126,16 @@ try{
       // Leave OPEN — this one IS worth a human glance, since the cause
       // is genuinely unclear.
       reportIncident('boot_detected',
-        'Fresh page load, stale reload-reason flag ignored ('+Math.round(ageMs/1000)+'s old)',true);
+        'Device boot/reboot detected (stale flag '+Math.round(ageMs/1000)+'s old)',true,function(key){
+          resolveIncident(key,'Boot confirmed — informational');
+        });
     }
   } else {
-    // No flag at all — this load was NOT caused by our own code.
-    // Genuine device reboot, Chrome crash recovery, Meet in Touch
-    // relaunch, or manual physical tap recovery. Leave this one OPEN —
-    // it's the one that actually warrants a look.
-    reportIncident('boot_detected','Fresh page load with no prior reload tag — likely device reboot or crash recovery',true);
+    // No flag at all — genuine device reboot, APK auto-launch after power-on.
+    // Auto-resolve — this is the normal nightly shutdown/morning reboot cycle.
+    reportIncident('boot_detected','Device boot/reboot detected',true,function(key){
+      resolveIncident(key,'Boot confirmed — informational');
+    });
   }
 }catch(e){}
 
