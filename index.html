@@ -740,8 +740,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 66,
-  date: '2026-07-01',
+  patch: 67,
+  date: '2026-07-02',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -1012,8 +1012,10 @@ function startBurnIn(){
       var alpha=progress<0.4?(progress/0.4)*0.018:(1-((progress-0.4)/0.6))*0.018;
       var radius=s.r*(0.3+progress*0.7);
       var grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,radius);
-      grd.addColorStop(0,'rgba(255,255,255,'+alpha+')');
-      grd.addColorStop(0.4,'rgba(200,220,255,'+(alpha*0.5)+')');
+      var a0=parseFloat(alpha.toFixed(4));
+      var a1=parseFloat((alpha*0.5).toFixed(4));
+      grd.addColorStop(0,'rgba(255,255,255,'+a0+')');
+      grd.addColorStop(0.4,'rgba(200,220,255,'+a1+')');
       grd.addColorStop(1,'rgba(0,0,0,0)');
       ctx.fillStyle=grd;
       ctx.beginPath();
