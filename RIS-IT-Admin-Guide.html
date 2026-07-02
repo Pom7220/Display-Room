@@ -113,8 +113,28 @@ tr:nth-child(even) td { background:#fafafa; }
 <tr><th>System</th><th>Action</th></tr>
 <tr><td>GitHub (<span class="mono">Pom7220/Display-Room</span>)</td><td>Settings → Danger Zone → Transfer Ownership to corporate org. GitHub Pages and Actions follow automatically. Generate new fine-grained token under corporate account.</td></tr>
 <tr><td>Cloudflare Worker (<span class="mono">ris-display</span>)</td><td>Add corporate admin to Cloudflare account, OR recreate Worker under corporate account. Re-enter all 7 secrets manually. Worker code is in <span class="mono">cloudflare-worker.js</span> in the repo.</td></tr>
-<tr><td>Azure AD</td><td>Already under <span class="mono">central.co.th</span> tenant — no transfer needed.</td></tr>
+<tr><td>Azure AD</td><td>Already under <span class="mono">central.co.th</span> tenant — no transfer needed. However, redirect URIs must be updated after GitHub transfer — see section below.</td></tr>
 </table>
+
+<h2>⚠ Post-transfer: Azure AD redirect URIs must be updated</h2>
+<div class="warn">⚠ After transferring the GitHub repo to the corporate org, GitHub Pages URL changes. Azure AD redirect URIs <strong>must be updated</strong> or browser/dashboard sign-in will break.</div>
+<p><strong>Path:</strong> Azure Portal → Azure AD → App registrations → <strong>RIS OAuth Meeting Room Kiosk</strong> → Authentication → Redirect URIs</p>
+<p style="margin:10px 0 6px"><strong>Remove old URIs and replace with:</strong></p>
+<table>
+<tr><th>#</th><th>New URI (update required)</th><th>Purpose</th></tr>
+<tr><td>1</td><td class="mono">https://<strong style="color:#c0392b">&lt;corporate-github-org&gt;</strong>.github.io/Display-Room/index.html</td><td>Kiosk (direct / browser mode)</td></tr>
+<tr><td>2</td><td class="mono">https://<strong style="color:#c0392b">&lt;corporate-github-org&gt;</strong>.github.io/Display-Room/dashboard.html</td><td>Dashboard</td></tr>
+<tr><td>3</td><td class="mono">https://ris-display.ris-display.workers.dev/index.html</td><td>Kiosk via Cloudflare — <strong>no change needed</strong></td></tr>
+</table>
+<div class="info">ℹ Replace <strong>&lt;corporate-github-org&gt;</strong> with the actual corporate GitHub organisation name (e.g. <span class="mono">centralgroup</span> → <span class="mono">centralgroup.github.io</span>). Confirm the org name with the GitHub admin before making changes. LG tablets are unaffected — they use the Cloudflare Worker URL (line 3) which does not change.</div>
+<div class="checklist" style="margin-top:8px">
+<label><input type="checkbox"> GitHub repo transferred to corporate org</label>
+<label><input type="checkbox"> GitHub Pages confirmed working at new corporate URL</label>
+<label><input type="checkbox"> Old <span class="mono">pom7220.github.io</span> redirect URIs removed from Azure AD</label>
+<label><input type="checkbox"> New <span class="mono">&lt;corporate-github-org&gt;.github.io</span> URIs added to Azure AD as SPA type</label>
+<label><input type="checkbox"> Dashboard sign-in tested and working at new URL</label>
+<label><input type="checkbox"> LG tablets confirmed still working (Cloudflare URL unchanged)</label>
+</div>
 
 <h2>Verification checklist</h2>
 <div class="checklist">
