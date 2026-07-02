@@ -313,9 +313,9 @@ grep -c "fetch(" index.html ris-shared.js
 ### Boot Launcher APK
 1. Edit files under `boot-launcher/`
 2. Bump `versionCode` + `versionName` in `boot-launcher/app/build.gradle`
-3. Push to `main` → GitHub Actions builds APK automatically
-4. Download from Actions → Artifacts → `ris-boot-launcher`
-5. Install on tablet: sideload via File Manager or `adb install -r app-debug.apk`
+3. Push to `main` → GitHub Actions builds APK and commits `ris-boot-launcher.apk` to repo root automatically
+4. Download `ris-boot-launcher.apk` directly from repo root (or Actions → Artifacts as fallback)
+5. Install on tablet: sideload via File Manager or `adb install -r ris-boot-launcher.apk`
 
 APK signing password: `a0000`
 
