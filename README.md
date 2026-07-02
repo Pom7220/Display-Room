@@ -4,8 +4,8 @@ Meeting room kiosk display and mobile dashboard for the RIS floor at Central Sil
 
 **Live URLs:**
 - Kiosk (via Cloudflare): `https://ris-display.ris-display.workers.dev/`
-- Kiosk (direct GitHub Pages): `https://pom7220.github.io/Display-Room/`
-- Dashboard: `https://pom7220.github.io/Display-Room/dashboard.html`
+- Kiosk (direct GitHub Pages): `https://<corporate-github-org>.github.io/Display-Room/` *(update after repo transfer)*
+- Dashboard: `https://<corporate-github-org>.github.io/Display-Room/dashboard.html` *(update after repo transfer)*
 
 **Current versions:** index v3.10.70 · dashboard v2.0 · ris-shared v1.4 · msal-v1 v1.3 · boot-launcher v5.0
 
@@ -224,7 +224,7 @@ Tablet powers on → BootReceiver fires
 | Auth method | Implicit flow (browser) + ROPC via Cloudflare Worker (tablets) |
 | Service account | `rismeetingroomsystem@central.co.th` (no MFA) |
 | Delegated scopes | `Calendars.ReadWrite`, `Calendars.ReadWrite.Shared`, `Mail.Send`, `User.Read` |
-| Redirect URIs | `https://pom7220.github.io/Display-Room/index.html`, `https://pom7220.github.io/Display-Room/dashboard.html`, `https://ris-display.ris-display.workers.dev/index.html` |
+| Redirect URIs | `https://<corporate-github-org>.github.io/Display-Room/index.html`, `https://<corporate-github-org>.github.io/Display-Room/dashboard.html`, `https://ris-display.ris-display.workers.dev/index.html` *(update first two after repo transfer)* |
 
 ---
 
