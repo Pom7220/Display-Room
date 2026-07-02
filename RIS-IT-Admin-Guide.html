@@ -25,8 +25,6 @@ tr:nth-child(even) td { background:#fafafa; }
 .warn { background:#fff8e6; border:1px solid #f0d060; border-radius:6px; padding:8px 12px; font-size:11px; color:#7a5d00; margin:8px 0; }
 .info { background:#e8f4ff; border:1px solid #b0d4f1; border-radius:6px; padding:8px 12px; font-size:11px; color:#1a5276; margin:8px 0; }
 .success { background:#eafbe7; border:1px solid #a3d99b; border-radius:6px; padding:8px 12px; font-size:11px; color:#1a6b1a; margin:8px 0; }
-.status-row { display:flex; align-items:center; gap:6px; margin:4px 0; }
-.dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 .checklist label { display:flex; align-items:flex-start; gap:6px; margin:4px 0; font-size:11px; }
 .checklist input { margin-top:2px; }
 .footer { margin-top:20px; padding-top:10px; border-top:1px solid #e0e0e0; font-size:10px; color:#aaa; text-align:center; }
@@ -34,7 +32,7 @@ tr:nth-child(even) td { background:#fafafa; }
 </style></head><body>
 
 <h1>🔒 RIS Room Display — IT Admin Guide</h1>
-<div class="subtitle">Azure AD configuration, Exchange permissions, and maintenance</div>
+<div class="subtitle">Azure AD configuration, Cloudflare Worker secrets, and Exchange permissions</div>
 
 <h2>Azure AD app registration</h2>
 <table>
@@ -44,6 +42,8 @@ tr:nth-child(even) td { background:#fafafa; }
 <tr><td>Platform type</td><td>Single-page application (SPA)</td></tr>
 </table>
 
+<div class="info">ℹ LG tablets no longer use MSAL or direct Azure AD authentication. Auth for tablets is handled by the Cloudflare Worker ROPC proxy using the service account. Azure AD app registration is only required for browser/dashboard mode.</div>
+
 <h2>Authentication settings</h2>
 <h3>Implicit grant and hybrid flows</h3>
 <p>☑ Access tokens — enabled</p>
@@ -52,9 +52,9 @@ tr:nth-child(even) td { background:#fafafa; }
 <h3>Redirect URIs (all three required, type: SPA)</h3>
 <table>
 <tr><th>#</th><th>URI</th><th>Purpose</th></tr>
-<tr><td>1</td><td class="mono">https://pom7220.github.io/Display-Room/index.html</td><td>Kiosk (direct)</td></tr>
+<tr><td>1</td><td class="mono">https://pom7220.github.io/Display-Room/index.html</td><td>Kiosk (direct / browser mode)</td></tr>
 <tr><td>2</td><td class="mono">https://pom7220.github.io/Display-Room/dashboard.html</td><td>Dashboard</td></tr>
-<tr><td>3</td><td class="mono">https://ris-display.ris-display.workers.dev/index.html</td><td>Kiosk via Cloudflare (LG tablets)</td></tr>
+<tr><td>3</td><td class="mono">https://ris-display.ris-display.workers.dev/index.html</td><td>Kiosk via Cloudflare (browser mode fallback)</td></tr>
 </table>
 
 <h2>API permissions (delegated)</h2>
@@ -70,10 +70,25 @@ tr:nth-child(even) td { background:#fafafa; }
 <h2>Service account configuration</h2>
 <table>
 <tr><td style="width:140px">Account</td><td class="mono">rismeetingroomsystem@central.co.th</td></tr>
-<tr><td>MFA</td><td>Disabled (required for kiosk auto-auth)</td></tr>
+<tr><td>MFA</td><td>Disabled (required for ROPC flow and kiosk auto-auth)</td></tr>
 <tr><td>Password policy</td><td>Non-expiring or long rotation period</td></tr>
 <tr><td>Mailbox delegation</td><td><strong>Full Access</strong> to all 12 room mailboxes</td></tr>
 </table>
+
+<h2>Cloudflare Worker secrets</h2>
+<p>Path: <strong>Cloudflare dashboard → Workers → ris-display → Settings → Variables</strong></p>
+<p style="margin:6px 0 4px">All 7 secrets must be set as <strong>Encrypted</strong> variables:</p>
+<table>
+<tr><th>Secret name</th><th>Value / Purpose</th></tr>
+<tr><td class="mono">RIS_SVC_USER</td><td>Service account email: <span class="mono">rismeetingroomsystem@central.co.th</span></td></tr>
+<tr><td class="mono">RIS_SVC_PASSWORD</td><td>Service account password</td></tr>
+<tr><td class="mono">RIS_TENANT_ID</td><td>Azure AD tenant ID: <span class="mono">817e531d-191b-4cf5-8812-f0061d89b53d</span></td></tr>
+<tr><td class="mono">RIS_CLIENT_ID</td><td>Azure AD app client ID: <span class="mono">80648895-4acf-4ac5-b4a3-c5bf6bc98983</span></td></tr>
+<tr><td class="mono">RIS_CLIENT_SECRET</td><td>Azure AD app client secret (from App Registration → Certificates &amp; secrets)</td></tr>
+<tr><td class="mono">RIS_TABLET_KEY</td><td>Tablet auth key: <span class="mono">RIS-TABLET-KEY2026</span></td></tr>
+<tr><td class="mono">RIS_ADMIN_KEY</td><td>Admin key for dashboard remote commands (set any strong value)</td></tr>
+</table>
+<div class="warn">⚠ Cloudflare does not export secret values. Keep a secure record of these values before handover. If any secret is lost, it must be reset in its source system and re-entered here.</div>
 
 <h2>Exchange: room mailbox delegation</h2>
 <p><strong>Path:</strong> Exchange Admin Center → Mailboxes → select room → Delegation → Full Access → add <span class="mono">rismeetingroomsystem@central.co.th</span></p>
@@ -93,27 +108,25 @@ tr:nth-child(even) td { background:#fafafa; }
 <div class="card" style="padding:6px 10px"><span class="mono">risaffogato@central.co.th</span></div>
 </div>
 
-<h2>★ Recommended: persistent browser session</h2>
-<div class="success">
-<p><strong>Extends silent token renewal from 24 hours to 90 days.</strong></p>
-<p>Without this, someone must sign in on each tablet once per day. With it, tablets run unattended for months.</p>
-</div>
-<p><strong>Configuration path:</strong></p>
-<div class="step"><div class="step-num">1</div><p>Azure Portal → Azure AD → Security → Conditional Access → New policy</p></div>
-<div class="step"><div class="step-num">2</div><p>Users: select <span class="mono">rismeetingroomsystem@central.co.th</span> only</p></div>
-<div class="step"><div class="step-num">3</div><p>Session: Sign-in frequency → Persistent browser session → <strong>Always persistent</strong></p></div>
-<div class="step"><div class="step-num">4</div><p>Grant: Grant access (no MFA requirement)</p></div>
+<h2>Corporate account handover</h2>
+<table>
+<tr><th>System</th><th>Action</th></tr>
+<tr><td>GitHub (<span class="mono">Pom7220/Display-Room</span>)</td><td>Settings → Danger Zone → Transfer Ownership to corporate org. GitHub Pages and Actions follow automatically. Generate new fine-grained token under corporate account.</td></tr>
+<tr><td>Cloudflare Worker (<span class="mono">ris-display</span>)</td><td>Add corporate admin to Cloudflare account, OR recreate Worker under corporate account. Re-enter all 7 secrets manually. Worker code is in <span class="mono">cloudflare-worker.js</span> in the repo.</td></tr>
+<tr><td>Azure AD</td><td>Already under <span class="mono">central.co.th</span> tenant — no transfer needed.</td></tr>
+</table>
 
 <h2>Verification checklist</h2>
 <div class="checklist">
-<label><input type="checkbox"> App registration exists with correct Client ID</label>
+<label><input type="checkbox"> App registration exists with correct Client ID and Client Secret</label>
 <label><input type="checkbox"> All 3 redirect URIs registered as SPA type</label>
 <label><input type="checkbox"> Implicit flow: both Access tokens and ID tokens enabled</label>
 <label><input type="checkbox"> All 4 API permissions added with admin consent granted</label>
 <label><input type="checkbox"> Service account has Full Access to all 12 room mailboxes</label>
-<label><input type="checkbox"> Service account MFA disabled or excluded via Conditional Access</label>
-<label><input type="checkbox"> Persistent browser session configured (recommended)</label>
+<label><input type="checkbox"> Service account MFA disabled</label>
+<label><input type="checkbox"> All 7 Cloudflare Worker secrets set as encrypted variables</label>
+<label><input type="checkbox"> Cloudflare Worker deployed and returning data at <span class="mono">ris-display.ris-display.workers.dev/api/status</span></label>
 </div>
 
-<div class="footer">RIS Room Display v3.10.15 · Central Group · 2026</div>
+<div class="footer">RIS Room Display v3.10.70 · Central Group · 2026</div>
 </body></html>

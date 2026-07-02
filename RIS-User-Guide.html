@@ -4,7 +4,6 @@
 * { box-sizing:border-box; margin:0; padding:0; }
 body { font-family:'Inter',Arial,sans-serif; font-size:12px; color:#1a1a1a; line-height:1.6; padding:28px 32px; max-width:720px; margin:0 auto; }
 h1 { font-size:20px; font-weight:600; margin-bottom:2px; }
-h1 .icon { font-size:18px; margin-right:6px; }
 .subtitle { font-size:11px; color:#888; margin-bottom:18px; }
 h2 { font-size:14px; font-weight:600; margin:18px 0 8px; padding-bottom:4px; border-bottom:1px solid #e8e8e8; }
 h3 { font-size:12px; font-weight:600; margin:10px 0 4px; }
@@ -27,8 +26,6 @@ tr:nth-child(even) td { background:#fafafa; }
 .success { background:#eafbe7; border:1px solid #a3d99b; border-radius:6px; padding:8px 12px; font-size:11px; color:#1a6b1a; margin:8px 0; }
 .status-row { display:flex; align-items:center; gap:6px; margin:4px 0; }
 .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-.checklist label { display:flex; align-items:flex-start; gap:6px; margin:4px 0; font-size:11px; }
-.checklist input { margin-top:2px; }
 .footer { margin-top:20px; padding-top:10px; border-top:1px solid #e0e0e0; font-size:10px; color:#aaa; text-align:center; }
 @media print { body { padding:16px 20px; } }
 </style></head><body>
@@ -38,36 +35,62 @@ tr:nth-child(even) td { background:#fafafa; }
 
 <h2>Room status indicators</h2>
 <div class="grid2">
-<div class="card"><div class="status-row"><div class="dot" style="background:#2979ff"></div><strong>Available</strong></div><div class="card-sub">Room is free — you can book it</div></div>
+<div class="card"><div class="status-row"><div class="dot" style="background:#2979ff"></div><strong>Available</strong></div><div class="card-sub">Room is free — you can walk in or book it</div></div>
 <div class="card"><div class="status-row"><div class="dot" style="background:#ff3333"></div><strong>In use</strong></div><div class="card-sub">Meeting in progress — check in if it's yours</div></div>
-<div class="card"><div class="status-row"><div class="dot" style="background:#ff9500"></div><strong>Soon</strong></div><div class="card-sub">Next meeting starts within 30 minutes</div></div>
-<div class="card"><div class="status-row"><div class="dot" style="background:#ff9500"></div><strong>Pending</strong></div><div class="card-sub">Awaiting room owner approval</div></div>
+<div class="card"><div class="status-row"><div class="dot" style="background:#ff9500"></div><strong>Coming soon</strong></div><div class="card-sub">Next meeting starts within 30 minutes</div></div>
+<div class="card"><div class="status-row"><div class="dot" style="background:#ff9500"></div><strong>Pending</strong></div><div class="card-sub">Booking awaiting room owner approval (Macchiato only)</div></div>
 </div>
 
 <h2>How to book a room</h2>
-<div class="step"><div class="step-num">1</div><p><strong>Tap "Book Room"</strong> on the tablet display (only appears when room is available)</p></div>
+<div class="step"><div class="step-num">1</div><p><strong>Tap "+ Book Room"</strong> at the bottom of the tablet display</p></div>
 <div class="step"><div class="step-num">2</div><p><strong>Enter your name, email, and meeting title</strong></p></div>
 <div class="step"><div class="step-num">3</div><p><strong>Pick a start time and duration</strong> (30 min to 2 hours)</p></div>
 <div class="step"><div class="step-num">4</div><p><strong>Tap "Confirm"</strong> — you'll receive an Outlook calendar invitation</p></div>
-<div class="warn">⚠ <strong>Macchiato</strong> is the only room requiring owner approval. All other rooms are instant booking.</div>
+<div class="warn">⚠ <strong>Macchiato</strong> is the only room requiring owner approval. Booking will show as "Pending" until approved. All other rooms confirm instantly.</div>
 
 <h2>During your meeting</h2>
 <div class="grid3">
-<div class="card" style="text-align:center"><div class="card-title">✓ Check in</div><div class="card-sub">Confirm you're using the room. Unchecked rooms auto-release after 10 min.</div></div>
-<div class="card" style="text-align:center"><div class="card-title">+30m Extend</div><div class="card-sub">Add 30 minutes if the next time slot is free.</div></div>
+<div class="card" style="text-align:center"><div class="card-title">✓ Check in</div><div class="card-sub">Confirm you're using the room. Rooms auto-release after 10 min if nobody checks in.</div></div>
+<div class="card" style="text-align:center"><div class="card-title">+30m Extend</div><div class="card-sub">Add 30 minutes if the next slot is free.</div></div>
 <div class="card" style="text-align:center"><div class="card-title">✕ End meeting</div><div class="card-sub">Release the room early so others can book it.</div></div>
 </div>
+
+<h2>Viewing the schedule</h2>
+<p>Tap <strong>Today</strong> or <strong>Tomorrow</strong> tabs on the display to see all meetings for the room. Tap <strong>More+</strong> to see up to 7 days ahead.</p>
 
 <h2>Mobile dashboard</h2>
 <p>See all 12 rooms at a glance from your phone or laptop:</p>
 <p class="mono" style="font-size:11px;color:#2979ff;margin:4px 0">pom7220.github.io/Display-Room/dashboard.html</p>
-<p>Tap any room to see its schedule or book it. Auto-refreshes every 60 seconds.</p>
+<p>Tap any room tile to see its full schedule or make a booking. Auto-refreshes every 60 seconds. Sign in with your Central Group Microsoft account.</p>
 
 <h2>Room directory</h2>
 <div class="grid2">
-<div class="card"><h3>Lobby area (rooms 1–6)</h3><p>Espresso · Doppio · Cappuccino<br>Americano · Lungo · Ristretto</p></div>
-<div class="card"><h3>In-office area (rooms 7–12)</h3><p>Macchiato · Viennese · Decaffinato<br>Latte · Mocha · Affogato</p></div>
+<div class="card">
+<h3>Lobby area (rooms 1–6)</h3>
+<table style="margin:6px 0 0">
+<tr><td>Espresso</td><td>8–12 seats</td></tr>
+<tr><td>Doppio</td><td>6–8 seats</td></tr>
+<tr><td>Cappuccino</td><td>6 seats</td></tr>
+<tr><td>Americano</td><td>6 seats</td></tr>
+<tr><td>Lungo</td><td>4 seats</td></tr>
+<tr><td>Ristretto</td><td>4 seats</td></tr>
+</table>
 </div>
+<div class="card">
+<h3>In-office area (rooms 7–12)</h3>
+<table style="margin:6px 0 0">
+<tr><td>Macchiato ★</td><td>5–8 seats</td></tr>
+<tr><td>Viennese</td><td>6 seats</td></tr>
+<tr><td>Decaffinato</td><td>6 seats</td></tr>
+<tr><td>Latte</td><td>6 seats</td></tr>
+<tr><td>Mocha</td><td>6 seats</td></tr>
+<tr><td>Affogato</td><td>6 seats</td></tr>
+</table>
+</div>
+</div>
+<p style="margin-top:6px;font-size:11px;color:#666">★ Macchiato requires owner approval</p>
 
-<div class="footer">RIS Room Display v3.10.15 · Central Group · 2026</div>
+<div class="info">ℹ Room displays update every 5 minutes. If a booking you just made isn't showing yet, wait a moment — it will appear automatically.</div>
+
+<div class="footer">RIS Room Display v3.10.70 · Central Group · 2026</div>
 </body></html>

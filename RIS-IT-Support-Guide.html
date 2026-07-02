@@ -4,7 +4,6 @@
 * { box-sizing:border-box; margin:0; padding:0; }
 body { font-family:'Inter',Arial,sans-serif; font-size:12px; color:#1a1a1a; line-height:1.6; padding:28px 32px; max-width:720px; margin:0 auto; }
 h1 { font-size:20px; font-weight:600; margin-bottom:2px; }
-h1 .icon { font-size:18px; margin-right:6px; }
 .subtitle { font-size:11px; color:#888; margin-bottom:18px; }
 h2 { font-size:14px; font-weight:600; margin:18px 0 8px; padding-bottom:4px; border-bottom:1px solid #e8e8e8; }
 h3 { font-size:12px; font-weight:600; margin:10px 0 4px; }
@@ -25,8 +24,6 @@ tr:nth-child(even) td { background:#fafafa; }
 .warn { background:#fff8e6; border:1px solid #f0d060; border-radius:6px; padding:8px 12px; font-size:11px; color:#7a5d00; margin:8px 0; }
 .info { background:#e8f4ff; border:1px solid #b0d4f1; border-radius:6px; padding:8px 12px; font-size:11px; color:#1a5276; margin:8px 0; }
 .success { background:#eafbe7; border:1px solid #a3d99b; border-radius:6px; padding:8px 12px; font-size:11px; color:#1a6b1a; margin:8px 0; }
-.status-row { display:flex; align-items:center; gap:6px; margin:4px 0; }
-.dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 .checklist label { display:flex; align-items:flex-start; gap:6px; margin:4px 0; font-size:11px; }
 .checklist input { margin-top:2px; }
 .footer { margin-top:20px; padding-top:10px; border-top:1px solid #e0e0e0; font-size:10px; color:#aaa; text-align:center; }
@@ -38,59 +35,82 @@ tr:nth-child(even) td { background:#fafafa; }
 
 <h2>System architecture</h2>
 <div class="grid3">
-<div class="card"><div class="card-title">Tablets</div><div class="card-sub">LG 10SM3TB · Android 4.4.2 · Chrome 42</div></div>
-<div class="card"><div class="card-title">Hosting</div><div class="card-sub">GitHub Pages via Cloudflare Worker proxy</div></div>
-<div class="card"><div class="card-title">Auth</div><div class="card-sub">Azure AD OAuth2 implicit flow + iframe renewal</div></div>
+<div class="card"><div class="card-title">Tablets</div><div class="card-sub">LG 10SM3TB · Android 4.4.2 · WebView APK v5.0</div></div>
+<div class="card"><div class="card-title">Hosting</div><div class="card-sub">GitHub Pages served via Cloudflare Worker proxy</div></div>
+<div class="card"><div class="card-title">Auth</div><div class="card-sub">Worker ROPC proxy (tablets) · OAuth2 implicit (browser/dashboard)</div></div>
 </div>
+
+<div class="info">ℹ Tablets no longer use Chrome or MSAL. The WebView APK loads the display directly with a tablet key — no sign-in required. Calendar data is fetched via the Cloudflare Worker using a service account.</div>
 
 <h2>Key URLs and credentials</h2>
 <table>
 <tr><td>Kiosk URL (tablets)</td><td class="mono">ris-display.ris-display.workers.dev</td></tr>
+<tr><td>Dashboard URL</td><td class="mono">pom7220.github.io/Display-Room/dashboard.html</td></tr>
 <tr><td>GitHub repo</td><td class="mono">github.com/Pom7220/Display-Room</td></tr>
 <tr><td>Service account</td><td class="mono">rismeetingroomsystem@central.co.th</td></tr>
 <tr><td>Tenant ID</td><td class="mono">817e531d-191b-4cf5-8812-f0061d89b53d</td></tr>
 <tr><td>Client ID</td><td class="mono">80648895-4acf-4ac5-b4a3-c5bf6bc98983</td></tr>
-<tr><td>APK password</td><td class="mono">a0000</td></tr>
+<tr><td>APK signing password</td><td class="mono">a0000</td></tr>
 </table>
 
-<h2>New tablet setup (one-time)</h2>
-<div class="step"><div class="step-num">1</div><p>Install APK from USB — Settings → Apps → allow unknown sources</p></div>
-<div class="step"><div class="step-num">2</div><p>Connect to office WiFi</p></div>
-<div class="step"><div class="step-num">3</div><p>Reboot — APK auto-launches Chrome → config screen appears</p></div>
-<div class="step"><div class="step-num">4</div><p>Enter room name + email (Tenant/Client IDs are pre-filled) → Save</p></div>
-<div class="step"><div class="step-num">5</div><p>Sign in as <span class="mono">rismeetingroomsystem@central.co.th</span> → done</p></div>
+<h2>New tablet setup (one-time per tablet)</h2>
+<div class="success">No Chrome install, no certificate install, no sign-in required.</div>
+<div class="step"><div class="step-num">1</div><p>Settings → Apps → enable <strong>Unknown sources</strong></p></div>
+<div class="step"><div class="step-num">2</div><p>Copy APK to USB drive → install from File Manager (password: <span class="mono">a0000</span>)</p></div>
+<div class="step"><div class="step-num">3</div><p>Connect to office WiFi</p></div>
+<div class="step"><div class="step-num">4</div><p>Open <strong>RIS Kiosk</strong> app → setup screen appears → select room name → tap Save</p></div>
+<div class="step"><div class="step-num">5</div><p>Display launches automatically — no tap, no sign-in</p></div>
+<div class="step"><div class="step-num">6</div><p>On subsequent reboots the display launches automatically after ~90 seconds</p></div>
+
+<h2>Getting the latest APK</h2>
+<div class="step"><div class="step-num">1</div><p>Go to <span class="mono">github.com/Pom7220/Display-Room</span> → Actions tab</p></div>
+<div class="step"><div class="step-num">2</div><p>Open the latest <strong>Build APK</strong> run → scroll to Artifacts → download <strong>ris-boot-launcher</strong></p></div>
+<div class="step"><div class="step-num">3</div><p>Unzip → copy <span class="mono">app-debug.apk</span> to USB drive</p></div>
 
 <h2>Troubleshooting</h2>
 <table>
-<tr><th style="width:180px">Symptom</th><th>Cause</th><th>Fix</th></tr>
-<tr><td>Microsoft account picker appears</td><td>Azure AD session expired (after 24h)</td><td>Sign in once. For permanent fix: IT sets Persistent browser session on service account (extends to 90 days)</td></tr>
-<tr><td>"No meetings" or blank screen</td><td>WiFi disconnected or token expired</td><td>Check WiFi. Long-press gear (5 sec) for debug log. Reboot to trigger auto-launch</td></tr>
-<tr><td>Room shows "Available" but Outlook shows booked</td><td>Calendar refreshes every 90 sec</td><td>Wait 90 sec. If still wrong: check service account has Full Access to room mailbox in Exchange Admin</td></tr>
-<tr><td>Old version still showing</td><td>Service worker cached old files</td><td>Ensure CACHE_VERSION in sw.js was bumped. Tablets auto-reload within 5 min of inactivity</td></tr>
-<tr><td>APK install: "conflicting signature"</td><td>Different signing key from old APK</td><td>Settings → Apps → uninstall old APK → install new one</td></tr>
+<tr><th style="width:190px">Symptom</th><th>Cause</th><th>Fix</th></tr>
+<tr><td>Black screen after reboot</td><td>WiFi not ready when APK launched (boot too fast)</td><td>Wait 90s after power-on. If persists: open RIS Kiosk app manually to re-trigger</td></tr>
+<tr><td>Display returns to Android home screen</td><td>APK not set as default launcher, or ForegroundWatchService stopped</td><td>Open RIS Kiosk app → it will relaunch WebView. Reboot to restore auto-launch</td></tr>
+<tr><td>Red error banner at top of screen</td><td>JavaScript error in WebView (Chromium 30 compatibility)</td><td>Check if latest index.html version is deployed. Remote reload from dashboard. Reboot if still showing.</td></tr>
+<tr><td>"No meetings" or stale data</td><td>WiFi disconnected or Cloudflare Worker issue</td><td>Check WiFi. Open dashboard → check tablet heartbeat status. Reboot tablet.</td></tr>
+<tr><td>Room shows "Available" but Outlook shows booked</td><td>Calendar refreshes every 5 minutes</td><td>Wait up to 5 min. If still wrong: check service account has Full Access to room mailbox in Exchange Admin</td></tr>
+<tr><td>APK install: "conflicting signature"</td><td>Different signing key from previous APK version</td><td>Settings → Apps → uninstall old RIS Kiosk → install new APK</td></tr>
+<tr><td>Display shows wrong room name</td><td>Room not selected in setup, or SharedPreferences corrupted</td><td>Open RIS Kiosk app → re-select room → Save</td></tr>
+<tr><td>Tablet offline on dashboard for >30 min</td><td>WiFi dropped, tablet frozen, or display crashed</td><td>Physical check required — verify tablet is powered and connected to WiFi. Reboot if needed.</td></tr>
 </table>
+
+<h2>Remote management (via dashboard)</h2>
+<p>Open dashboard → Admin panel → available actions:</p>
+<table>
+<tr><th>Action</th><th>Effect</th></tr>
+<tr><td>Reload All</td><td>Sends reload command to all tablets — display refreshes within 2 minutes (next poll cycle)</td></tr>
+<tr><td>Status view</td><td>Shows last heartbeat time for each tablet — confirms online/offline without physical visit</td></tr>
+</table>
+<div class="info">ℹ Tablets poll for commands every 2 minutes. Remote reload is not instant — allow up to 2 minutes for the tablet to act.</div>
 
 <h2>Deploy checklist (code updates)</h2>
 <div class="checklist">
 <label><input type="checkbox"> Bump APP_VERSION.patch + date in index.html</label>
-<label><input type="checkbox"> Bump CACHE_VERSION in sw.js to match</label>
-<label><input type="checkbox"> Bump ?v= cache-bust on ris-shared.js script tags (if changed)</label>
-<label><input type="checkbox"> Run ES5 pre-flight: <span class="mono">grep -c "=&gt;\|const \|let " index.html</span> → must be 0</label>
-<label><input type="checkbox"> Push to GitHub → Pages auto-deploys → tablets update within 5 min</label>
+<label><input type="checkbox"> Bump ?v= cache-bust on ris-shared.js script tag (if ris-shared.js changed)</label>
+<label><input type="checkbox"> Run ES5 pre-flight: <span class="mono">grep -c "=&gt;\|const \|let \|fetch(" index.html</span> → must be 0</label>
+<label><input type="checkbox"> Push to GitHub → Pages auto-deploys → tablets update within 5 minutes</label>
+<label><input type="checkbox"> For APK changes: push to GitHub → download new APK from Actions → install on each tablet</label>
 </div>
 
 <h2>File versions</h2>
 <table>
 <tr><th>File</th><th>Version</th><th>Purpose</th></tr>
-<tr><td>index.html</td><td>v3.10.15</td><td>Kiosk display (ES5, Chrome 42)</td></tr>
-<tr><td>dashboard.html</td><td>v2.0</td><td>Mobile dashboard (ES6)</td></tr>
-<tr><td>ris-shared.js</td><td>v1.2</td><td>Shared calendar logic (ES5)</td></tr>
-<tr><td>msal-v1.min.js</td><td>v1.3</td><td>Auth library with iframe renewal</td></tr>
-<tr><td>sw.js</td><td>ris-v3.10.15</td><td>Service worker (network-first cache)</td></tr>
-<tr><td>boot-launcher</td><td>v1.2</td><td>Android APK (auto-launch on boot)</td></tr>
+<tr><td>index.html</td><td>v3.10.70</td><td>Kiosk display (ES5, Chromium 30 + Chrome 42)</td></tr>
+<tr><td>dashboard.html</td><td>v2.0</td><td>Mobile dashboard (ES6, modern browsers)</td></tr>
+<tr><td>ris-shared.js</td><td>v1.4</td><td>Shared calendar logic (ES5, XHR only)</td></tr>
+<tr><td>msal-v1.min.js</td><td>v1.3</td><td>Auth library — browser/dashboard mode only</td></tr>
+<tr><td>sw.js</td><td>ris-v3.10.15</td><td>Service worker — browser/PWA mode only</td></tr>
+<tr><td>cloudflare-worker.js</td><td>—</td><td>Cloudflare Worker source — deploy via Cloudflare dashboard</td></tr>
+<tr><td>boot-launcher/</td><td>v5.0</td><td>Android WebView APK — auto-launches on tablet boot</td></tr>
 </table>
 
-<div class="info">ℹ Debug mode: long-press gear icon 5 seconds. Settings PIN: 1234 (default). Cloudflare Worker: dash.cloudflare.com → Compute → Workers → ris-display</div>
+<div class="info">ℹ Debug mode: long-press gear icon 5 seconds on tablet display. Cloudflare Worker: dash.cloudflare.com → Compute → Workers → ris-display. Worker request usage: dash.cloudflare.com → Analytics.</div>
 
-<div class="footer">RIS Room Display v3.10.15 · Central Group · 2026</div>
+<div class="footer">RIS Room Display v3.10.70 · Central Group · 2026</div>
 </body></html>
