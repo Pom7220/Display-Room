@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 73,
+  patch: 74,
   date: '2026-07-02',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2449,7 +2449,6 @@ function extendMeeting(){
   renderBadges();
   toast('+30 min extended','success');
   // Persist to Exchange via Worker — prevents fetchCal() from reverting
-  dbg('Extend: cur.id='+cur.id+' tabletKey='+!!cfg.tabletKey+' roomemail='+!!cfg.roomemail);
   if(cur.id&&cfg.tabletKey&&cfg.roomemail){
     var patchBody=JSON.stringify({
       room:cfg.roomemail,
