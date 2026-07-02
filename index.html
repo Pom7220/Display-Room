@@ -740,7 +740,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 69,
+  patch: 70,
   date: '2026-07-02',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1558,7 +1558,7 @@ function launch(){
   el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   renderRoomChips();
   startClock();fetchCal();fetchWeather();
-  setInterval(fetchCal,90000);
+  setInterval(fetchCal,300000);
   setInterval(fetchWeather,1800000);
   startBurnIn();
   // Enter fullscreen kiosk mode
@@ -1584,9 +1584,9 @@ function startMonitoring(){
   setInterval(sendHeartbeat,_hbMins*60*1000);
   dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 30s');
 
-  // Poll for commands every 30s
-  setTimeout(pollCommand,15000);
-  setInterval(pollCommand,30000);
+  // Poll for commands every 2 minutes
+  setTimeout(pollCommand,30000);
+  setInterval(pollCommand,120000);
 }
 
 function getMonitorStatus(){
