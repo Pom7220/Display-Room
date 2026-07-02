@@ -2628,15 +2628,8 @@ function sendApproval(name,email,title,s,e,done){
       body:{contentType:'html',content:emailHtml},
       toRecipients:[{emailAddress:{address:cfg.owner}}]
     },saveToSentItems:true};
-    (function(cb){
-      var xhr=new XMLHttpRequest();
-      xhr.open('POST','https://graph.microsoft.com/v1.0/me/sendMail',true);
-      xhr.setRequestHeader('Authorization','Bearer '+tok);
-      xhr.setRequestHeader('Content-Type','application/json');
-      xhr.onreadystatechange=function(){if(xhr.readyState===4)cb({ok:xhr.status===200||xhr.status===202,status:xhr.status});};
-      xhr.onerror=function(){cb(null);};
-      xhr.send(JSON.stringify(mail));
-    })(function(r);
+    return fetch('https://graph.microsoft.com/v1.0/me/sendMail',
+      {method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(mail)})
   }).then(function(r){
     if(!r)return;
     if(!r.ok&&r.status!==202){toast('Email failed','error');closeModal();if(done)done();return;}
