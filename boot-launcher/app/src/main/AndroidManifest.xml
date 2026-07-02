@@ -38,7 +38,7 @@
         <activity
             android:name=".KioskWebViewActivity"
             android:label="RIS Display"
-            android:screenOrientation="landscape"
+            android:screenOrientation="sensorLandscape"
             android:theme="@android:style/Theme.Holo.NoActionBar.Fullscreen"
             android:exported="false" />
 
