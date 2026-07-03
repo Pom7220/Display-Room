@@ -287,9 +287,9 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .rchip.active{background:#1a3a6a;border-color:#2979ff;color:#ffffff;}
 
 /* ── BOOKING MODAL ── */
-#booking-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:200;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
+#booking-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:200;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;padding-top:16px;}
 #booking-modal.hidden{display:none;}
-.msheet{background:#13132a;border:2px solid #2a2a5a;-webkit-border-radius:24px 24px 0 0;border-radius:24px 24px 0 0;padding:28px 24px 48px;width:100%;max-width:520px;}
+.msheet{background:#13132a;border:2px solid #2a2a5a;-webkit-border-radius:24px;border-radius:24px;padding:28px 24px 36px;width:100%;max-width:520px;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .mdrag{width:48px;height:5px;background:#333355;-webkit-border-radius:3px;border-radius:3px;margin:0 auto 22px;}
 .mtitle{font-size:28px;font-weight:900;color:#ffffff;margin-bottom:4px;}
 .msub{font-size:16px;color:#7788aa;margin-bottom:22px;}
@@ -752,7 +752,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 79,
+  patch: 80,
   date: '2026-07-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
