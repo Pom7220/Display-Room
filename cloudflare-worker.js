@@ -503,11 +503,14 @@ async function handleProxy(request, url) {
       'User-Agent': request.headers.get('User-Agent') || 'RIS-Proxy',
       'Accept': request.headers.get('Accept') || '*/*',
       'Accept-Encoding': request.headers.get('Accept-Encoding') || '',
+      'Cache-Control': 'no-cache',
     },
+    cf: { cacheEverything: false },
   });
 
   var newHeaders = new Headers(response.headers);
   newHeaders.set('Access-Control-Allow-Origin', '*');
+  newHeaders.set('Cache-Control', 'no-store');
   newHeaders.delete('Content-Security-Policy');
 
   return new Response(response.body, {
