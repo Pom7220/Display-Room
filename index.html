@@ -163,7 +163,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 
 /* Room info */
 .room-name-lg{font-size:108px;font-weight:900;color:#ffffff;letter-spacing:-.03em;line-height:1;margin-bottom:8px;}
-.status-line{display:table;margin-bottom:0;}
+.status-line{display:none;}
 .sdot{display:inline-block;width:18px;height:18px;-webkit-border-radius:50%;border-radius:50%;vertical-align:middle;margin-right:10px;}
 .sdot.av{background:#00dd66;}
 .sdot.busy{background:#f32b2b;}
@@ -176,7 +176,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .body-scroll::-webkit-scrollbar{display:none;}
 
 /* ── CURRENT CARD ── */
-.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:36px 24px 24px 26%;margin-bottom:36px;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;}
+.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:36px 24px 24px 26%;margin-bottom:0;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;min-height:180px;}
 .cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:20%;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
 .cur-card.st-busy{border-color:#ff3333;background:#4a0000;}
 .cur-card.st-busy::before{background:#ff3333;}
@@ -192,6 +192,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .meet-tag.busy{background:#aa1111;color:#ffffff;}
 .meet-tag.soon{background:#aa5500;color:#ffffff;}
 .meet-tag.pend{background:#aa5500;color:#ffffff;}
+.meet-tag.avail{background:#0a1c3a;color:#64b5f6;border:1px solid #1a4a88;}
 
 .meet-title-lg{font-size:40px;font-weight:800;color:#ffffff;line-height:1.2;margin-bottom:10px;}
 .meet-time-lg{font-size:40px;font-weight:300;color:#ffffff;margin-bottom:12px;font-variant-numeric:tabular-nums;display:block;}
@@ -203,7 +204,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .av-title{font-size:36px;font-weight:800;color:#ffffff;margin-bottom:8px;}
 .av-sub{font-size:18px;color:#aaaacc;margin-bottom:20px;line-height:1.5;}
 .book-big{width:100%;padding:20px;background:#2979ff;border:none;-webkit-border-radius:14px;border-radius:14px;color:#ffffff;font-size:22px;font-weight:700;cursor:pointer;display:block;text-align:center;}
-.prog{height:6px;background:#333344;-webkit-border-radius:3px;border-radius:3px;overflow:hidden;margin-bottom:20px;}
+.prog{display:none;}
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 .abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
@@ -217,7 +218,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .rel-warn{font-size:15px;color:#ffaa33;margin-top:10px;text-align:center;}
 
 /* ── TODAY/TOMORROW TABS ── */
-.view-tabs{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;margin-top:28px;margin-bottom:16px;-webkit-align-items:center;align-items:center;}
+.view-tabs{display:none;}
 .vtab{touch-action:manipulation;-ms-touch-action:manipulation;padding:14px 24px;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:600;color:#7788aa;background:#1a1a2e;border:2px solid #2a2a3a;cursor:pointer;display:inline-block;}
 .vtab.active{background:#1a3a6a;border-color:#2979ff;color:#ffffff;}
 .vtab-badge{background:#2a3a5a;-webkit-border-radius:10px;border-radius:10px;padding:3px 10px;font-size:15px;font-weight:700;margin-left:6px;display:inline-block;}
@@ -270,7 +271,14 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .nav-center{display:table-cell;vertical-align:middle;text-align:center;}
 .nav-right{display:table-cell;vertical-align:middle;width:44px;}
 .nav-btn{font-size:17px;font-weight:600;color:#5566aa;cursor:pointer;padding:10px 16px;-webkit-border-radius:50px;border-radius:50px;background:none;border:none;}
-.nav-book-btn{padding:14px 28px;background:#2979ff;border:none;-webkit-border-radius:50px;border-radius:50px;color:#ffffff;font-size:18px;font-weight:700;cursor:pointer;display:inline-block;}
+.nav-book-btn{padding:14px 28px;background:transparent;border:2px solid #2979ff;-webkit-border-radius:50px;border-radius:50px;color:#2979ff;font-size:18px;font-weight:700;cursor:pointer;display:inline-block;}
+/* ── ACTION ROW OUTER (below card, fixed zone) ── */
+#action-row-outer{min-height:84px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;margin-bottom:16px;}
+/* ── UPCOMING SECTION LABEL ── */
+.upcoming-label{font-size:16px;font-weight:700;color:#5566aa;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;}
+/* ── MORE ROW in meeting list ── */
+.more-list-row{text-align:center;padding:14px 18px;cursor:pointer;touch-action:manipulation;-ms-touch-action:manipulation;border-top:1px solid #1a1a2e;}
+.more-list-row-txt{font-size:18px;font-weight:600;color:#2979ff;}
 
 /* ── ROOM SWITCHER ── */
 .room-chips{display:-webkit-box;display:-webkit-flex;display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;}
@@ -610,14 +618,18 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
         <div id="cur-content"><div class="spinner lg"></div></div>
       </div>
 
-      <!-- Today / Tomorrow tabs -->
+      <!-- Action buttons (outside card — fixed zone) -->
+      <div id="action-row-outer"></div>
+
+      <!-- Today / Tomorrow tabs (hidden, kept for badge logic) -->
       <div class="view-tabs" id="view-tabs">
         <div class="vtab active" data-view="today">Today <span class="vtab-badge" id="vbadge-today">0</span></div>
         <div class="vtab" data-view="tomorrow">Tomorrow <span class="vtab-badge" id="vbadge-tomorrow">0</span></div>
         <div class="vtab-more" id="btn-more-days">More +</div>
       </div>
 
-      <!-- Meeting list -->
+      <!-- Upcoming label + meeting list -->
+      <div class="upcoming-label">UPCOMING</div>
       <div class="meet-list" id="meet-list"><div class="spinner lg"></div></div>
 
       <!-- More days (hidden by default) -->
@@ -627,7 +639,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
     <!-- Bottom nav -->
     <div class="nav">
       <div class="nav-left"></div>
-      <div class="nav-center"><button class="nav-book-btn" id="nav-book-btn" style="display:none">+ Book Room</button></div>
+      <div class="nav-center"><button class="nav-book-btn" id="nav-book-btn" style="display:none">Instant Booking</button></div>
       <div class="nav-right"></div>
     </div>
 
@@ -740,8 +752,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 75,
-  date: '2026-07-02',
+  patch: 76,
+  date: '2026-07-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -804,6 +816,7 @@ var APP_VERSION = {
 // v3.10.57 2026-07-01 - All remaining reload paths (admin reload, away >5min, bfcache) switched to location.reload() — tap-free across all scenarios
 // v3.10.58 2026-07-01 - sessionStorage ris_from_reload flag set before every reload; enterKiosk() skips tap overlay on programmatic reloads (browser mode, APK launch)
 // v3.10.59 2026-07-01 - Fix: read ris_reload_reason into _progReload global early (before boot-reason clears it); enterKiosk checks both _progReload + sessionStorage — covers older versions reloading into v59
+// v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 
 // ══════════════════════════════════════
 // STATE
@@ -2232,9 +2245,8 @@ function updateCurrentCard(){
       '<div class="meet-tag '+(ip?'pend':'busy')+'">'+(ip?'&#9203; PENDING':'&#128308; IN USE')+'</div>'+
       '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
       timeDisplay+
-      (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
-      (!isAllDay(cur)?'<div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:#ff4444"></div></div>':'')+
-      '<div class="action-row">'+btns+'</div>'+warn;
+      (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'');
+    el('action-row-outer').innerHTML=btns?'<div class="action-row">'+btns+'</div>'+warn:'';
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else if(nxt){
@@ -2254,8 +2266,8 @@ function updateCurrentCard(){
       '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
       '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
       '<div class="meet-time-lg" style="color:#ffaa44">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
-      (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'')+
-      '<div class="action-row">'+checkinBtn+'</div>'+pendNotice;
+      (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
+    el('action-row-outer').innerHTML='<div class="action-row">'+checkinBtn+'</div>'+pendNotice;
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else {
@@ -2264,12 +2276,12 @@ function updateCurrentCard(){
     el('status-txt').textContent='Available';
     var pendNotice2=hasPending?'<div class="pend-notice">&#9203; Pending approval request — check your email</div>':'';
     cont.innerHTML=
-      '<div class="av-state">'+
-      '<div class="av-icon">&#10003;</div>'+
-      '<div class="av-title">Free to Book</div>'+
-      '<div class="av-sub">No meetings scheduled<br>Available for the rest of the day</div>'+
-      pendNotice2+
-      '</div>';
+      '<div class="meet-tag avail">FREE</div>'+
+      '<div class="meet-title-lg">No meetings booked</div>'+
+      '<div class="meet-time-lg" style="color:#64b5f6">Available all day</div>'+
+      '<div class="meet-org">Room is open for booking</div>'+
+      pendNotice2;
+    el('action-row-outer').innerHTML='';
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   }
 }
@@ -2309,16 +2321,19 @@ function renderMeetList(){
   if(!show.length){
     // Check if there are pending meetings today that might explain "no meetings"
     var hasPend=day.some(function(m){return m.isPending&&m.end>n;});
-    var lbl=curView==='today'?'today':'tomorrow';
     if(hasPend){
       // Show pending meetings instead of empty message
       show=day.filter(function(m){return m.isPending&&m.end>n;});
     } else {
-      list.innerHTML='<div class="empty-day"><div class="empty-day-icon">&#128197;</div><div class="empty-day-txt">No meetings '+lbl+'</div></div>';
+      var emptyTxt=curView==='today'?'Available all day':'No meetings tomorrow';
+      list.innerHTML='<div class="empty-day"><div class="empty-day-icon">&#128197;</div><div class="empty-day-txt">'+emptyTxt+'</div></div>'+
+        '<div class="more-list-row" id="more-list-btn"><span class="more-list-row-txt">More +</span></div>';
       return;
     }
   }
-  list.innerHTML=show.slice(0,12).map(function(m,i){
+  var visible=show.slice(0,2);
+  var hasMore=show.length>2;
+  list.innerHTML=visible.map(function(m,i){
     var ip=m.isPending;
     var hasTeams=!ip&&!!m.joinUrl;
     var isNow=n>=m.start&&n<=m.end;
@@ -2337,7 +2352,8 @@ function renderMeetList(){
       '<div class="mitem-time-col"><div class="mitem-t">'+ft(m.start)+'</div><div class="mitem-d">'+fd(m.start,m.end)+'</div></div>'+
       '<div class="mitem-info"><div class="mitem-title">'+esc(m.title)+'</div><div class="mitem-org">'+esc(ip?m.organizer+' \u2013 pending':m.organizer)+'</div></div>'+
     '</div>';
-  }).join('');
+  }).join('')+
+  (hasMore?'<div class="more-list-row" id="more-list-btn"><span class="more-list-row-txt">More + ('+(show.length-2)+' more)</span></div>':'<div class="more-list-row" id="more-list-btn"><span class="more-list-row-txt">More +</span></div>');
 }
 
 // ══════════════════════════════════════
@@ -2921,6 +2937,7 @@ function handleTap(e){
   if(upId(t,'end-btn')){endMeeting();return;}
   if(upId(t,'ext-btn')){extendMeeting();return;}
   if(upId(t,'teams-btn')){var cur=getCur();if(cur&&cur.joinUrl)joinTeams(cur.joinUrl);return;}
+  if(upId(t,'more-list-btn')){openDaysPanel();return;}
 }
 
 // Use touchstart for instant response on Chrome 42 — no 300ms click delay
