@@ -447,7 +447,7 @@ function checkForNewVersion(){
           }));
           sessionStorage.setItem('ris_from_reload','1');
         }catch(e){}
-        location.reload();
+        location.href=location.protocol+'//'+location.host+location.pathname+'?v='+serverPatch;
       }
     };
     xhr.onerror=function(){};
@@ -752,7 +752,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 77,
+  patch: 78,
   date: '2026-07-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
