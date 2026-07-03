@@ -752,7 +752,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 80,
+  patch: 81,
   date: '2026-07-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2887,7 +2887,7 @@ function handleTap(e){
   }
 
   // Booking modal open
-  if(upId(t,'nav-book-btn')||upId(t,'book-big-btn')||upId(t,'book-btn-card')){openModal();return;}
+  if(upId(t,'nav-book-btn')||upId(t,'book-big-btn')||upId(t,'book-btn-card')){e.preventDefault();openModal();return;}
   var ba=up(t,function(n){return n.getAttribute&&n.getAttribute('data-action')==='book';});
   if(ba){openModal();return;}
 
