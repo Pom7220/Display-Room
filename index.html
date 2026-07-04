@@ -752,7 +752,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 82,
+  patch: 83,
   date: '2026-07-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2791,39 +2791,35 @@ function handleTap(e){
 
   // fs-overlay — fullscreen tap (must be first, z-index covers everything)
   if(upId(t,'fs-overlay')||t.id==='fs-overlay'){
-    doFullscreen();
+    e.preventDefault();doFullscreen();
     var ov=el('fs-overlay');if(ov)ov.style.display='none';
     return;
   }
 
   // Config toggles
-  if(upId(t,'cfg-booking'))toggleApproval();
-  if(upId(t,'cfg-approval'))toggleOwner();
-  if(upId(t,'btn-add-room'))addRoomRow();
+  if(upId(t,'cfg-booking')){e.preventDefault();toggleApproval();}
+  if(upId(t,'cfg-approval')){e.preventDefault();toggleOwner();}
+  if(upId(t,'btn-add-room')){e.preventDefault();addRoomRow();}
   if(upData(t,'data-action')&&upData(t,'data-action').getAttribute('data-action')==='delroom'){
-    var rr=upCls(t,'room-row');if(rr)rr.parentNode.removeChild(rr);
+    e.preventDefault();var rr=upCls(t,'room-row');if(rr)rr.parentNode.removeChild(rr);
     return;
   }
-  if(upId(t,'btn-save-cfg')){saveConfig();return;}
+  if(upId(t,'btn-save-cfg')){e.preventDefault();saveConfig();return;}
 
   // Auth
   if(upId(t,'btn-signin')){
-    _tokenRefreshPending=false;
+    e.preventDefault();_tokenRefreshPending=false;
     try{msalInst.loginRedirect({scopes:['Calendars.ReadWrite','Calendars.ReadWrite.Shared','Mail.Send','User.Read']});}catch(err){el('auth-error').textContent=err.message||String(err);}
     return;
   }
 
   // Gear / settings
-  if(upId(t,'float-gear')){openPinOverlay();return;}
+  if(upId(t,'float-gear')){e.preventDefault();openPinOverlay();return;}
   if(upId(t,'err-settings-btn')){
+    e.preventDefault();
     var btn=el('err-settings-btn');
     if(btn&&btn.getAttribute('data-action')==='reauth'){
-      if(cfg.tabletKey){
-        // Worker proxy flow — open config to re-enter tablet key
-        openPinOverlay();
-      } else {
-        doReauth();
-      }
+      if(cfg.tabletKey){openPinOverlay();}else{doReauth();}
     } else {
       openPinOverlay();
     }
@@ -2831,8 +2827,9 @@ function handleTap(e){
   }
 
   // Confirm dialog
-  if(upId(t,'cdlg-cancel')||t===el('confirm-dialog')){hide('confirm-dialog');return;}
+  if(upId(t,'cdlg-cancel')||t===el('confirm-dialog')){e.preventDefault();hide('confirm-dialog');return;}
   if(upId(t,'cdlg-ok')){
+    e.preventDefault();
     var dlg=el('confirm-dialog');
     var cb=dlg&&dlg._cb;
     hide('confirm-dialog');
@@ -2842,7 +2839,7 @@ function handleTap(e){
   }
 
   // PIN overlay
-  if(upId(t,'pin-cancel-btn')){hide('pin-overlay');return;}
+  if(upId(t,'pin-cancel-btn')){e.preventDefault();hide('pin-overlay');return;}
   var pk=upCls(t,'pin-key');
   if(pk&&!pk.classList.contains('empty')){
     e.preventDefault();
@@ -2852,11 +2849,12 @@ function handleTap(e){
 
   // Room chips
   var chip=upCls(t,'rchip');
-  if(chip){switchRoom(chip.getAttribute('data-name'),chip.getAttribute('data-email'));return;}
+  if(chip){e.preventDefault();switchRoom(chip.getAttribute('data-name'),chip.getAttribute('data-email'));return;}
 
   // View tabs
   var vtab=upCls(t,'vtab');
   if(vtab&&vtab.getAttribute('data-view')){
+    e.preventDefault();
     curView=vtab.getAttribute('data-view');
     var vtabs=document.querySelectorAll('.vtab');
     for(var vi=0;vi<vtabs.length;vi++){
@@ -2867,17 +2865,19 @@ function handleTap(e){
 
   // Days panel close
   if(upId(t,'days-panel-overlay')||upCls(t,'dp-close-btn')){
-    closeDaysPanel();return;
+    e.preventDefault();closeDaysPanel();return;
   }
 
   // More days
   if(upId(t,'btn-more-days')||upCls(t,'vtab-more')){
+    e.preventDefault();
     if(moreDaysOpen)closeDaysPanel();else openDaysPanel();
     return;
   }
 
   // Today nav scroll
   if(upId(t,'nav-today-btn')){
+    e.preventDefault();
     curView='today';
     var vtabs2=document.querySelectorAll('.vtab');
     for(var vi2=0;vi2<vtabs2.length;vi2++){
@@ -2892,16 +2892,17 @@ function handleTap(e){
   // Booking modal open
   if(upId(t,'nav-book-btn')||upId(t,'book-big-btn')||upId(t,'book-btn-card')){e.preventDefault();openModal();return;}
   var ba=up(t,function(n){return n.getAttribute&&n.getAttribute('data-action')==='book';});
-  if(ba){openModal();return;}
+  if(ba){e.preventDefault();openModal();return;}
 
   // Booking modal actions
-  if(upId(t,'modal-cancel')){closeModal();return;}
-  if(t===el('booking-modal')){closeModal();return;}
-  if(upId(t,'mconfirm')){confirmBooking();return;}
+  if(upId(t,'modal-cancel')){e.preventDefault();closeModal();return;}
+  if(t===el('booking-modal')){e.preventDefault();closeModal();return;}
+  if(upId(t,'mconfirm')){e.preventDefault();confirmBooking();return;}
 
   // Duration chips
   var dc=upCls(t,'dchip');
   if(dc){
+    e.preventDefault();
     var na=cfg.booking&&cfg.approval;
     var dchips=document.querySelectorAll('.dchip');
     for(var di=0;di<dchips.length;di++){dchips[di].className='dchip';}
@@ -2913,6 +2914,7 @@ function handleTap(e){
 
   // Time picker
   if(t.id==='tchip-now'){
+    e.preventDefault();
     bookStart=nextQuarter(new Date());
     el('tchip-now').className='tchip active';
     el('tchip-custom').className='tchip';
@@ -2920,6 +2922,7 @@ function handleTap(e){
     buildDurChips(bookStart,selDurMin);updatePrev();return;
   }
   if(t.id==='tchip-custom'){
+    e.preventDefault();
     var ss=el('tslots');
     var showing=ss.style.display!=='none';
     ss.style.display=showing?'none':'-webkit-flex';
@@ -2930,16 +2933,17 @@ function handleTap(e){
   }
   var slotEl=upCls(t,'tslot');
   if(slotEl){
+    e.preventDefault();
     var ms=parseInt(slotEl.getAttribute('data-ms'));
     if(ms){selectTimeSlot(ms);el('tchip-custom').className='tchip active';el('tchip-now').className='tchip';}
     return;
   }
 
   // Current card actions
-  if(upId(t,'checkin-btn')){doCheckin();return;}
-  if(upId(t,'end-btn')){endMeeting();return;}
-  if(upId(t,'ext-btn')){extendMeeting();return;}
-  if(upId(t,'teams-btn')){var cur=getCur();if(cur&&cur.joinUrl)joinTeams(cur.joinUrl);return;}
+  if(upId(t,'checkin-btn')){e.preventDefault();doCheckin();return;}
+  if(upId(t,'end-btn')){e.preventDefault();endMeeting();return;}
+  if(upId(t,'ext-btn')){e.preventDefault();extendMeeting();return;}
+  if(upId(t,'teams-btn')){e.preventDefault();var cur=getCur();if(cur&&cur.joinUrl)joinTeams(cur.joinUrl);return;}
   if(upId(t,'more-list-btn')){e.preventDefault();openDaysPanel();return;}
 }
 
