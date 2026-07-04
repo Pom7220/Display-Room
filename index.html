@@ -751,7 +751,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 86,
+  patch: 87,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2327,8 +2327,7 @@ function renderMeetList(){
       // Show pending meetings instead of empty message
       show=day.filter(function(m){return m.isPending&&m.end>n;});
     } else {
-      var emptyTxt=curView==='today'?'Available all day':'No meetings tomorrow';
-      list.innerHTML='<div class="empty-day"><div class="empty-day-icon">&#128197;</div><div class="empty-day-txt">'+emptyTxt+'</div></div>'+
+      list.innerHTML='<div class="empty-day"><div class="empty-day-txt">No more meetings today</div></div>'+
         '<div class="more-list-row" id="more-list-btn"><span class="more-list-row-txt">More +</span></div>';
       return;
     }
@@ -2903,7 +2902,7 @@ function handleTap(e){
 
   // Booking modal actions
   if(upId(t,'modal-cancel')){e.preventDefault();closeModal();return;}
-  if(t===el('booking-modal')){e.preventDefault();closeModal();return;}
+  if(t===el('booking-modal')){e.preventDefault();/* backdrop tap disabled — use Cancel button */return;}
   if(upId(t,'mconfirm')){e.preventDefault();confirmBooking();return;}
 
   // Duration chips
