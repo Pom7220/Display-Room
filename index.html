@@ -531,6 +531,9 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
     </div>
     <div style="font-size:11px;color:#555;margin-top:6px;">v<span id="ver-inline"></span> &nbsp;|&nbsp; To enable debug without config: open console and type <code style="background:#111;padding:1px 4px;border-radius:3px;color:#5599ff">dbgEnabled=true</code></div>
   </div>
+  <div style="width:100%;max-width:480px;margin:0 auto 14px auto;">
+    <button onclick="startChangePin()" style="width:100%;padding:14px;background:none;border:2px solid #2a2a5a;border-radius:10px;color:#7788aa;font-size:15px;font-weight:600;cursor:pointer;">&#128274; Change PIN</button>
+  </div>
   <button class="btn-primary" onclick="saveConfig()">Save &amp; Launch Display</button>
 
   <!-- SSL CERT HELPER -->
@@ -751,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 87,
+  patch: 88,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2677,23 +2680,24 @@ var PIN_KEY='roomdisplay_pin';
 var pinBuffer='', pinMode='verify'; // 'verify' | 'setup' | 'confirm'
 var pinSetupFirst='';
 
-function getStoredPin(){return localStorage.getItem(PIN_KEY)||'';}
+function getStoredPin(){return localStorage.getItem(PIN_KEY)||'9999';}
 
 function openPinOverlay(){
-  var stored=getStoredPin();
   pinBuffer='';
-  if(!stored){
-    // First time — set up a PIN
-    pinMode='setup';
-    el('pin-title').textContent='Set a PIN';
-    el('pin-sub').textContent='Choose a 4-digit PIN to protect settings';
-    el('pin-setup-note').textContent='You will need this PIN every time you access settings.';
-  } else {
-    pinMode='verify';
-    el('pin-title').textContent='Settings';
-    el('pin-sub').textContent='Enter PIN to access settings';
-    el('pin-setup-note').textContent='';
-  }
+  pinMode='verify';
+  el('pin-title').textContent='Settings';
+  el('pin-sub').textContent='Enter PIN to access settings';
+  el('pin-setup-note').textContent='';
+  updatePinDots();
+  show('pin-overlay');
+}
+
+function startChangePin(){
+  pinBuffer='';pinSetupFirst='';
+  pinMode='setup';
+  el('pin-title').textContent='Change PIN';
+  el('pin-sub').textContent='Choose a new 4-digit PIN';
+  el('pin-setup-note').textContent='';
   updatePinDots();
   show('pin-overlay');
 }
