@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 92,
+  patch: 93,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -825,7 +825,7 @@ var APP_VERSION = {
 // ══════════════════════════════════════
 var CFG_KEY='roomdisplay_v5';
 var cfg={},msalInst=null,account=null;
-var meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60;
+var meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60,_todayOverflow=[];
 
 // Load persisted pending bookings from localStorage
 function loadPendingLocal(){
@@ -2337,6 +2337,7 @@ function renderMeetList(){
   }
   var visible=show.slice(0,2);
   var hasMore=show.length>2;
+  _todayOverflow=hasMore?show.slice(2):[];
   list.innerHTML=visible.map(function(m,i){
     var ip=m.isPending;
     var hasTeams=!ip&&!!m.joinUrl;
@@ -2366,7 +2367,20 @@ function renderMeetList(){
 function openDaysPanel(){
   var weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   var html='';
-  for(var i=2;i<7;i++){
+  // Prepend remaining today's meetings if more than 2 were hidden
+  if(_todayOverflow.length){
+    html+='<div class="dp-day">';
+    html+='<div class="dp-day-hdr">Today (remaining)<span class="dp-count">'+_todayOverflow.length+'</span></div>';
+    for(var ti=0;ti<_todayOverflow.length;ti++){
+      var tm=_todayOverflow[ti];
+      html+='<div class="mitem" style="padding:10px 12px;margin-bottom:6px">'+
+        '<div class="mitem-time-col"><div class="mitem-t">'+ft(tm.start)+'</div><div class="mitem-d">'+fd(tm.start,tm.end)+'</div></div>'+
+        '<div class="mitem-info"><div class="mitem-title">'+esc(tm.title)+'</div><div class="mitem-org">'+esc(tm.organizer)+'</div></div>'+
+        '</div>';
+    }
+    html+='</div>';
+  }
+  for(var i=1;i<6;i++){
     var d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);
     var day=getMeetingsForDay(i);
     var isWkend=d.getDay()===0||d.getDay()===6;
