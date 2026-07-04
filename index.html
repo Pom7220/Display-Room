@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 91,
+  patch: 92,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2511,28 +2511,35 @@ function openModal(){
     note.innerHTML='&#8505; If booking is declined automatically, ask your M365 admin to grant your account <strong>booking rights</strong> to this room mailbox.';
     note.style.display='block';
   } else if(note){note.style.display='none';}
-  // Build start time slots: Now + next 8 x 30min slots
-  buildTimeSlots();
-  // Default to "Now"
-  bookStart=nextQuarter(new Date());
+  // Default start = next free slot after all existing meetings
+  // Walk meetings in order; if any meeting overlaps the candidate start, push start to that meeting's end
+  var candidate=nextQuarter(new Date());
+  var sorted=(meetings||[]).filter(function(m){return !m.isPending&&m.end>candidate;}).sort(function(a,b){return a.start-b.start;});
+  for(var mi=0;mi<sorted.length;mi++){
+    if(sorted[mi].start<=candidate){candidate=sorted[mi].end;}// push past this meeting
+  }
+  // Round up to next 15-min boundary after the last pushed end
+  candidate=nextQuarter(candidate);
+  // Build start time slots: next free + next 8 x 30min slots
+  buildTimeSlots(candidate);
+  bookStart=candidate;
   buildDurChips(bookStart, 60);
   updatePrev();
   var m=el('booking-modal');
   if(m){m.classList.remove('hidden');m.style.display='-webkit-flex';m.style.display='flex';}
 }
 
-function buildTimeSlots(){
-  var now=nextQuarter(new Date());
+function buildTimeSlots(base){
+  var now=base||nextQuarter(new Date());
   var slots=el('tslots');
   if(!slots)return;
   var html='';
-  // Generate 8 slots at 30-min intervals starting from next quarter
-  for(var i=1;i<=8;i++){
+  for(var i=0;i<8;i++){
     var t=new Date(now.getTime()+i*30*60000);
     html+='<div class="tslot" data-ms="'+t.getTime()+'">'+ft(t)+'</div>';
   }
   slots.innerHTML=html;
-  // Reset to "Now" active
+  el('tchip-now').textContent=ft(now);
   el('tchip-now').className='tchip active';
   el('tchip-custom').className='tchip';
   slots.style.display='none';
@@ -2931,7 +2938,11 @@ function handleTap(e){
   // Time picker
   if(t.id==='tchip-now'){
     e.preventDefault();
-    bookStart=nextQuarter(new Date());
+    var c2=nextQuarter(new Date());
+    var s2=(meetings||[]).filter(function(m){return !m.isPending&&m.end>c2;}).sort(function(a,b){return a.start-b.start;});
+    for(var mi2=0;mi2<s2.length;mi2++){if(s2[mi2].start<=c2)c2=s2[mi2].end;}
+    bookStart=nextQuarter(c2);
+    el('tchip-now').textContent=ft(bookStart);
     el('tchip-now').className='tchip active';
     el('tchip-custom').className='tchip';
     el('tslots').style.display='none';
