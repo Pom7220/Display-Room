@@ -716,7 +716,6 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
     <div class="mtitle" id="modal-title">Book Room</div>
     <div class="msub" id="modal-sub"></div>
     <div class="appr-banner" id="appr-banner" style="display:none"><strong>&#9993; Approval required</strong> An email will be sent to the room owner before confirming.</div>
-    <div class="mfield"><label>Your Name</label><input type="text" id="book-name" placeholder="Enter your name" autocomplete="off"></div>
     <div class="mfield"><label>Your Email</label><input type="text" id="book-email" placeholder="yourname@central.co.th" autocomplete="off"></div>
     <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
     <!-- Start time row -->
@@ -752,7 +751,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 83,
+  patch: 84,
   date: '2026-07-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2497,7 +2496,9 @@ function joinTeams(url){
 // BOOKING
 // ══════════════════════════════════════
 function openModal(){
-  el('book-name').value='';el('book-email').value='';el('book-title').value='';
+  _bookingName='';el('book-email').value='';el('book-title').value='';
+  var emailInput=el('book-email');
+  emailInput.onblur=function(){lookupNameByEmail(emailInput.value.trim());};
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
   var na=cfg.booking&&cfg.approval;
@@ -2586,12 +2587,34 @@ function updatePrev(){
   el('prev-e').textContent=ft(e);
 }
 
-var bookStart=null; // the rounded start time for the current booking
+var bookStart=null;
+var _bookingName=''; // resolved from Graph lookup or derived from email
+
+function nameFromEmail(email){
+  var local=(email||'').split('@')[0];
+  return local.split(/[._\-]/).map(function(p){
+    return p?p.charAt(0).toUpperCase()+p.slice(1).toLowerCase():'';
+  }).filter(Boolean).join(' ')||email;
+}
+
+function lookupNameByEmail(email){
+  if(!email||email.indexOf('@')<0)return;
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET','https://ris-display.ris-display.workers.dev/api/user-info?email='+encodeURIComponent(email),true);
+  xhr.onload=function(){
+    try{
+      var d=JSON.parse(xhr.responseText);
+      if(d&&d.displayName)_bookingName=d.displayName;
+      else _bookingName=nameFromEmail(email);
+    }catch(e){_bookingName=nameFromEmail(email);}
+  };
+  xhr.onerror=function(){_bookingName=nameFromEmail(email);};
+  xhr.send();
+}
 function confirmBooking(){
-  var name=el('book-name').value.trim();
   var email=el('book-email').value.trim();
   var title=el('book-title').value.trim();
-  if(!name){toast('Please enter your name','warn');return;}
+  var name=_bookingName||nameFromEmail(email);
   if(!email||email.indexOf('@')<0){toast('Please enter a valid email address','warn');return;}
   if(!title){toast('Please enter a meeting title','warn');return;}
   var btn=el('mconfirm');btn.disabled=true;
