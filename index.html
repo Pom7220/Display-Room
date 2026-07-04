@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 89,
+  patch: 90,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -939,13 +939,13 @@ var WX_CODES={
   95:'Thunderstorm',96:'Thunderstorm+hail',99:'Thunderstorm+hail'
 };
 var WX_ICONS={
-  0:'☀️',1:'🌤',2:'⛅',3:'☁️',
-  45:'🌫',48:'🌫',
-  51:'🌦',53:'🌦',55:'🌧',
-  61:'🌧',63:'🌧',65:'⛈',
-  71:'🌨',73:'❄️',75:'❄️',
-  80:'🌦',81:'🌧',82:'⛈',
-  95:'⛈',96:'⛈',99:'⛈'
+  0:'&#9728;',1:'&#9728;',2:'&#9729;',3:'&#9729;',
+  45:'&#9729;',48:'&#9729;',
+  51:'&#9730;',53:'&#9730;',55:'&#9730;',
+  61:'&#9730;',63:'&#9730;',65:'&#9928;',
+  71:'&#10052;',73:'&#10052;',75:'&#10052;',
+  80:'&#9730;',81:'&#9730;',82:'&#9928;',
+  95:'&#9928;',96:'&#9928;',99:'&#9928;'
 };
 
 function fetchWeather(){
@@ -962,7 +962,7 @@ function fetchWeather(){
     xhr.send();
   }
   function showStatic(){
-    el('wx-icon').textContent='🌤';
+    el('wx-icon').textContent='☀';
     el('wx-temp').textContent='34°C';
     el('wx-desc').textContent='Bangkok';
     try{var wf=el('wx-feels');if(wf)wf.textContent='';}catch(e){}
@@ -976,7 +976,7 @@ function fetchWeather(){
         var temp=Math.round(c.temperature_2m);
         var feels=Math.round(c.apparent_temperature);
         var code=c.weather_code;
-        el('wx-icon').textContent=WX_ICONS[code]||'🌡';
+        el('wx-icon').textContent=WX_ICONS[code]||'☀';
         el('wx-temp').textContent=temp+'°C';
         el('wx-desc').textContent=WX_CODES[code]||'--';
         try{var wf=el('wx-feels');if(wf)wf.textContent='Feels '+feels+'°';}catch(e){}
