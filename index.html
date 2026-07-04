@@ -751,7 +751,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 84,
+  patch: 85,
   date: '2026-07-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2498,7 +2498,7 @@ function joinTeams(url){
 function openModal(){
   _bookingName='';el('book-email').value='';el('book-title').value='';
   var emailInput=el('book-email');
-  emailInput.onblur=function(){lookupNameByEmail(emailInput.value.trim());};
+  emailInput.onblur=function(){_bookingName=nameFromEmail(emailInput.value.trim());};
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
   var na=cfg.booking&&cfg.approval;
@@ -2597,20 +2597,6 @@ function nameFromEmail(email){
   }).filter(Boolean).join(' ')||email;
 }
 
-function lookupNameByEmail(email){
-  if(!email||email.indexOf('@')<0)return;
-  var xhr=new XMLHttpRequest();
-  xhr.open('GET','https://ris-display.ris-display.workers.dev/api/user-info?email='+encodeURIComponent(email),true);
-  xhr.onload=function(){
-    try{
-      var d=JSON.parse(xhr.responseText);
-      if(d&&d.displayName)_bookingName=d.displayName;
-      else _bookingName=nameFromEmail(email);
-    }catch(e){_bookingName=nameFromEmail(email);}
-  };
-  xhr.onerror=function(){_bookingName=nameFromEmail(email);};
-  xhr.send();
-}
 function confirmBooking(){
   var email=el('book-email').value.trim();
   var title=el('book-title').value.trim();
