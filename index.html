@@ -716,8 +716,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
     <div class="mtitle" id="modal-title">Book Room</div>
     <div class="msub" id="modal-sub"></div>
     <div class="appr-banner" id="appr-banner" style="display:none"><strong>&#9993; Approval required</strong> An email will be sent to the room owner before confirming.</div>
-    <div class="mfield"><label>Your Email</label><input type="text" id="book-email" placeholder="yourname@central.co.th" autocomplete="off"></div>
-    <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
+    <div class="mfield"><label>Your Email <span style="color:#ff4444">*</span></label><input type="text" id="book-email" placeholder="yourname@central.co.th" autocomplete="off"></div>
+    <div class="mfield"><label>Meeting Title <span style="color:#ff4444">*</span></label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
     <!-- Start time row -->
     <div class="mfield">
       <label>Start Time</label>
@@ -751,8 +751,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 85,
-  date: '2026-07-03',
+  patch: 86,
+  date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -2497,8 +2497,6 @@ function joinTeams(url){
 // ══════════════════════════════════════
 function openModal(){
   _bookingName='';el('book-email').value='';el('book-title').value='';
-  var emailInput=el('book-email');
-  emailInput.onblur=function(){_bookingName=nameFromEmail(emailInput.value.trim());};
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
   var na=cfg.booking&&cfg.approval;

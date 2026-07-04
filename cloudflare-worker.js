@@ -62,11 +62,6 @@ export default {
         return handleEventPatch(request, env);
       }
 
-      // GET /api/user-info?email=xxx — look up display name from Azure AD
-      if (path === '/api/user-info' && method === 'GET') {
-        return handleUserInfo(request, url, env);
-      }
-
       // POST /api/heartbeat — tablet sends health report
       if (path === '/api/heartbeat' && method === 'POST') {
         return handleHeartbeat(request, env);
@@ -496,25 +491,6 @@ async function handleIncidentsList(url, env) {
 }
 
 // ═══════════════════════════════════════
-// USER INFO — look up display name from Azure AD by email
-// ═══════════════════════════════════════
-async function handleUserInfo(request, url, env) {
-  var email = url.searchParams.get('email');
-  if (!email || email.indexOf('@') < 0) return jsonResponse({ displayName: null });
-  var token = await getServiceToken(env);
-  if (!token) return jsonResponse({ displayName: null });
-  try {
-    var resp = await fetch('https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(email) + '?$select=displayName', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!resp.ok) return jsonResponse({ displayName: null });
-    var data = await resp.json();
-    return jsonResponse({ displayName: data.displayName || null });
-  } catch(e) {
-    return jsonResponse({ displayName: null });
-  }
-}
-
 // ═══════════════════════════════════════
 // PROXY — existing GitHub Pages proxy
 // ═══════════════════════════════════════
