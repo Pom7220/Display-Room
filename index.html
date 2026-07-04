@@ -273,7 +273,7 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .nav-btn{font-size:17px;font-weight:600;color:#5566aa;cursor:pointer;padding:10px 16px;-webkit-border-radius:50px;border-radius:50px;background:none;border:none;}
 .nav-book-btn{padding:14px 28px;background:transparent;border:2px solid #2979ff;-webkit-border-radius:50px;border-radius:50px;color:#2979ff;font-size:18px;font-weight:700;cursor:pointer;display:inline-block;}
 /* ── ACTION ROW OUTER (below card, fixed zone) ── */
-#action-row-outer{min-height:84px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;margin-bottom:16px;}
+#action-row-outer{min-height:84px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;margin-bottom:16px;}
 /* ── UPCOMING SECTION LABEL ── */
 .upcoming-label{font-size:16px;font-weight:700;color:#5566aa;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;margin-top:32px;}
 /* ── MORE ROW in meeting list ── */
@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 88,
+  patch: 89,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2223,7 +2223,7 @@ function updateCurrentCard(){
     } else {
       if(!checkedIn){
         // Not checked in — show ONLY Check In button (clean single action)
-        btns='<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>';
+        btns='<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>';
       } else if(!isAllDay(cur)){
         // Checked in — show End and +30m (Check In already done)
         btns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
@@ -2260,8 +2260,8 @@ function updateCurrentCard(){
     var earlyCheckin=m<=15;
     var checkinBtn=earlyCheckin
       ? (checkedIn
-          ? '<button class="abtn abtn-checkin checked" disabled>'+svgCheck()+' Checked In</button>'
-          : '<button class="abtn abtn-checkin" id="checkin-btn">'+svgCheck()+' Check In</button>')
+          ? '<button class="abtn abtn-checkin checked" disabled>Checked In</button>'
+          : '<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>')
       : '<button class="abtn abtn-checkin off" disabled>Check In opens in '+sharedFmtDur(m-15)+'</button>';
     var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
     cont.innerHTML=
@@ -2603,9 +2603,15 @@ function confirmBooking(){
   var name=_bookingName||nameFromEmail(email);
   if(!email||email.indexOf('@')<0){toast('Please enter a valid email address','warn');return;}
   if(!title){toast('Please enter a meeting title','warn');return;}
+  var s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
+  // Conflict check — reject if any existing meeting overlaps the requested slot
+  var conflict=(meetings||[]).filter(function(m){return !m.isPending&&m.end>s&&m.start<e;});
+  if(conflict.length){
+    toast('Time conflict: "'+conflict[0].title+'" is already booked at '+ft(conflict[0].start),'error');
+    return;
+  }
   var btn=el('mconfirm');btn.disabled=true;
   el('mconfirm-lbl').innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>';
-  var s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
   var done=function(){btn.disabled=false;el('mconfirm-lbl').textContent=cfg.approval?'Send approval request':'Confirm booking';};
   if(cfg.approval)sendApproval(name,email,title,s,e,done);
   else createDirect(name,email,title,s,e,done);
