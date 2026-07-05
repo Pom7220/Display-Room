@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 100,
+  patch: 101,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2104,14 +2104,10 @@ function fetchCal(){
   .then(function(filtered){
     if(!filtered)return; // null from retry path or error
     meetings=filtered;
-    // Patch organizer for instant bookings
-    // New bookings: localStorage has requester email keyed by start time
-    // Old bookings: detect by organizerEmail === room email → label as Instant Booking
+    // Label instant bookings — when room is the organizer, it was booked via tablet
     for(var _ri=0;_ri<meetings.length;_ri++){
       var _m=meetings[_ri];
-      try{var _re=localStorage.getItem('rib_'+localISO(_m.start));}catch(e){var _re=null;}
-      if(_re){_m.organizer=_re;}
-      else if(_m.organizerEmail&&activeRoom.email&&_m.organizerEmail.toLowerCase()===activeRoom.email.toLowerCase()){_m.organizer='Instant Booking';}
+      if(_m.organizerEmail&&activeRoom.email&&_m.organizerEmail.toLowerCase()===activeRoom.email.toLowerCase()){_m.organizer='Instant Booking';}
     }
     // Debug — log showAs values to diagnose pending/free status on Macchiato
     dbg('Cal: '+meetings.length+' meetings. '+meetings.slice(0,6).map(function(m){
