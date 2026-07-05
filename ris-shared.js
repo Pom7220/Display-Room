@@ -57,6 +57,7 @@ function mapEvent(ev) {
     organizer: (ev.organizer && ev.organizer.emailAddress && ev.organizer.emailAddress.name)
       || (ev.organizer && ev.organizer.emailAddress && ev.organizer.emailAddress.address)
       || '',
+    organizerEmail: (ev.organizer && ev.organizer.emailAddress && ev.organizer.emailAddress.address) || '',
     start: gDate(ev.start),
     end: gDate(ev.end),
     attendees: (ev.attendees || []).length,
