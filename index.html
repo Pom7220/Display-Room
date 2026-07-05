@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 103,
+  patch: 104,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2270,18 +2270,30 @@ function updateCurrentCard(){
     setTheme(isSoon?'soon':'available');
     el('status-txt').textContent=isSoon?('Available - meeting at '+ft(nxt.start)):('Available - free until '+ft(nxt.start));
     var earlyCheckin=m<=15;
-    var checkinBtn=earlyCheckin
-      ? (checkedIn
-          ? '<button class="abtn abtn-checkin checked" disabled>Checked In</button>'
-          : '<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>')
-      : '<button class="abtn abtn-checkin off" disabled>Check In opens in '+sharedFmtDur(m-15)+'</button>';
-    var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
-    cont.innerHTML=
-      '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
-      '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
-      '<div class="meet-time-lg" style="color:#ffaa44">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
-      (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
-    el('action-row-outer').innerHTML='<div class="action-row">'+checkinBtn+'</div>'+pendNotice;
+    if(earlyCheckin&&checkedIn){
+      // Early check-in done — show full IN USE red state with End + +30m
+      setTheme('busy');
+      el('status-txt').textContent='In Use';
+      cont.innerHTML=
+        '<div class="meet-tag busy">&#128308; IN USE</div>'+
+        '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
+        '<div class="meet-time-lg" style="color:#ff6666">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
+        (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
+      var earlyBtns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
+      earlyBtns+='<button class="abtn abtn-extend" id="ext-btn">+30<br>min</button>';
+      el('action-row-outer').innerHTML='<div class="action-row">'+earlyBtns+'</div>';
+    } else {
+      var checkinBtn=earlyCheckin
+        ? '<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>'
+        : '<button class="abtn abtn-checkin off" disabled>Check In opens in '+sharedFmtDur(m-15)+'</button>';
+      var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
+      cont.innerHTML=
+        '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
+        '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
+        '<div class="meet-time-lg" style="color:#ffaa44">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
+        (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
+      el('action-row-outer').innerHTML='<div class="action-row">'+checkinBtn+'</div>'+pendNotice;
+    }
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else {
