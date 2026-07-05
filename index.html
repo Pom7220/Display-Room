@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 105,
+  patch: 106,
   date: '2026-07-05',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2297,17 +2297,37 @@ function updateCurrentCard(){
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else {
-    // ── FULLY AVAILABLE ──
-    setTheme('available');
-    el('status-txt').textContent='Available';
-    var pendNotice2=hasPending?'<div class="pend-notice">&#9203; Pending approval request — check your email</div>':'';
-    cont.innerHTML=
-      '<div class="meet-tag avail">FREE</div>'+
-      '<div class="meet-title-lg">No meetings booked</div>'+
-      '<div class="meet-time-lg" style="color:#64b5f6">Available all day</div>'+
-      '<div class="meet-org">Room is open for booking</div>'+
-      pendNotice2;
-    el('action-row-outer').innerHTML='';
+    // ── FULLY AVAILABLE (or only pending/tentative meetings remain) ──
+    // Check for Exchange-tentative upcoming meetings (room hasn't auto-accepted yet)
+    var pendNxt=null;
+    var _eot=new Date();_eot.setHours(23,59,59,999);
+    for(var _pni=0;_pni<meetings.length;_pni++){
+      var _pm=meetings[_pni];
+      if(_pm.isPending&&!isAllDay(_pm)&&_pm.start>n&&_pm.start<=_eot){pendNxt=_pm;break;}
+    }
+    if(pendNxt){
+      // Tentative meeting detected — room not yet auto-accepted
+      setTheme('pending');
+      el('status-txt').textContent='Pending at '+ft(pendNxt.start);
+      cont.innerHTML=
+        '<div class="meet-tag pend">&#9203; PENDING</div>'+
+        '<div class="meet-title-lg">'+esc(pendNxt.title)+'</div>'+
+        '<div class="meet-time-lg" style="color:#ffaa44">'+ft(pendNxt.start)+' &ndash; '+ft(pendNxt.end)+'</div>'+
+        (pendNxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(pendNxt.organizer)+'</div>':'')+
+        '<div class="rel-warn">&#9203; Awaiting room acceptance</div>';
+      el('action-row-outer').innerHTML='';
+    } else {
+      setTheme('available');
+      el('status-txt').textContent='Available';
+      var pendNotice2=hasPending?'<div class="pend-notice">&#9203; Pending approval request — check your email</div>':'';
+      cont.innerHTML=
+        '<div class="meet-tag avail">FREE</div>'+
+        '<div class="meet-title-lg">No meetings booked</div>'+
+        '<div class="meet-time-lg" style="color:#64b5f6">Available all day</div>'+
+        '<div class="meet-org">Room is open for booking</div>'+
+        pendNotice2;
+      el('action-row-outer').innerHTML='';
+    }
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   }
 }
