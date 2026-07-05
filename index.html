@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 109,
+  patch: 110,
   date: '2026-07-05',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2252,6 +2252,8 @@ function updateCurrentCard(){
         // Release time expired — remove from meetings array, next tick re-renders
         if(cur.id&&locallyEnded.indexOf(cur.id)===-1)locallyEnded.push(cur.id);
         meetings=meetings.filter(function(m){return m.id!==cur.id;});
+        // Re-render via setTimeout to avoid recursion — updates card color immediately
+        setTimeout(function(){updateCurrentCard();renderBadges();renderMeetList();},0);
         return;
       }
     }
