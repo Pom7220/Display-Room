@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 102,
+  patch: 103,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2243,9 +2243,9 @@ function updateCurrentCard(){
       if(ml>0){
         warn='<div class="rel-warn">&#9888; Releases in '+ml+' min without check-in</div>';
       } else {
-        // Release time expired — treat as locally ended (room is free)
+        // Release time expired — remove from meetings array, next tick re-renders
         if(cur.id&&locallyEnded.indexOf(cur.id)===-1)locallyEnded.push(cur.id);
-        updateCurrentCard();renderMeetList();
+        meetings=meetings.filter(function(m){return m.id!==cur.id;});
         return;
       }
     }
