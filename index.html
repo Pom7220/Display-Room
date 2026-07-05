@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 108,
+  patch: 109,
   date: '2026-07-05',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2194,12 +2194,18 @@ function setTheme(status){
 // ══════════════════════════════════════
 // CURRENT CARD
 // ══════════════════════════════════════
-function getCur(){var n=new Date();return meetings.find(function(m){return !m.isPending&&m.start<=n&&m.end>=n;})||null;}
+function getCur(){
+  var n=new Date();
+  // For non-approval rooms, treat tentative as confirmed (Exchange auto-accept lag)
+  // For approval rooms (e.g. Macchiato), tentative = genuinely pending
+  var needsApproval=activeRoom&&activeRoom.approval;
+  return meetings.find(function(m){return (!m.isPending||!needsApproval)&&m.start<=n&&m.end>=n;})||null;
+}
 function getNext(){
   var n=new Date();
-  // Only show upcoming meetings from TODAY — not tomorrow or future days
   var endOfToday=new Date();endOfToday.setHours(23,59,59,999);
-  return meetings.find(function(m){return !m.isPending&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday;})||null;
+  var needsApproval=activeRoom&&activeRoom.approval;
+  return meetings.find(function(m){return (!m.isPending||!needsApproval)&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday;})||null;
 }
 
 function updateCurrentCard(){
@@ -2210,7 +2216,7 @@ function updateCurrentCard(){
 
   if(cur){
     // ── BUSY / IN USE ──
-    var ip=cur.isPending;
+    var ip=cur.isPending&&activeRoom&&activeRoom.approval;
     setTheme(ip?'pending':'busy');
     // Update status text — show checked-in state prominently
     var stxt=el('status-txt');
