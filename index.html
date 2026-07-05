@@ -754,7 +754,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 95,
+  patch: 96,
   date: '2026-07-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -825,7 +825,7 @@ var APP_VERSION = {
 // ══════════════════════════════════════
 var CFG_KEY='roomdisplay_v5';
 var cfg={},msalInst=null,account=null;
-var meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60,_todayOverflow=[];
+var meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60,_todayOverflow=[],_instantBookings={};
 
 // Load persisted pending bookings from localStorage
 function loadPendingLocal(){
@@ -2355,7 +2355,7 @@ function renderMeetList(){
       :i===0&&!isPast?'<span class="mitem-badge next">NEXT</span>':'';
     return '<div class="'+cls+'">'+badge+
       '<div class="mitem-time-col"><div class="mitem-t">'+ft(m.start)+'</div><div class="mitem-d">'+fd(m.start,m.end)+'</div></div>'+
-      '<div class="mitem-info"><div class="mitem-title">'+esc(m.title)+'</div><div class="mitem-org">'+esc(ip?m.organizer+' \u2013 pending':(activeRoom&&m.organizerEmail&&m.organizerEmail.toLowerCase()===activeRoom.email.toLowerCase()?'Instant Booking':m.organizer))+'</div></div>'+
+      '<div class="mitem-info"><div class="mitem-title">'+esc(m.title)+'</div><div class="mitem-org">'+esc(ip?m.organizer+' \u2013 pending':(_instantBookings[m.start.getTime()+'|'+m.title]||m.organizer))+'</div></div>'+
     '</div>';
   }).join('')+
   (hasMore?'<div class="more-list-row" id="more-list-btn"><span class="more-list-row-txt">More + ('+(show.length-2)+' more)</span></div>':'<div class="more-list-row" id="more-list-btn"><span class="more-list-row-txt">More +</span></div>');
@@ -2644,6 +2644,7 @@ function createDirect(name,email,title,s,e,done){
   fetchBookRoom(tabletKey,activeRoom.email,activeRoom.name,title,localISO(s),localISO(e),name,email)
   .then(function(d){
     closeModal();toast('Room booked! Invitation sent to '+email,'success');
+    _instantBookings[s.getTime()+'|'+title]=name;
     meetings.push({id:'loc-'+Date.now(),title:title,organizer:name,start:s,end:e,attendees:1,isPending:false,joinUrl:null,isOnline:false});
     meetings.sort(function(a,b){return a.start-b.start;});
     updateCurrentCard();renderBadges();renderMeetList();
