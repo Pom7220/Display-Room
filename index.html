@@ -754,8 +754,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 104,
-  date: '2026-07-04',
+  patch: 105,
+  date: '2026-07-05',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -2465,7 +2465,7 @@ function doCheckin(){
   });
 }
 function endMeeting(){
-  var cur=getCur();if(!cur)return;
+  var cur=getCur();if(!cur&&checkedIn)cur=getNext();if(!cur)return;
   el('cdlg-title').textContent='End meeting?';
   el('cdlg-sub').textContent='"'+cur.title+'" will end now and the room will show as available.';
   el('cdlg-icon').textContent='Stop';
@@ -2488,7 +2488,7 @@ function endMeeting(){
   show('confirm-dialog');
 }
 function extendMeeting(){
-  var cur=getCur();if(!cur)return;
+  var cur=getCur();if(!cur&&checkedIn)cur=getNext();if(!cur)return;
   var nxt=getNext();
   var proposed=new Date(cur.end.getTime()+30*60000);
   // Block if extension would overlap next meeting
