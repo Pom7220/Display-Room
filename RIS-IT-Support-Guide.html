@@ -75,7 +75,9 @@ tr:nth-child(even) td { background:#fafafa; }
 <tr><td>Display returns to Android home screen</td><td>APK not set as default launcher, or ForegroundWatchService stopped</td><td>Open RIS Kiosk app → it will relaunch WebView. Reboot to restore auto-launch</td></tr>
 <tr><td>Red error banner at top of screen</td><td>JavaScript error in WebView (Chromium 30 compatibility)</td><td>Check if latest index.html version is deployed. Remote reload from dashboard. Reboot if still showing.</td></tr>
 <tr><td>"No meetings" or stale data</td><td>WiFi disconnected or Cloudflare Worker issue</td><td>Check WiFi. Open dashboard → check tablet heartbeat status. Reboot tablet.</td></tr>
-<tr><td>Room shows "Available" but Outlook shows booked</td><td>Calendar refreshes every 5 minutes</td><td>Wait up to 5 min. If still wrong: check service account has Full Access to room mailbox in Exchange Admin</td></tr>
+<tr><td>Room shows "Available" but Outlook shows booked</td><td>Calendar refreshes every 2 minutes</td><td>Wait up to 2 min. If still wrong: check service account has Full Access to room mailbox in Exchange Admin</td></tr>
+<tr><td>Card shows red after meeting ends</td><td>Auto-release or End pressed — brief rendering delay</td><td>Fixed in v3.10.110 — re-renders immediately. If persists, remote reload from dashboard.</td></tr>
+<tr><td>Room shows FREE but upcoming meetings visible in list</td><td>Exchange auto-accept delay for non-approval rooms (usually &lt;10 sec)</td><td>Fixed in v3.10.109 — tentative meetings treated as confirmed for non-approval rooms. Resolves automatically.</td></tr>
 <tr><td>APK install: "conflicting signature"</td><td>Different signing key from previous APK version</td><td>Settings → Apps → uninstall old RIS Kiosk → install new APK</td></tr>
 <tr><td>Display shows wrong room name</td><td>Room not selected in setup, or SharedPreferences corrupted</td><td>Open RIS Kiosk app → re-select room → Save</td></tr>
 <tr><td>Tablet offline on dashboard for >30 min</td><td>WiFi dropped, tablet frozen, or display crashed</td><td>Physical check required — verify tablet is powered and connected to WiFi. Reboot if needed.</td></tr>
@@ -102,7 +104,7 @@ tr:nth-child(even) td { background:#fafafa; }
 <h2>File versions</h2>
 <table>
 <tr><th>File</th><th>Version</th><th>Purpose</th></tr>
-<tr><td>index.html</td><td>v3.10.70</td><td>Kiosk display (ES5, Chromium 30 + Chrome 42)</td></tr>
+<tr><td>index.html</td><td>v3.10.110</td><td>Kiosk display (ES5, Chromium 30 + Chrome 42)</td></tr>
 <tr><td>dashboard.html</td><td>v2.0</td><td>Mobile dashboard (ES6, modern browsers)</td></tr>
 <tr><td>ris-shared.js</td><td>v1.4</td><td>Shared calendar logic (ES5, XHR only)</td></tr>
 <tr><td>msal-v1.min.js</td><td>v1.3</td><td>Auth library — browser/dashboard mode only</td></tr>
@@ -113,5 +115,5 @@ tr:nth-child(even) td { background:#fafafa; }
 
 <div class="info">ℹ Debug mode: long-press gear icon 5 seconds on tablet display. Cloudflare Worker: dash.cloudflare.com → Compute → Workers → ris-display. Worker request usage: dash.cloudflare.com → Analytics.</div>
 
-<div class="footer">RIS Room Display v3.10.70 · Central Group · 2026</div>
+<div class="footer">RIS Room Display v3.10.110 · Central Group · 2026</div>
 </body></html>

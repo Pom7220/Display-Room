@@ -7,7 +7,7 @@ Meeting room kiosk display and mobile dashboard for the RIS floor at Central Sil
 - Kiosk (direct GitHub Pages): `https://<corporate-github-org>.github.io/Display-Room/` *(update after repo transfer)*
 - Dashboard: `https://<corporate-github-org>.github.io/Display-Room/dashboard.html` *(update after repo transfer)*
 
-**Current versions:** index v3.10.70 · dashboard v2.0 · ris-shared v1.4 · msal-v1 v1.3 · boot-launcher v5.0
+**Current versions:** index v3.10.110 · dashboard v2.0 · ris-shared v1.4 · msal-v1 v1.3 · boot-launcher v5.0
 
 ---
 
@@ -53,7 +53,7 @@ WebView APK v5.0                               │
 
 ## File Specifications
 
-### index.html (v3.10.70) — Kiosk Display
+### index.html (v3.10.110) — Kiosk Display
 
 **Language:** ES5 only. Runs on Chromium 30 (WebView APK) and Chrome 42 (browser). No `const`/`let`, arrows, template literals, `fetch()`, or CSS variables.
 
@@ -67,12 +67,12 @@ WebView APK v5.0                               │
 | Function | Purpose |
 |---|---|
 | `initMsal()` | Creates MSAL v1 instance, handles redirect callback (browser mode only) |
-| `fetchCal()` | Fetches room calendar via Worker proxy (tablet) or Graph API direct (browser) — XHR, every 5 minutes |
-| `updateCurrentCard()` | Renders current meeting or "Free to Book"; handles all-day bookings |
+| `fetchCal()` | Fetches room calendar via Worker proxy — XHR, every 2 minutes |
+| `updateCurrentCard()` | Renders current meeting card; handles auto-release (10 min), early check-in, end/extend, PENDING state for approval rooms |
 | `renderMeetList()` | Today/tomorrow meeting list |
 | `enterKiosk()` | Fullscreen — skips tap overlay if `webview=1` param or `ris_from_reload` sessionStorage flag set |
-| `openModal()` / `confirmBooking()` | Booking flow with time picker, duration chips, Graph API POST |
-| `doCheckin()` / `endMeeting()` / `extendMeeting()` | Meeting actions with overlap protection |
+| `openModal()` / `confirmBooking()` | Instant booking: email + title only (name removed), conflict check, starts at next free slot |
+| `doCheckin()` / `endMeeting()` / `extendMeeting()` | Check-in (early up to 15 min before), auto-release (10 min), end/extend with stale-ref safety |
 | `sendHeartbeat()` | Posts tablet status to Worker `/api/heartbeat` every 20 minutes |
 | `pollCommand()` | Polls Worker `/api/poll` every 2 minutes for remote commands (reload, reauth) |
 | `fetchWeather()` | XHR fetch from open-meteo.com — static Bangkok fallback if unavailable |
@@ -269,7 +269,7 @@ Set in Cloudflare dashboard → Workers → `ris-display` → Settings → Varia
 
 - **All-day events** — included in `cur` (room IS booked). Excluded from `nxt` (no "coming soon"). Excluded from meeting list (shown at card level)
 - **`showAs:'free'`** — kept (room calendars return free via delegated access)
-- **`showAs:'tentative'`** = `isPending` = pending approval. Excluded from kiosk cur/nxt; shown in dashboard
+- **`showAs:'tentative'`** — For non-approval rooms, treated as confirmed (Exchange auto-accept lag). For approval rooms only: shown as PENDING
 - **`isCancelled`** — filtered out entirely
 
 **Booking:** `POST /users/{roomEmail}/events` with room as `type:'resource'` attendee. Requester added as `type:'required'` → receives invitation email. Exchange auto-accepts/declines on availability. Macchiato triggers approval email to room owner.
@@ -352,3 +352,15 @@ APK signing password: `a0000`
 | 2026-07-02 | v3.10.67 | Canvas alpha rounding for Chromium 30 |
 | 2026-07-02 | v3.10.68–69 | Book Room button position fix |
 | 2026-07-02 | v3.10.70 | Reduced Worker polling — fetchCal 5min, pollCommand 2min |
+| 2026-07-02 | v3.10.82–83 | Upcoming list dedup from status card; touch response improvements |
+| 2026-07-02 | v3.10.85–86 | Name field removed from booking; email + title mandatory (red *); backdrop tap blocked |
+| 2026-07-02 | v3.10.87–88 | Empty upcoming state cleaned up; default PIN 9999; Change PIN in settings |
+| 2026-07-02 | v3.10.89 | Check In: no checkmark, countdown below button, conflict check on instant booking |
+| 2026-07-02 | v3.10.90–91 | Weather icon fix for LG Chromium 30 (HTML entities) |
+| 2026-07-02 | v3.10.92–93 | Instant booking starts at next free slot; More+ shows today remainder + from tomorrow |
+| 2026-07-02 | v3.10.94 | Version tag hidden; instant booking shows "Instant Booking" as organizer |
+| 2026-07-03 | v3.10.101 | Reliable instant booking organizer: patch in fetchCal via organizerEmail match |
+| 2026-07-03 | v3.10.102–103 | Auto-release: remove meeting after 10 min no check-in; fix infinite recursion |
+| 2026-07-05 | v3.10.104–105 | Early check-in (15 min before): red IN USE card with End + +30m; buttons functional |
+| 2026-07-05 | v3.10.107 | End stale-ref fix; instant booking organizer name immediate; |
+| 2026-07-05 | v3.10.108–110 | PENDING card for approval rooms; tentative-as-confirmed for non-approval; immediate re-render after auto-release |
