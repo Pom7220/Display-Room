@@ -62,6 +62,11 @@ export default {
         return handleEventPatch(request, env);
       }
 
+      // DELETE /api/event — auto-release: delete room event via service account
+      if (path === '/api/event' && method === 'DELETE') {
+        return handleEventDelete(request, env);
+      }
+
       // POST /api/heartbeat — tablet sends health report
       if (path === '/api/heartbeat' && method === 'POST') {
         return handleHeartbeat(request, env);
@@ -779,10 +784,40 @@ async function getServiceToken(env) {
   } catch(e) { return null; }
 }
 
+// ═══════════════════════════════════════
+// EVENT DELETE — auto-release room booking
+// ═══════════════════════════════════════
+
+async function handleEventDelete(request, env) {
+  var tabletKey = request.headers.get('X-Tablet-Key') || '';
+  if (!tabletKey && !isOrgUserToken(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+  var body;
+  try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
+  if (!body.room || !body.eventId) return jsonResponse({ error: 'Missing room/eventId' }, 400);
+
+  var token = await getServiceToken(env);
+  if (!token) return jsonResponse({ error: 'Auth failed' }, 401);
+
+  try {
+    var resp = await fetch('https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(body.room) + '/events/' + body.eventId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (resp.status === 404) return jsonResponse({ ok: true, note: 'already gone' });
+    if (resp.status >= 400) {
+      var data = await resp.json().catch(function(){ return {}; });
+      return jsonResponse({ error: (data.error && data.error.message) || 'Delete failed' }, resp.status);
+    }
+    return jsonResponse({ ok: true });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Tablet-Key, Authorization',
     'Access-Control-Max-Age': '86400'
   };
