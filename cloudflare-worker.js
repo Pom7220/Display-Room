@@ -627,13 +627,39 @@ async function handleReportsList(url, env) {
 // HELPERS
 // ═══════════════════════════════════════
 
+// Decode a JWT claim without cryptographic verification.
+// Used to check tenant ID + expiry on org user MSAL tokens.
+function jwtClaim(token, claim) {
+  try {
+    var parts = (token || '').split('.');
+    if (parts.length < 2) return null;
+    var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4 !== 0) b64 += '=';
+    var payload = JSON.parse(atob(b64));
+    return payload[claim] != null ? payload[claim] : null;
+  } catch (e) { return null; }
+}
+
+// Returns true if the Authorization: Bearer header carries a non-expired
+// token whose tenant ID matches RIS_TENANT_ID — i.e. a signed-in org user.
+function isOrgUserToken(request, env) {
+  var auth = request.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ')) return false;
+  var token = auth.slice(7);
+  var tid = jwtClaim(token, 'tid');
+  var exp = jwtClaim(token, 'exp');
+  var tenantId = (env && env.RIS_TENANT_ID) || '817e531d-191b-4cf5-8812-f0061d89b53d';
+  var nowSec = Math.floor(Date.now() / 1000);
+  return tid === tenantId && exp > nowSec;
+}
+
 // ═══════════════════════════════════════
 // CALENDAR — fetch room events via service account
 // ═══════════════════════════════════════
 
 async function handleCalendar(request, url, env) {
   var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  if (!tabletKey) return jsonResponse({ error: 'Unauthorized' }, 401);
+  if (!tabletKey && !isOrgUserToken(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
   var room = url.searchParams.get('room') || '';
   var start = url.searchParams.get('startDateTime') || '';
   var end = url.searchParams.get('endDateTime') || '';
@@ -663,7 +689,10 @@ async function handleCalendar(request, url, env) {
 
 async function handleBook(request, env) {
   var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  if (!tabletKey) return jsonResponse({ error: 'Unauthorized' }, 401);
+  var adminKey = request.headers.get('X-Admin-Key') || '';
+  var expectedAdmin = (env && env.RIS_ADMIN_KEY) || '';
+  var adminOk = expectedAdmin && adminKey === expectedAdmin;
+  if (!tabletKey && !adminOk && !isOrgUserToken(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
   var body;
   try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
   if (!body.room || !body.start || !body.end) return jsonResponse({ error: 'Missing room/start/end' }, 400);
@@ -701,7 +730,7 @@ async function handleBook(request, env) {
 
 async function handleEventPatch(request, env) {
   var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  if (!tabletKey) return jsonResponse({ error: 'Unauthorized' }, 401);
+  if (!tabletKey && !isOrgUserToken(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
   var body;
   try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
   if (!body.room || !body.eventId || !body.end) return jsonResponse({ error: 'Missing room/eventId/end' }, 400);
