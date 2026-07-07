@@ -793,7 +793,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 115,
+  patch: 116,
   date: '2026-07-07',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2292,11 +2292,16 @@ function updateCurrentCard(){
         if(cur.id&&locallyEnded.indexOf(cur.id)===-1)locallyEnded.push(cur.id);
         meetings=meetings.filter(function(m){return m.id!==cur.id;});
         // Delete event from room calendar via Worker (only real Exchange IDs, not loc- placeholders)
+        // Uses XHR instead of fetch() — Chrome 30 on LG tablets has no Fetch API
         if(cur.id&&cur.id.indexOf('loc-')!==0&&cfg.roomemail&&cfg.tabletKey){
-          var _relUrl=_monitorUrl+'event';
-          var _relBody=JSON.stringify({room:cfg.roomemail,eventId:cur.id});
-          fetch(_relUrl,{method:'DELETE',headers:{'Content-Type':'application/json','X-Tablet-Key':cfg.tabletKey},body:_relBody})
-            .catch(function(e){dbg('Auto-release delete failed: '+e.message);});
+          (function(_id,_room,_key){
+            var xhr=new XMLHttpRequest();
+            xhr.open('DELETE',_monitorUrl+'event',true);
+            xhr.setRequestHeader('Content-Type','application/json');
+            xhr.setRequestHeader('X-Tablet-Key',_key);
+            xhr.onerror=function(){dbg('Auto-release delete failed (network)');};
+            xhr.send(JSON.stringify({room:_room,eventId:_id}));
+          }(cur.id,cfg.roomemail,cfg.tabletKey));
         }
         // Re-render via setTimeout to avoid recursion — updates card color immediately
         setTimeout(function(){updateCurrentCard();renderBadges();renderMeetList();},0);
