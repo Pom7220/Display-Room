@@ -793,7 +793,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 114,
+  patch: 115,
   date: '2026-07-07',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2293,7 +2293,7 @@ function updateCurrentCard(){
         meetings=meetings.filter(function(m){return m.id!==cur.id;});
         // Delete event from room calendar via Worker (only real Exchange IDs, not loc- placeholders)
         if(cur.id&&cur.id.indexOf('loc-')!==0&&cfg.roomemail&&cfg.tabletKey){
-          var _relUrl=MONITOR_URL+'event';
+          var _relUrl=_monitorUrl+'event';
           var _relBody=JSON.stringify({room:cfg.roomemail,eventId:cur.id});
           fetch(_relUrl,{method:'DELETE',headers:{'Content-Type':'application/json','X-Tablet-Key':cfg.tabletKey},body:_relBody})
             .catch(function(e){dbg('Auto-release delete failed: '+e.message);});
