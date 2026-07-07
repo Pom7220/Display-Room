@@ -793,7 +793,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 112,
+  patch: 113,
   date: '2026-07-07',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2632,6 +2632,7 @@ function openModal(){
   updatePrev();
   var m=el('booking-modal');
   if(m){m.classList.remove('hidden');m.style.display='-webkit-flex';m.style.display='flex';}
+  _resetModalIdle();
 }
 
 function buildTimeSlots(base){
@@ -2661,7 +2662,13 @@ function selectTimeSlot(ms){
   }
 }
 
+var _modalIdleTimer=null;
+function _resetModalIdle(){
+  if(_modalIdleTimer){clearTimeout(_modalIdleTimer);}
+  _modalIdleTimer=setTimeout(function(){closeModal();toast('Booking cancelled — no activity','warn');},60000);
+}
 function closeModal(){
+  if(_modalIdleTimer){clearTimeout(_modalIdleTimer);_modalIdleTimer=null;}
   var m=el('booking-modal');
   if(m){m.style.display='none';m.classList.add('hidden');}
 }
@@ -3057,7 +3064,8 @@ function handleTap(e){
   var ba=up(t,function(n){return n.getAttribute&&n.getAttribute('data-action')==='book';});
   if(ba){e.preventDefault();openModal();return;}
 
-  // Booking modal actions
+  // Booking modal actions — reset idle timer on any tap inside modal
+  if(upId(t,'booking-modal')||t===el('booking-modal')){_resetModalIdle();}
   if(upId(t,'modal-cancel')){e.preventDefault();closeModal();return;}
   if(t===el('booking-modal')){e.preventDefault();/* backdrop tap disabled — use Cancel button */return;}
   if(upId(t,'mconfirm')){e.preventDefault();confirmBooking();return;}
