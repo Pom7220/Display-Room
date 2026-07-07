@@ -45,6 +45,10 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .tslot-d{padding:7px 12px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
 .tslot-d.active{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);color:var(--blue-l);}
 .tslot-d:active{opacity:.8;}
+.tchip{padding:7px 14px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:var(--font);}
+.tchip.active{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);color:var(--blue-l);}
+.tchip:active{opacity:.8;}
+#dash-tslots{display:none;flex-wrap:wrap;gap:6px;margin-top:8px;}
 
 /* SCHEDULE POPUP — white alert style */
 #sched-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;}
@@ -264,7 +268,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.2 (2026-07-07)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.3 (2026-07-07)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -297,9 +301,11 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="mfield"><label>Meeting Title</label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
     <div class="mfield">
       <label>Start Time</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="dash-tslots">
-        <!-- populated by buildDashTimeSlots() -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="tchip active" id="tchip-now">Now</button>
+        <button class="tchip" id="tchip-custom">Custom &#9660;</button>
       </div>
+      <div id="dash-tslots"></div>
     </div>
     <div class="tprev">Start: <span id="prev-s">—</span> &nbsp;·&nbsp; End: <span id="prev-e">—</span></div>
     <label style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:8px">Duration</label>
@@ -794,20 +800,35 @@ function nextQuarterD(d){
 }
 
 function buildDashTimeSlots(){
-  bookStart=nextQuarterD(new Date());
-  const container=el('dash-tslots');
+  // Default start: skip past any existing meetings (same logic as index.html)
+  var candidate=nextQuarterD(new Date());
+  var existing=((roomData[selectedRoom&&selectedRoom.email]||{}).meetings)||[];
+  var sorted=existing.filter(function(m){return !m.isPending&&m.end>candidate;})
+                     .sort(function(a,b){return a.start-b.start;});
+  for(var si=0;si<sorted.length;si++){if(sorted[si].start<=candidate)candidate=sorted[si].end;}
+  candidate=nextQuarterD(candidate);
+  bookStart=candidate;
+
+  // "Now" chip label
+  var nowBtn=el('tchip-now');
+  if(nowBtn)nowBtn.textContent='Now ('+ft(candidate)+')';
+
+  // Build 8 x 30-min custom slots (hidden until Custom tapped)
+  var container=el('dash-tslots');
   if(!container)return;
-  let html=`<div class="tslot-d active" data-ms="${bookStart.getTime()}">Now (${ft(bookStart)})</div>`;
-  for(let i=1;i<=5;i++){
-    const t=new Date(bookStart.getTime()+i*30*60000);
-    html+=`<div class="tslot-d" data-ms="${t.getTime()}">${ft(t)}</div>`;
+  var html='';
+  for(var i=0;i<8;i++){
+    var t=new Date(candidate.getTime()+i*30*60000);
+    html+='<div class="tslot-d" data-ms="'+t.getTime()+'">'+ft(t)+'</div>';
   }
   container.innerHTML=html;
-  container.querySelectorAll('.tslot-d').forEach(chip=>{
-    chip.addEventListener('click',()=>{
-      container.querySelectorAll('.tslot-d').forEach(c=>c.classList.remove('active'));
+  container.style.display='none';
+
+  container.querySelectorAll('.tslot-d').forEach(function(chip){
+    chip.addEventListener('click',function(){
+      container.querySelectorAll('.tslot-d').forEach(function(c){c.classList.remove('active');});
       chip.classList.add('active');
-      bookStart=new Date(parseInt(chip.dataset.ms));
+      bookStart=new Date(parseInt(chip.getAttribute('data-ms')));
       updatePrev();
     });
   });
@@ -831,6 +852,22 @@ function openBookModal(){
   });
   buildDashTimeSlots();
   updatePrev();
+
+  // Now / Custom toggle
+  el('tchip-now').onclick=function(){
+    el('tchip-now').className='tchip active';
+    el('tchip-custom').className='tchip';
+    el('dash-tslots').style.display='none';
+    buildDashTimeSlots();
+    updatePrev();
+  };
+  el('tchip-custom').onclick=function(){
+    el('tchip-custom').className='tchip active';
+    el('tchip-now').className='tchip';
+    el('dash-tslots').style.display='flex';
+    updatePrev();
+  };
+
   show('book-modal');
   setTimeout(()=>el('book-name').focus(),350);
 }
@@ -863,37 +900,24 @@ async function confirmBooking(){
   if(!tok){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Please sign in first','warn');show('auth-overlay');return;}
   const s=bookStart||new Date(),e=new Date(s.getTime()+selDurMin*60000);
 
-  // ── CONFLICT CHECK — fetch room calendar directly from Graph with MSAL token ──
-  try{
-    const conflictUrl='https://graph.microsoft.com/v1.0/users/'
-      +encodeURIComponent(selectedRoom.email)
-      +'/calendarView?startDateTime='+s.toISOString()
-      +'&endDateTime='+e.toISOString()
-      +'&$select=subject,start,end,showAs,isCancelled&$top=20';
-    const conflictResp=await fetch(conflictUrl,{headers:{Authorization:'Bearer '+tok}});
-    const conflictData=conflictResp.ok?await conflictResp.json():{value:[]};
-    const existing=filterMeetings(conflictData.value||[]);
-    const conflict=existing.find(function(m){
-      // Check overlap: meeting starts before our end AND ends after our start
-      return !m.isPending&&(m.end-m.start)<86399000&&m.start<e&&m.end>s;
-    });
-    if(conflict){
-      btn.disabled=false;
-      el('mconfirm-lbl').textContent='Confirm booking';
-      toast('Room is already booked at that time: '+ft(conflict.start)+'–'+ft(conflict.end),'error');
-      setTimeout(fetchAllRooms,500); // Refresh to show latest status
-      return;
-    }
-  }catch(err){
-    // Conflict check failed — proceed anyway, Exchange will handle it
-    console.warn('Conflict check failed:',err.message);
+  // ── CONFLICT CHECK — use already-fetched room data (no extra Graph call needed) ──
+  const cachedMeetings=((roomData[selectedRoom.email]||{}).meetings)||[];
+  const conflict=cachedMeetings.find(function(m){
+    return !m.isPending&&(m.end-m.start)<86399000&&m.start<e&&m.end>s;
+  });
+  if(conflict){
+    btn.disabled=false;
+    el('mconfirm-lbl').textContent='Confirm booking';
+    toast('Room already booked '+ft(conflict.start)+'–'+ft(conflict.end),'error');
+    setTimeout(fetchAllRooms,500);
+    return;
   }
 
-  // Phase 4: booking via Worker proxy — no MSAL token needed
+  // Booking via Worker proxy — auth via Bearer token (org user) or admin key
   try{
     const r=await fetch(MONITOR_URL.replace('/api/','') + '/api/book',{
       method:'POST',
-      headers:{'Content-Type':'application/json','X-Admin-Key':adminKey},
+      headers:{'Content-Type':'application/json','X-Admin-Key':adminKey,'Authorization':'Bearer '+tok},
       body:JSON.stringify({
         room:selectedRoom.email,
         roomName:selectedRoom.name,
