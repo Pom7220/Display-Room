@@ -18,18 +18,18 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 /**
- * Room picker for the RIS Kiosk Launcher.
+ * Room picker + setup screen for the RIS Kiosk Launcher.
  * Shows all 12 RIS rooms — tap one to assign this tablet to that room.
  * Selection is saved in SharedPreferences and used by BootReceiver
  * to build the URL with room config params on every boot.
  *
- * After picking a room, tap "Launch Display" to open Chrome immediately.
+ * Also shows APK version and lets the user toggle screen rotation.
+ * Triggers UpdateChecker on launch to prompt for new APK if available.
  */
 public class MainActivity extends Activity {
 
     private static final String BASE_URL =
         "https://ris-display.ris-display.workers.dev/";
-    private static final String CHROME_PACKAGE = "com.android.chrome";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
 
     // All 12 RIS rooms
@@ -55,12 +55,12 @@ public class MainActivity extends Activity {
     private View selectedView = null;
     private TextView statusText;
     private Button launchBtn;
+    private Button rotateBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Fullscreen
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -68,9 +68,8 @@ public class MainActivity extends Activity {
 
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         selectedEmail = prefs.getString("room_email", "");
-        selectedName = prefs.getString("room_name", "");
+        selectedName  = prefs.getString("room_name", "");
 
-        // Build UI programmatically (no XML layout needed)
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(Color.parseColor("#0a0a12"));
         scroll.setFillViewport(true);
@@ -81,7 +80,7 @@ public class MainActivity extends Activity {
 
         // Header
         TextView header = new TextView(this);
-        header.setText("\u2B21 RIS KIOSK");
+        header.setText("⬡ RIS KIOSK");
         header.setTextColor(Color.parseColor("#3b9eff"));
         header.setTextSize(22);
         header.setTypeface(null, Typeface.BOLD);
@@ -104,33 +103,43 @@ public class MainActivity extends Activity {
         statusText.setPadding(0, 0, 0, dp(16));
         root.addView(statusText);
 
-        // Lobby header
+        // Lobby rooms
         root.addView(makeZoneHeader("LOBBY AREA — rooms 1-6"));
-
-        // Lobby rooms (1-6)
         LinearLayout lobbyGrid = new LinearLayout(this);
         lobbyGrid.setOrientation(LinearLayout.VERTICAL);
-        for (int i = 0; i < 6; i += 2) {
-            lobbyGrid.addView(makeRoomRow(i, i + 1));
-        }
+        for (int i = 0; i < 6; i += 2) lobbyGrid.addView(makeRoomRow(i, i + 1));
         lobbyGrid.setPadding(0, 0, 0, dp(12));
         root.addView(lobbyGrid);
 
-        // Office header
+        // Office rooms
         root.addView(makeZoneHeader("IN-OFFICE AREA — rooms 7-12"));
-
-        // Office rooms (7-12)
         LinearLayout officeGrid = new LinearLayout(this);
         officeGrid.setOrientation(LinearLayout.VERTICAL);
-        for (int i = 6; i < 12; i += 2) {
-            officeGrid.addView(makeRoomRow(i, i + 1));
-        }
+        for (int i = 6; i < 12; i += 2) officeGrid.addView(makeRoomRow(i, i + 1));
         officeGrid.setPadding(0, 0, 0, dp(20));
         root.addView(officeGrid);
 
-        // Accessibility service setup button
+        // Rotation toggle
+        rotateBtn = new Button(this);
+        updateRotateBtn();
+        rotateBtn.setTextSize(13);
+        rotateBtn.setPadding(dp(8), dp(12), dp(8), dp(12));
+        rotateBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean current = prefs.getBoolean("screen_rotated", false);
+                prefs.edit().putBoolean("screen_rotated", !current).apply();
+                updateRotateBtn();
+                Toast.makeText(MainActivity.this,
+                    "Screen orientation saved — takes effect on next launch",
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
+        root.addView(rotateBtn);
+
+        // Accessibility setup button
         Button accessBtn = new Button(this);
-        accessBtn.setText("\u2699 Enable Auto-tap (Accessibility)");
+        accessBtn.setText("⚙ Enable Auto-tap (Accessibility)");
         accessBtn.setTextColor(Color.parseColor("#ff9500"));
         accessBtn.setBackgroundColor(Color.parseColor("#1a1200"));
         accessBtn.setPadding(dp(8), dp(12), dp(8), dp(12));
@@ -150,7 +159,7 @@ public class MainActivity extends Activity {
 
         // Launch button
         launchBtn = new Button(this);
-        launchBtn.setText("\uD83D\uDE80  Launch Room Display");
+        launchBtn.setText("🚀  Launch Room Display");
         launchBtn.setTextColor(Color.parseColor("#040810"));
         launchBtn.setTextSize(15);
         launchBtn.setTypeface(null, Typeface.BOLD);
@@ -163,14 +172,22 @@ public class MainActivity extends Activity {
                     Toast.makeText(MainActivity.this, "Select a room first", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                launchChrome();
+                BootReceiver.launchWebView(MainActivity.this);
+                finish();
             }
         });
         root.addView(launchBtn);
 
-        // Version
+        // Version footer
+        String apkVersion = "unknown";
+        try {
+            apkVersion = getPackageManager()
+                .getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception ignored) {}
+
         TextView ver = new TextView(this);
-        ver.setText("\nRIS Kiosk Launcher v4.0\nth.co.central.ris.bootlauncher");
+        ver.setText("\nRIS Kiosk Launcher  v" + apkVersion
+            + "\nth.co.central.ris.bootlauncher");
         ver.setTextColor(Color.parseColor("#3a4d6b"));
         ver.setTextSize(10);
         ver.setGravity(Gravity.CENTER);
@@ -179,6 +196,22 @@ public class MainActivity extends Activity {
 
         scroll.addView(root);
         setContentView(scroll);
+
+        // Check for APK update in background
+        UpdateChecker.check(this);
+    }
+
+    private void updateRotateBtn() {
+        boolean rotated = prefs.getBoolean("screen_rotated", false);
+        if (rotated) {
+            rotateBtn.setText("🔄 Screen: Rotated 180° (tap to set Normal)");
+            rotateBtn.setTextColor(Color.parseColor("#ffb340"));
+            rotateBtn.setBackgroundColor(Color.parseColor("#1a1200"));
+        } else {
+            rotateBtn.setText("🔄 Screen: Normal (tap to set Rotated 180°)");
+            rotateBtn.setTextColor(Color.parseColor("#6b82a8"));
+            rotateBtn.setBackgroundColor(Color.parseColor("#111d35"));
+        }
     }
 
     private TextView makeZoneHeader(String text) {
@@ -196,18 +229,15 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
         lp.setMargins(0, 0, dp(8), dp(8));
-
         View btn1 = makeRoomButton(idx1);
         btn1.setLayoutParams(lp);
         row.addView(btn1);
 
         LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
         lp2.setMargins(dp(8), 0, 0, dp(8));
-
         View btn2 = makeRoomButton(idx2);
         btn2.setLayoutParams(lp2);
         row.addView(btn2);
-
         return row;
     }
 
@@ -227,21 +257,20 @@ public class MainActivity extends Activity {
         card.addView(name);
 
         TextView info = new TextView(this);
-        info.setText(room[2] + " seats \u00B7 " + room[3]);
+        info.setText(room[2] + " seats · " + room[3]);
         info.setTextColor(Color.parseColor("#6b82a8"));
         info.setTextSize(10);
         card.addView(info);
 
         if ("yes".equals(room[4])) {
             TextView appr = new TextView(this);
-            appr.setText("\u26A0 Approval required");
+            appr.setText("⚠ Approval required");
             appr.setTextColor(Color.parseColor("#ffb340"));
             appr.setTextSize(10);
             appr.setPadding(0, dp(2), 0, 0);
             card.addView(appr);
         }
 
-        // Highlight if this is the currently selected room
         if (room[1].equals(selectedEmail)) {
             card.setBackgroundColor(Color.parseColor("#1a3a5c"));
             selectedView = card;
@@ -251,23 +280,16 @@ public class MainActivity extends Activity {
         card.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Deselect previous
-                if (selectedView != null) {
+                if (selectedView != null)
                     selectedView.setBackgroundColor(Color.parseColor("#111d35"));
-                }
-
-                // Select this
                 v.setBackgroundColor(Color.parseColor("#1a3a5c"));
                 selectedView = v;
-
                 selectedEmail = room[1];
-                selectedName = room[0];
-                // Save to SharedPreferences
+                selectedName  = room[0];
                 prefs.edit()
                     .putString("room_email", selectedEmail)
                     .putString("room_name", selectedName)
                     .apply();
-
                 updateStatus();
                 Toast.makeText(MainActivity.this,
                     room[0] + " selected — will persist across reboots",
@@ -280,21 +302,12 @@ public class MainActivity extends Activity {
 
     private void updateStatus() {
         if (selectedEmail.length() > 0) {
-            statusText.setText("\u2705 Assigned: " + selectedName + "\n" + selectedEmail);
+            statusText.setText("✅ Assigned: " + selectedName + "\n" + selectedEmail);
             statusText.setTextColor(Color.parseColor("#00d68f"));
         } else {
             statusText.setText("No room assigned — tap a room below");
             statusText.setTextColor(Color.parseColor("#ff9500"));
         }
-    }
-
-    private void launchChrome() {
-        if (selectedEmail.length() == 0) {
-            Toast.makeText(this, "Tap a room card first", Toast.LENGTH_LONG).show();
-            return;
-        }
-        BootReceiver.launchWebView(this);
-        finish();
     }
 
     private int dp(int val) {

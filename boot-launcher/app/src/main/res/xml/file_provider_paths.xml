@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Android 9 and below: public Downloads folder -->
+    <external-path name="downloads" path="." />
+    <!-- Android 10+: scoped storage in app's external files dir -->
+    <external-files-path name="apk" path="." />
+</paths>

@@ -2,11 +2,16 @@ package th.co.central.ris.bootlauncher;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -15,6 +20,11 @@ import android.webkit.WebViewClient;
  * Fullscreen WebView kiosk — no MSAL, no token injection.
  * Worker proxy handles auth via X-Tablet-Key header (set from URL param).
  * webview=1 param tells index.html to skip the tap overlay.
+ *
+ * Android version compatibility:
+ *   API 19  (Android 4.4 / LG tablets) : legacy WebView, old SystemUI flags
+ *   API 21+ (Android 5+)               : WebResourceRequest override
+ *   API 29+ (Android 10 / Lenovo)      : WindowInsetsController for immersive
  */
 public class KioskWebViewActivity extends Activity {
 
@@ -29,6 +39,8 @@ public class KioskWebViewActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        applyRotation();
+
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -40,6 +52,14 @@ public class KioskWebViewActivity extends Activity {
         hideSystemUI();
         setupWebView();
         loadDisplay();
+    }
+
+    private void applyRotation() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean rotated = prefs.getBoolean("screen_rotated", false);
+        setRequestedOrientation(rotated
+            ? ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+            : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
     }
 
     private void loadDisplay() {
@@ -66,9 +86,26 @@ public class KioskWebViewActivity extends Activity {
         s.setUseWideViewPort(true);
         s.setLoadWithOverviewMode(true);
         s.setSupportZoom(false);
-        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+        // Allow mixed content (HTTPS page loading HTTPS resources) on API 21+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        }
 
         webView.setWebViewClient(new WebViewClient() {
+            // API 21+: use WebResourceRequest overload (avoids deprecation crash on newer Android)
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    view.loadUrl(req.getUrl().toString());
+                    return true;
+                }
+                return false;
+            }
+
+            // API < 21 fallback (Android 4.4 LG tablets)
+            @SuppressWarnings("deprecation")
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 view.loadUrl(url);
@@ -78,25 +115,36 @@ public class KioskWebViewActivity extends Activity {
     }
 
     private void hideSystemUI() {
-        getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        );
-        // Re-hide if system briefly shows nav bar (e.g. on touch)
-        getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(
-            new View.OnSystemUiVisibilityChangeListener() {
-                @Override
-                public void onSystemUiVisibilityChange(int visibility) {
-                    if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
-                        hideSystemUI();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+ (API 30): WindowInsetsController
+            WindowInsetsController ctrl = getWindow().getInsetsController();
+            if (ctrl != null) {
+                ctrl.hide(WindowInsets.Type.systemBars());
+                ctrl.setSystemBarsBehavior(
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            // Android 4.4 – 10: legacy SystemUI flags
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            );
+            // Re-hide on any system UI visibility change (e.g. nav bar pop-up on touch)
+            getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(
+                new View.OnSystemUiVisibilityChangeListener() {
+                    @Override
+                    public void onSystemUiVisibilityChange(int visibility) {
+                        if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+                            hideSystemUI();
+                        }
                     }
                 }
-            }
-        );
+            );
+        }
     }
 
     @Override
