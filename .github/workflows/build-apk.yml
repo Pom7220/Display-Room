@@ -22,17 +22,25 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '7.2'
-      - name: Build debug APK
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > boot-launcher/ris-kiosk.jks
+      - name: Build release APK
         working-directory: boot-launcher
-        run: gradle assembleDebug
+        env:
+          KEYSTORE_PATH: ris-kiosk.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle assembleRelease
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: ris-boot-launcher
-          path: boot-launcher/app/build/outputs/apk/debug/app-debug.apk
+          path: boot-launcher/app/build/outputs/apk/release/app-release.apk
       - name: Commit APK to repo
         run: |
-          cp boot-launcher/app/build/outputs/apk/debug/app-debug.apk ris-boot-launcher.apk
+          cp boot-launcher/app/build/outputs/apk/release/app-release.apk ris-boot-launcher.apk
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ris-boot-launcher.apk
