@@ -20,6 +20,8 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
 
 /**
  * Self-update: checks apk-version.json on GitHub Pages, downloads and
@@ -48,8 +50,18 @@ public class UpdateChecker {
             public void run() {
                 try {
                     // Fetch version JSON
+                    // Android 4.4 (API 19): TLS 1.2 exists but is disabled by default
+                    // in HttpURLConnection — must enable explicitly via SSLContext.
                     HttpURLConnection conn = (HttpURLConnection)
                         new URL(VERSION_URL).openConnection();
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT
+                            && conn instanceof HttpsURLConnection) {
+                        try {
+                            SSLContext sc = SSLContext.getInstance("TLSv1.2");
+                            sc.init(null, null, null);
+                            ((HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                        } catch (Exception ignored) {}
+                    }
                     conn.setConnectTimeout(8000);
                     conn.setReadTimeout(8000);
                     conn.connect();
