@@ -8,8 +8,8 @@ android {
         applicationId "th.co.central.ris.bootlauncher"
         minSdkVersion 19
         targetSdkVersion 30
-        versionCode 39
-        versionName "5.8"
+        versionCode 40
+        versionName "5.9"
     }
 
     signingConfigs {
@@ -38,4 +38,7 @@ android {
 dependencies {
     // FileProvider for APK install on Android 7+ (API 24+)
     implementation 'androidx.core:core:1.3.2'
+    // OkHttp 3.12.x — last version supporting Android 4.4 (API 19)
+    // Bundles its own SSL stack, bypasses system OpenSSL TLS issues
+    implementation 'com.squareup.okhttp3:okhttp:3.12.13'
 }
