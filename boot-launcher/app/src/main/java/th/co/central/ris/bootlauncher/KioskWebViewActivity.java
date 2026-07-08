@@ -11,6 +11,7 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.annotation.TargetApi;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -114,15 +115,20 @@ public class KioskWebViewActivity extends Activity {
         });
     }
 
+    @TargetApi(30)
+    private void hideSystemUIModern() {
+        WindowInsetsController ctrl = getWindow().getInsetsController();
+        if (ctrl != null) {
+            ctrl.hide(WindowInsets.Type.systemBars());
+            ctrl.setSystemBarsBehavior(
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        }
+    }
+
     private void hideSystemUI() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        if (Build.VERSION.SDK_INT >= 30) {
             // Android 11+ (API 30): WindowInsetsController
-            WindowInsetsController ctrl = getWindow().getInsetsController();
-            if (ctrl != null) {
-                ctrl.hide(WindowInsets.Type.systemBars());
-                ctrl.setSystemBarsBehavior(
-                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            }
+            hideSystemUIModern();
         } else {
             // Android 4.4 – 10: legacy SystemUI flags
             getWindow().getDecorView().setSystemUiVisibility(
