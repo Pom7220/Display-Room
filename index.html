@@ -793,7 +793,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 116,
+  patch: 117,
   date: '2026-07-07',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1697,7 +1697,29 @@ function getMonitorStatus(){
     lastCal: _lastCalSuccess||0,
     meetingCount: (typeof meetings!=='undefined')?meetings.length:0,
     uptime: Math.round((Date.now()-_bootTime)/60000),
-    log: dbgLines.slice(-15)
+    log: dbgLines.slice(-15),
+    qrAvgPerDay: (function(){
+      try{
+        var raw=localStorage.getItem('ris_qr_daily');
+        if(!raw)return 0;
+        var counts=JSON.parse(raw);
+        var days=Object.keys(counts);
+        if(!days.length)return 0;
+        var total=0;for(var i=0;i<days.length;i++)total+=counts[days[i]];
+        return Math.round(total/days.length*10)/10;
+      }catch(e){return 0;}
+    }()),
+    qrPeakDay: (function(){
+      try{
+        var raw=localStorage.getItem('ris_qr_daily');
+        if(!raw)return 0;
+        var counts=JSON.parse(raw);
+        var peak=0;
+        var keys=Object.keys(counts);
+        for(var i=0;i<keys.length;i++)if(counts[keys[i]]>peak)peak=counts[keys[i]];
+        return peak;
+      }catch(e){return 0;}
+    }())
   };
 }
 
@@ -2824,7 +2846,18 @@ function getStoredPin(){return localStorage.getItem(PIN_KEY)||'9999';}
 var _qrTimer=null;
 var _qrSecs=15;
 var _qrGenerated=false;
+function _trackQRTap(){
+  try{
+    var today=new Date();
+    var dateKey=today.getFullYear()+'-'+('0'+(today.getMonth()+1)).slice(-2)+'-'+('0'+today.getDate()).slice(-2);
+    var raw=localStorage.getItem('ris_qr_daily');
+    var counts=raw?JSON.parse(raw):{};
+    counts[dateKey]=(counts[dateKey]||0)+1;
+    localStorage.setItem('ris_qr_daily',JSON.stringify(counts));
+  }catch(e){}
+}
 function openQR(){
+  _trackQRTap();
   var dashUrl=window.location.origin+window.location.pathname.replace('index.html','')+'dashboard.html';
   if(!_qrGenerated&&typeof QRCode!=='undefined'){
     try{

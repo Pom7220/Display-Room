@@ -268,7 +268,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.3 (2026-07-07)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.4 (2026-07-08)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -1094,11 +1094,18 @@ function renderAdminRooms(rooms) {
       }
     }
 
+    const qrAvg = r && r.qrAvgPerDay != null ? r.qrAvgPerDay : null;
+    const qrPeak = r && r.qrPeakDay != null ? r.qrPeakDay : null;
+    const qrText = qrAvg !== null
+      ? '<div style="font-size:9px;color:var(--muted);margin-top:3px">📱 QR: avg <b>' + qrAvg + '</b>/day · peak <b>' + qrPeak + '</b>/day</div>'
+      : '';
+
     var card = '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
       '<div class="adm-room-name">' + ris.name + '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
       '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText].filter(Boolean).join(' · ') + '</div>' +
+      qrText +
       (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
 
     if (r && r.log && r.log.length > 0) {

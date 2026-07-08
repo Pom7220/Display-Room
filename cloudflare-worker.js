@@ -181,6 +181,8 @@ async function handleHeartbeat(request, env) {
       meetingCount: data.meetingCount || 0,
       uptime: data.uptime || 0,
       log: (data.log || []).slice(-10),
+      qrAvgPerDay: data.qrAvgPerDay || 0,
+      qrPeakDay: data.qrPeakDay || 0,
       timestamp: new Date().toISOString(),
       ip: request.headers.get('CF-Connecting-IP') || ''
     };
