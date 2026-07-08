@@ -17,11 +17,16 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.Socket;
 import java.net.URL;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 
 /**
  * Self-update: checks apk-version.json on GitHub Pages, downloads and
@@ -50,16 +55,17 @@ public class UpdateChecker {
             public void run() {
                 try {
                     // Fetch version JSON
-                    // Android 4.4 (API 19): TLS 1.2 exists but is disabled by default
-                    // in HttpURLConnection — must enable explicitly via SSLContext.
+                    // Android 4.4 (API 19): TLS 1.2 is present but disabled by default.
+                    // Use Tls12SocketFactory to force-enable TLS 1.2 + correct cipher suites.
                     HttpURLConnection conn = (HttpURLConnection)
                         new URL(VERSION_URL).openConnection();
                     if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT
                             && conn instanceof HttpsURLConnection) {
                         try {
-                            SSLContext sc = SSLContext.getInstance("TLSv1.2");
+                            SSLContext sc = SSLContext.getInstance("TLS");
                             sc.init(null, null, null);
-                            ((HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                            ((HttpsURLConnection) conn).setSSLSocketFactory(
+                                new Tls12SocketFactory(sc.getSocketFactory()));
                         } catch (Exception ignored) {}
                     }
                     conn.setConnectTimeout(8000);
@@ -209,6 +215,48 @@ public class UpdateChecker {
             Toast.makeText(activity,
                 "Install failed: " + e.getMessage(),
                 Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * Forces TLS 1.2 on Android 4.4 (API 19) where it exists but is disabled by default.
+     * Wraps every socket created by the delegate factory and calls setEnabledProtocols().
+     * Standard fix for "SSLHandshakeException: No appropriate protocol" on KitKat.
+     */
+    private static class Tls12SocketFactory extends SSLSocketFactory {
+        private final SSLSocketFactory delegate;
+
+        Tls12SocketFactory(SSLSocketFactory base) { this.delegate = base; }
+
+        @Override public String[] getDefaultCipherSuites() { return delegate.getDefaultCipherSuites(); }
+        @Override public String[] getSupportedCipherSuites() { return delegate.getSupportedCipherSuites(); }
+
+        @Override
+        public Socket createSocket(Socket s, String host, int port, boolean autoClose) throws IOException {
+            return patch(delegate.createSocket(s, host, port, autoClose));
+        }
+        @Override
+        public Socket createSocket(String host, int port) throws IOException {
+            return patch(delegate.createSocket(host, port));
+        }
+        @Override
+        public Socket createSocket(String host, int port, InetAddress localHost, int localPort) throws IOException {
+            return patch(delegate.createSocket(host, port, localHost, localPort));
+        }
+        @Override
+        public Socket createSocket(InetAddress host, int port) throws IOException {
+            return patch(delegate.createSocket(host, port));
+        }
+        @Override
+        public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort) throws IOException {
+            return patch(delegate.createSocket(address, port, localAddress, localPort));
+        }
+
+        private Socket patch(Socket s) {
+            if (s instanceof SSLSocket) {
+                ((SSLSocket) s).setEnabledProtocols(new String[]{"TLSv1.1", "TLSv1.2"});
+            }
+            return s;
         }
     }
 }
