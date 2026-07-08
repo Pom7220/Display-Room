@@ -23,6 +23,9 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import org.conscrypt.Conscrypt;
+import java.security.Security;
+
 /**
  * Self-update: checks apk-version.json via Worker, downloads and installs
  * a newer APK if one is found. Works on Android 4.4+ (API 19).
@@ -45,7 +48,13 @@ public class UpdateChecker {
         "https://ris-display.ris-display.workers.dev/api/version";
     private static final String APK_FILENAME = "ris-kiosk-update.apk";
 
-    private static final OkHttpClient CLIENT = new OkHttpClient();
+    private static final OkHttpClient CLIENT;
+    static {
+        // Install Conscrypt as the first SSL provider — replaces Android 4.4 system
+        // OpenSSL with a modern TLS 1.2/1.3 implementation so HTTPS works on all tablets.
+        try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
+        CLIENT = new OkHttpClient();
+    }
 
     public static void check(final Activity activity) {
         final Handler ui = new Handler(activity.getMainLooper());
