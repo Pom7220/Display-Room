@@ -74,8 +74,14 @@ public class UpdateChecker {
                             showUpdateDialog(activity, remoteName, apkUrl);
                         }
                     });
-                } catch (Exception e) {
-                    // Network unavailable or JSON malformed — silently skip
+                } catch (final Throwable e) {
+                    ui.post(new Runnable() {
+                        @Override public void run() {
+                            Toast.makeText(activity,
+                                "Update check failed: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                        }
+                    });
                 }
             }
         }).start();
