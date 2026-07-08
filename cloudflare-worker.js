@@ -798,7 +798,7 @@ async function getServiceToken(env) {
 async function handleVersion() {
   try {
     var resp = await fetch('https://pom7220.github.io/Display-Room/apk-version.json',
-      { cf: { cacheEverything: true, cacheTtl: 300 } });
+      { cf: { cacheEverything: false } });
     var data = await resp.json();
     return jsonResponse(data);
   } catch(e) {
