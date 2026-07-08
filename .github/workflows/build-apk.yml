@@ -28,7 +28,7 @@ jobs:
       - name: Build release APK
         working-directory: boot-launcher
         env:
-          KEYSTORE_PATH: ris-kiosk.jks
+          KEYSTORE_PATH: ${{ github.workspace }}/boot-launcher/ris-kiosk.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
