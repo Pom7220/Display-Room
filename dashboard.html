@@ -945,16 +945,13 @@ initMsal();
 if(!account){
   renderRooms();
   selectDefaultRoom();
-  // Auto-prompt sign-in — covers QR scan (first open) and incognito (no cache).
-  // Short delay lets handleRedirectCallback finish first in case we just returned
-  // from an auth redirect and the account is about to be set.
+  // Show sign-in bar — do NOT auto-redirect here.
+  // Auto-redirect caused infinite loops: if handleRedirectCallback takes >400ms
+  // (background tab, slow CPU), the timeout fires again before account is set,
+  // triggering another redirect → loop. One manual tap is safer.
   setTimeout(function(){
     if(account||_redirectInProgress)return;
-    if(!msalInst)return;
-    try{
-      _redirectInProgress=true;
-      msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});
-    }catch(e){_redirectInProgress=false;showSignInBar();}
+    showSignInBar();
   },400);
 } else {
   fetchAllRooms();
