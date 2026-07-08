@@ -67,6 +67,27 @@ public class MainActivity extends Activity {
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
+        // Support ADB/intent-driven room selection + auto-launch:
+        // adb shell am start -n th.co.central.ris.bootlauncher/.MainActivity \
+        //   --es room_name "Latte" --es room_email "rislatte@central.co.th" \
+        //   --ez auto_launch true
+        Intent incoming = getIntent();
+        String intentName  = incoming != null ? incoming.getStringExtra("room_name")  : null;
+        String intentEmail = incoming != null ? incoming.getStringExtra("room_email") : null;
+        boolean autoLaunch = incoming != null && incoming.getBooleanExtra("auto_launch", false);
+        if (intentName != null && intentEmail != null) {
+            prefs.edit()
+                .putString("room_name",  intentName)
+                .putString("room_email", intentEmail)
+                .apply();
+        }
+        if (autoLaunch && prefs.getString("room_email", "").length() > 0) {
+            BootReceiver.launchWebView(this);
+            finish();
+            return;
+        }
+
         selectedEmail = prefs.getString("room_email", "");
         selectedName  = prefs.getString("room_name", "");
 
