@@ -35,8 +35,10 @@ import java.net.URL;
  */
 public class UpdateChecker {
 
+    // Route through Cloudflare Worker — Android 4.4 (API 19) doesn't support
+    // TLS 1.2 by default so direct GitHub Pages fetch silently fails.
     private static final String VERSION_URL =
-        "https://pom7220.github.io/Display-Room/apk-version.json";
+        "https://ris-display.ris-display.workers.dev/api/version";
     private static final String APK_FILENAME = "ris-kiosk-update.apk";
 
     public static void check(final Activity activity) {

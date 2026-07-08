@@ -67,6 +67,11 @@ export default {
         return handleEventDelete(request, env);
       }
 
+      // GET /api/version — proxies apk-version.json for Android 4.4 (no TLS 1.2 direct)
+      if (path === '/api/version' && method === 'GET') {
+        return handleVersion();
+      }
+
       // POST /api/heartbeat — tablet sends health report
       if (path === '/api/heartbeat' && method === 'POST') {
         return handleHeartbeat(request, env);
@@ -784,6 +789,21 @@ async function getServiceToken(env) {
     var data = await resp.json();
     return data.access_token || null;
   } catch(e) { return null; }
+}
+
+// ═══════════════════════════════════════
+// VERSION — proxy apk-version.json for Android 4.4 TLS compat
+// ═══════════════════════════════════════
+
+async function handleVersion() {
+  try {
+    var resp = await fetch('https://pom7220.github.io/Display-Room/apk-version.json',
+      { cf: { cacheEverything: true, cacheTtl: 300 } });
+    var data = await resp.json();
+    return jsonResponse(data);
+  } catch(e) {
+    return jsonResponse({ error: 'version fetch failed' }, 502);
+  }
 }
 
 // ═══════════════════════════════════════
