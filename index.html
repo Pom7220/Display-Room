@@ -555,31 +555,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
   </div>
   <button class="btn-primary" onclick="saveConfig()">Save &amp; Launch Display</button>
 
-  <!-- SSL CERT HELPER -->
-  <div class="cfg-note" style="margin-top:10px">
-    <strong>&#128274; HTTPS Certificate (LG tablet only)</strong><br>
-    If the tablet shows a security warning, install the certificate below.<br>
-    <button onclick="downloadCert()" style="margin-top:10px;width:100%;padding:11px;background:#1a3a6a;border:1.5px solid #2979ff;border-radius:8px;color:#60aaff;font-size:13px;font-weight:700;cursor:pointer;">
-      &#8659; Download ISRG Root X1 Certificate
-    </button>
-    <div id="cert-steps" style="display:none;margin-top:10px;font-size:11px;color:#aaaacc;line-height:1.9;background:#0a0f1e;border-radius:6px;padding:10px;">
-      Certificate saved to Downloads.<br>
-      1. Open <strong>Settings</strong><br>
-      2. Tap <strong>Security</strong><br>
-      3. Tap <strong>Install from storage</strong><br>
-      4. Navigate to <strong>Downloads</strong> folder<br>
-      5. Tap <strong>isrgrootx1.der</strong><br>
-      6. Name it <strong>ISRG Root X1</strong> → OK
-    </div>
-  </div>
   <!-- DEBUG PANEL - always visible when config screen is open -->
   <div id="cfg-debug" style="display:none;width:100%;max-width:440px;padding:12px;background:#1a0000;border:2px solid #f00;border-radius:8px;color:#f88;font-size:13px;margin-bottom:12px;word-break:break-all;line-height:1.6;"></div>
-  <div class="cfg-note">
-    <strong>Required Azure App permissions (Delegated):</strong><br>
-    • <code>Calendars.ReadWrite</code> &nbsp;• <code>Calendars.ReadWrite.Shared</code><br>
-    • <code>Mail.Send</code> &nbsp;• <code>User.Read</code><br>
-    Redirect URI → <strong>Single-page application (SPA)</strong> → this page URL.
-  </div>
 </div>
 
 <!-- Sticky save bar - always visible at bottom of config screen -->
@@ -793,8 +770,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 117,
-  date: '2026-07-07',
+  patch: 118,
+  date: '2026-07-08',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -1097,31 +1074,7 @@ function startBurnIn(){
 // ══════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════
-// ── SSL CERT DOWNLOAD ──
-// ISRG Root X1 DER certificate — embedded as base64
-// Allows LG tablet to install cert without USB/email
-function downloadCert(){
-  var b64='MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAwTzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2VhcmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoBggIBAK3oJHP0FDfzm54rVygchQnme2sOJAeLmkDuBNQRlSrxcKiyR/xchNegrW4F5h+QxMRoZgUy5inHHw8BRTB6QSMg8CzHW9plu1aHMZKQ0as7yQYRubMoTB8T8ZLB4U3fxGjK10s0nD9LATn6jh/gcx5rqaHoSBatqIG2n+bfTn6s7bSf94lD4y53b2U1LM5xkv7fzGl3nBQ7k5dLq18LIEA6yAzVALyMSEE3aCEF1fVXVJqEphDmE2NiCiOmjpfFKFOHUOCHFXBJULAFc3j3QR6FVqdYg3LxZKAPiQvZZq8RGNbHVm6DPM/lOo6VrGbqjDHj7kfEhRuUQPk4V1Y0YnB6eGQ3e0GD3rh3n4Ql0SdDgJlGg0ACzxGZH7PKAXJz4CqjL0VqLNjCQSGDxWJGUqT1z9Yp+1cDOkHxe3C1nqLEh/HB5pkaqHrCgdtO3EFvzb9mPOlKxfb6I8+a+SBIkRaVOBxP2vA3GHNnCKn2lp+X3GhYH+GZqZ6zyMGWJBGV+0HtHmjQG/L1dBMHvMOaQ/p6R01YmjmR3dOkObHe9LkI=';
-  try{
-    // Decode base64 to binary
-    var bin=atob(b64);
-    var bytes=new Uint8Array(bin.length);
-    for(var i=0;i<bin.length;i++){bytes[i]=bin.charCodeAt(i);}
-    // Create blob and trigger download
-    var blob=new Blob([bytes],{type:'application/x-x509-ca-cert'});
-    var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');
-    a.href=url;a.download='isrgrootx1.der';
-    document.body.appendChild(a);a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    // Show install instructions
-    var steps=document.getElementById('cert-steps');
-    if(steps)steps.style.display='block';
-  }catch(e){
-    alert('Download failed: '+e.message+'\n\nPlease download the certificate manually.');
-  }
-}
+
 
 function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');}catch(e){cfg={};}}
 
