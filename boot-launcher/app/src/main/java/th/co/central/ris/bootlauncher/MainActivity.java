@@ -137,26 +137,6 @@ public class MainActivity extends Activity {
         });
         root.addView(rotateBtn);
 
-        // Accessibility setup button
-        Button accessBtn = new Button(this);
-        accessBtn.setText("⚙ Enable Auto-tap (Accessibility)");
-        accessBtn.setTextColor(Color.parseColor("#ff9500"));
-        accessBtn.setBackgroundColor(Color.parseColor("#1a1200"));
-        accessBtn.setPadding(dp(8), dp(12), dp(8), dp(12));
-        accessBtn.setTextSize(13);
-        accessBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-                Toast.makeText(MainActivity.this,
-                    "Find 'RIS Kiosk Auto-tap' and enable it",
-                    Toast.LENGTH_LONG).show();
-            }
-        });
-        root.addView(accessBtn);
-
         // Launch button
         launchBtn = new Button(this);
         launchBtn.setText("🚀  Launch Room Display");
