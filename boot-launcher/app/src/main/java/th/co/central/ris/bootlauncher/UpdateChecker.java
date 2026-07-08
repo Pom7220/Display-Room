@@ -147,6 +147,15 @@ public class UpdateChecker {
                     File apkFile = getApkFile(activity);
 
                     HttpURLConnection conn = (HttpURLConnection) new URL(apkUrl).openConnection();
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT
+                            && conn instanceof HttpsURLConnection) {
+                        try {
+                            SSLContext sc = SSLContext.getInstance("TLS");
+                            sc.init(null, null, null);
+                            ((HttpsURLConnection) conn).setSSLSocketFactory(
+                                new Tls12SocketFactory(sc.getSocketFactory()));
+                        } catch (Exception ignored) {}
+                    }
                     conn.setConnectTimeout(15000);
                     conn.setReadTimeout(60000);
                     conn.connect();
