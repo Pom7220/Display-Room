@@ -28,7 +28,10 @@ public class StandbyActivity extends Activity {
     private static final long   HB_INTERVAL_MS  = 20 * 60 * 1000L; // 20 minutes
     private static final long   DIM_DELAY_MS    = 30 * 1000L;       // 30 seconds after touch
 
-    private static final OkHttpClient HB_CLIENT = new OkHttpClient();
+    private static final OkHttpClient HB_CLIENT = new OkHttpClient.Builder()
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .build();
 
     private Handler  handler;
     private TextView hintText;
@@ -48,8 +51,8 @@ public class StandbyActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        applyRotation();
         super.onCreate(savedInstanceState);
+        applyRotation();
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN);

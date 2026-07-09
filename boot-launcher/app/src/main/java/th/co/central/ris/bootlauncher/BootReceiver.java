@@ -44,6 +44,9 @@ public class BootReceiver extends BroadcastReceiver {
             // Off-hours or weekend — go straight to standby (no delay needed)
             ScheduleReceiver.launchStandby(context);
         }
+
+        // Re-register alarms lost on reboot
+        ScheduleReceiver.schedule(context);
     }
 
     static void launchWebView(Context context) {
