@@ -31,9 +31,8 @@ import android.webkit.WebViewClient;
  */
 public class KioskWebViewActivity extends Activity {
 
-    // DIAGNOSTIC v5.19: testing GitHub Pages direct load to isolate Cloudflare TLS issue on Latte
     private static final String BASE_URL =
-        "https://pom7220.github.io/Display-Room/";
+        "https://ris-display.ris-display.workers.dev/";
     private static final String TABLET_KEY = "RIS-TABLET-KEY2026";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
 

@@ -87,10 +87,14 @@ public class MainActivity extends Activity {
         String intentEmail = incoming != null ? incoming.getStringExtra("room_email") : null;
         boolean autoLaunch = incoming != null && incoming.getBooleanExtra("auto_launch", false);
         if (intentName != null && intentEmail != null) {
-            prefs.edit()
+            SharedPreferences.Editor ed = prefs.edit()
                 .putString("room_name",  intentName)
-                .putString("room_email", intentEmail)
-                .apply();
+                .putString("room_email", intentEmail);
+            if (incoming.hasExtra("screen_rotated")) {
+                ed.putBoolean("screen_rotated", incoming.getBooleanExtra("screen_rotated", false));
+            }
+            ed.apply();
+            applyRotation();
         }
         if (autoLaunch && prefs.getString("room_email", "").length() > 0) {
             BootReceiver.launchWebView(this);
