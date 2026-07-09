@@ -1038,9 +1038,10 @@ async function refreshAdmin() {
 }
 
 function renderAdminStats(rooms, incidents) {
-  const online = rooms.filter(r => r.isOnline).length;
-  const offline = rooms.length > 0 ? rooms.filter(r => !r.isOnline).length : 0;
-  document.getElementById('adm-online').textContent = online;
+  const sleeping = rooms.filter(r => r.isOnline && r.status === 'sleep').length;
+  const online  = rooms.filter(r => r.isOnline && r.status !== 'sleep').length;
+  const offline = rooms.filter(r => !r.isOnline).length;
+  document.getElementById('adm-online').textContent  = online + (sleeping ? ' (+' + sleeping + '🌙)' : '');
   document.getElementById('adm-offline').textContent = offline;
   // Count only today's open incidents
   var bkk = new Date(Date.now() + 7*60*60*1000);
@@ -1066,12 +1067,18 @@ function renderAdminRooms(rooms) {
     roomIdx++;
     const r = roomMap[ris.email] || null;
     const isOnline = r && r.isOnline;
+    const isSleep  = isOnline && r.status === 'sleep';
     const needsAuth = false; // removed: proxy auth handles this
-    const needsTap = r && isOnline && r.launchMode === 'browser';
-    const dotColor = !r ? '#555' : (isOnline ? (needsAuth ? '#ff9500' : '#00d68f') : '#ff3333');
+    const needsTap = r && isOnline && !isSleep && r.launchMode === 'browser';
+    const dotColor = !r ? '#555' :
+      (!isOnline ? '#ff3333' :
+       isSleep   ? '#4a5568' :
+       '#00d68f');
     const statusText = !r ? 'No heartbeat' :
-      (isOnline ? (r.status === 'needs_tap' ? '👆 Waiting for tap' :
-        'Online — ' + r.status) : 'Offline (' + r.lastSeenMinutes + 'm ago)');
+      (!isOnline  ? 'Offline (' + r.lastSeenMinutes + 'm ago)' :
+       isSleep    ? '🌙 Standby' :
+       r.status === 'needs_tap' ? '👆 Waiting for tap' :
+       'Online — ' + r.status);
     const tokenText = ''; // removed: proxy auth — no token status needed
     const modeText = !r ? '' :
       (r.launchMode === 'pwa' ? '📱 PWA' : r.launchMode === 'fullscreen' ? '⛶ FS' : '🌐 Browser');
