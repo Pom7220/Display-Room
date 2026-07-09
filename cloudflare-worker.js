@@ -72,6 +72,11 @@ export default {
         return handleVersion();
       }
 
+      // GET /api/apk — proxies APK binary so tablets never hit GitHub Pages TLS directly
+      if (path === '/api/apk' && method === 'GET') {
+        return handleApk();
+      }
+
       // POST /api/heartbeat — tablet sends health report
       if (path === '/api/heartbeat' && method === 'POST') {
         return handleHeartbeat(request, env);
@@ -803,6 +808,28 @@ async function handleVersion() {
     return jsonResponse(data);
   } catch(e) {
     return jsonResponse({ error: 'version fetch failed' }, 502);
+  }
+}
+
+// ═══════════════════════════════════════
+// APK — proxy binary download for Android 4.4 TLS compat
+// ═══════════════════════════════════════
+
+async function handleApk() {
+  try {
+    var resp = await fetch('https://pom7220.github.io/Display-Room/ris-boot-launcher.apk',
+      { cf: { cacheEverything: false } });
+    if (!resp.ok) return new Response('APK fetch failed', { status: 502 });
+    return new Response(resp.body, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.android.package-archive',
+        'Content-Disposition': 'attachment; filename="ris-boot-launcher.apk"',
+        'Cache-Control': 'no-store'
+      }
+    });
+  } catch(e) {
+    return new Response('APK fetch error: ' + e.message, { status: 502 });
   }
 }
 
