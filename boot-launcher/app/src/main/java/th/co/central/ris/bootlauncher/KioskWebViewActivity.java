@@ -97,22 +97,19 @@ public class KioskWebViewActivity extends Activity {
         }
 
         webView.setWebViewClient(new WebViewClient() {
-            // API 21+: use WebResourceRequest overload (avoids deprecation crash on newer Android)
+            // Return false on all versions — the WebView handles all navigation itself.
+            // Kiosk mode: no external browser, no tel/mailto, everything stays in WebView.
+            // (Returning true + calling loadUrl() was wrong — it drops POST bodies on
+            // SAML redirects and can cause redirect loops on some WebView builds.)
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    view.loadUrl(req.getUrl().toString());
-                    return true;
-                }
                 return false;
             }
 
-            // API < 21 fallback (Android 4.4 LG tablets)
             @SuppressWarnings("deprecation")
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                view.loadUrl(url);
-                return true;
+                return false;
             }
 
             // Some Lenovo/Rockchip tablets have an outdated system CA store that

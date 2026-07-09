@@ -3,6 +3,7 @@ package th.co.central.ris.bootlauncher;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -57,8 +58,17 @@ public class MainActivity extends Activity {
     private Button launchBtn;
     private Button rotateBtn;
 
+    private void applyRotation() {
+        SharedPreferences p = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean rotated = p.getBoolean("screen_rotated", false);
+        setRequestedOrientation(rotated
+            ? ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+            : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        applyRotation();
         super.onCreate(savedInstanceState);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -151,8 +161,9 @@ public class MainActivity extends Activity {
                 boolean current = prefs.getBoolean("screen_rotated", false);
                 prefs.edit().putBoolean("screen_rotated", !current).apply();
                 updateRotateBtn();
+                applyRotation();
                 Toast.makeText(MainActivity.this,
-                    "Screen orientation saved — takes effect on next launch",
+                    "Screen orientation saved",
                     Toast.LENGTH_SHORT).show();
             }
         });
