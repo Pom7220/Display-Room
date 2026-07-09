@@ -49,6 +49,12 @@
             android:theme="@android:style/Theme.Holo.NoActionBar.Fullscreen"
             android:exported="false" />
 
+        <activity
+            android:name=".StandbyActivity"
+            android:label="RIS Standby"
+            android:theme="@android:style/Theme.Holo.NoActionBar.Fullscreen"
+            android:exported="false" />
+
         <service
             android:name=".ForegroundWatchService"
             android:exported="false" />
