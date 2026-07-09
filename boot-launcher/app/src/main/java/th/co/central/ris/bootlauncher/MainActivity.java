@@ -17,6 +17,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import java.util.Calendar;
 
 /**
  * Room picker + setup screen for the RIS Kiosk Launcher.
@@ -213,6 +216,9 @@ public class MainActivity extends Activity {
         scroll.addView(root);
         setContentView(scroll);
 
+        // Schedule daily standby/wake/restart alarms
+        scheduleAlarms();
+
         // Check for APK update in background
         UpdateChecker.check(this);
     }
@@ -329,5 +335,47 @@ public class MainActivity extends Activity {
     private int dp(int val) {
         float density = getResources().getDisplayMetrics().density;
         return (int) (val * density + 0.5f);
+    }
+
+    private void scheduleAlarms() {
+        AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
+        if (am == null) return;
+
+        int flags = android.os.Build.VERSION.SDK_INT >= 23
+            ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            : PendingIntent.FLAG_UPDATE_CURRENT;
+
+        // --- 20:30 daily → standby ---
+        PendingIntent piStandby = PendingIntent.getBroadcast(this, 1,
+            new Intent(ScheduleReceiver.ACTION_STANDBY)
+                .setClass(this, ScheduleReceiver.class), flags);
+        am.setInexactRepeating(AlarmManager.RTC_WAKEUP,
+            nextOccurrence(20, 30), AlarmManager.INTERVAL_DAY, piStandby);
+
+        // --- 08:00 daily → wake (receiver checks weekday) ---
+        PendingIntent piWake = PendingIntent.getBroadcast(this, 2,
+            new Intent(ScheduleReceiver.ACTION_WAKE)
+                .setClass(this, ScheduleReceiver.class), flags);
+        am.setInexactRepeating(AlarmManager.RTC_WAKEUP,
+            nextOccurrence(8, 0), AlarmManager.INTERVAL_DAY, piWake);
+
+        // --- 06:00 daily → WebView refresh (destroy + re-standby; 08:00 wakes properly) ---
+        PendingIntent piRestart = PendingIntent.getBroadcast(this, 3,
+            new Intent(ScheduleReceiver.ACTION_RESTART)
+                .setClass(this, ScheduleReceiver.class), flags);
+        am.setInexactRepeating(AlarmManager.RTC_WAKEUP,
+            nextOccurrence(6, 0), AlarmManager.INTERVAL_DAY, piRestart);
+    }
+
+    private static long nextOccurrence(int hour, int minute) {
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.HOUR_OF_DAY, hour);
+        cal.set(Calendar.MINUTE, minute);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        if (cal.getTimeInMillis() <= System.currentTimeMillis()) {
+            cal.add(Calendar.DAY_OF_YEAR, 1);
+        }
+        return cal.getTimeInMillis();
     }
 }
