@@ -19,12 +19,6 @@
         android:label="RIS Kiosk"
         android:icon="@drawable/ic_launcher">
 
-        <!-- Disable WebView isolated renderer sandbox — fixes ERR_TIMED_OUT on Android 10
-             tablets where OS security policy blocks network sockets from isolated processes -->
-        <meta-data
-            android:name="android.webkit.WebView.EnableModernSandbox"
-            android:value="false" />
-
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

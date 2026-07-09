@@ -1,6 +1,7 @@
 package th.co.central.ris.bootlauncher;
 
 import android.app.Activity;
+import android.content.pm.ApplicationInfo;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.net.Uri;
@@ -83,6 +84,13 @@ public class KioskWebViewActivity extends Activity {
     }
 
     private void setupWebView() {
+        // Enable chrome://inspect remote debugging on debug builds only.
+        // During a physical diagnostic visit, install the debug APK and connect
+        // a laptop via USB — chrome://inspect will expose the Network tab and
+        // SSL handshake state to pinpoint the exact failure on Latte.
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
