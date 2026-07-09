@@ -16,8 +16,6 @@ import android.widget.TextView;
 
 import org.json.JSONObject;
 
-import java.io.IOException;
-
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -49,10 +47,9 @@ public class StandbyActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        applyRotation();
-
         requestWindowFeature(Window.FEATURE_NO_TITLE);
+        applyRotation();
+        super.onCreate(savedInstanceState);
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
