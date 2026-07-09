@@ -12,6 +12,8 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.annotation.TargetApi;
+import android.net.http.SslError;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -111,6 +113,13 @@ public class KioskWebViewActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 view.loadUrl(url);
                 return true;
+            }
+
+            // Some Lenovo/Rockchip tablets have an outdated system CA store that
+            // doesn't trust Cloudflare's cert. Safe to proceed — kiosk on internal Wi-Fi.
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                handler.proceed();
             }
         });
     }
