@@ -7,9 +7,9 @@ import java.util.Calendar;
 
 public class ScheduleReceiver extends BroadcastReceiver {
 
-    static final String ACTION_STANDBY = "th.co.central.ris.bootlauncher.ACTION_STANDBY";
-    static final String ACTION_WAKE    = "th.co.central.ris.bootlauncher.ACTION_WAKE";
-    static final String ACTION_RESTART = "th.co.central.ris.bootlauncher.ACTION_RESTART";
+    public static final String ACTION_STANDBY = "th.co.central.ris.bootlauncher.ACTION_STANDBY";
+    public static final String ACTION_WAKE    = "th.co.central.ris.bootlauncher.ACTION_WAKE";
+    public static final String ACTION_RESTART = "th.co.central.ris.bootlauncher.ACTION_RESTART";
 
     @Override
     public void onReceive(Context context, Intent intent) {
