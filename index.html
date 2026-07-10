@@ -209,11 +209,13 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 .abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
-#noshow-bar-wrap{width:100%;margin:14px 0 4px;}
-#noshow-bar-track{width:100%;height:8px;background:rgba(255,170,68,0.18);-webkit-border-radius:4px;border-radius:4px;overflow:hidden;}
-#noshow-bar{height:8px;background:#ffaa44;-webkit-border-radius:4px;border-radius:4px;-webkit-transition:width 0.9s linear;transition:width 0.9s linear;}
-#noshow-secs{font-size:36px;font-weight:900;color:#ffaa44;text-align:center;margin:6px 0 2px;letter-spacing:2px;}
+#noshow-bar-wrap{width:100%;margin:10px 0 4px;}
+#noshow-bar-track{width:100%;height:8px;background:rgba(255,149,0,0.18);-webkit-border-radius:4px;border-radius:4px;overflow:hidden;}
+#noshow-bar{height:8px;background:#ff9500;-webkit-border-radius:4px;border-radius:4px;-webkit-transition:width 0.9s linear;transition:width 0.9s linear;}
+#noshow-secs{font-size:100px;font-weight:900;color:#ff9500;text-align:center;margin:2px 0;letter-spacing:2px;line-height:1;}
 .noshow-hint{font-size:13px;color:#997744;text-align:center;}
+#noshow-badge{width:118px;min-width:118px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;background:rgba(255,149,0,0.12);border:2px solid rgba(255,149,0,0.45);-webkit-border-radius:12px;border-radius:12px;padding:12px 4px;-webkit-align-self:stretch;align-self:stretch;}
+#noshow-badge-txt{-webkit-writing-mode:vertical-lr;writing-mode:vertical-lr;-webkit-transform:rotate(180deg);transform:rotate(180deg);font-size:30px;font-weight:900;color:#ff9500;letter-spacing:6px;text-transform:uppercase;}
 @-webkit-keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
 @keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
 .abtn-checkin{touch-action:manipulation;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
@@ -800,7 +802,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 129,
+  patch: 130,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2359,12 +2361,21 @@ function updateCurrentCard(){
       } else {
         noShowExtra='<div class="noshow-hint" style="margin-top:10px">No one checked in &mdash; booking held</div>';
       }
+      var leftCol=
+        '<div style="-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:0;">'+
+          '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
+          '<div class="meet-time-lg" style="color:#ff9500">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
+          (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
+          noShowExtra+
+        '</div>';
+      var rightBadge=
+        '<div id="noshow-badge">'+
+          '<div id="noshow-badge-txt">NO SHOW</div>'+
+        '</div>';
       cont.innerHTML=
-        '<div class="meet-tag soon">&#128993; NO SHOW</div>'+
-        '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
-        '<div class="meet-time-lg" style="color:#ffaa44">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
-        (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
-        noShowExtra;
+        '<div style="display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;gap:12px;">'+
+          leftCol+rightBadge+
+        '</div>';
       el('action-row-outer').innerHTML='<div class="action-row"><button class="abtn abtn-checkin" id="checkin-btn">Check In</button></div>';
       el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
