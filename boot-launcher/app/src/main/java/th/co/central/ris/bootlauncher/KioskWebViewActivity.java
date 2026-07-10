@@ -15,15 +15,28 @@ import android.annotation.TargetApi;
 import android.net.http.SslError;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
-import android.webkit.CookieManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 /**
  * Fullscreen WebView kiosk — no MSAL, no token injection.
  * Worker proxy handles auth via X-Tablet-Key header (set from URL param).
  * webview=1 param tells index.html to skip the tap overlay.
+ *
+ * All requests to ris-display.workers.dev are fulfilled via OkHttp to bypass
+ * FortiGate SSL inspection, which intercepts Chrome 149 WebView traffic on
+ * Android 10 (rk3288) but does not intercept OkHttp's TLS fingerprint.
  *
  * Android version compatibility:
  *   API 19  (Android 4.4 / LG tablets) : legacy WebView, old SystemUI flags
@@ -37,8 +50,8 @@ public class KioskWebViewActivity extends Activity {
     private static final String TABLET_KEY = "RIS-TABLET-KEY2026";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
 
-
     private WebView webView;
+    private OkHttpClient okHttpClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,16 +65,15 @@ public class KioskWebViewActivity extends Activity {
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        okHttpClient = new OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build();
+
         webView = new WebView(this);
         setContentView(webView);
         hideSystemUI();
         setupWebView();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            CookieManager.getInstance().removeAllCookies(null);
-            CookieManager.getInstance().flush();
-        } else {
-            CookieManager.getInstance().removeAllCookie();
-        }
         loadDisplay();
     }
 
@@ -90,11 +102,50 @@ public class KioskWebViewActivity extends Activity {
         webView.loadUrl(url.toString());
     }
 
+    // Fetch a Worker URL via OkHttp, bypassing the WebView's Chrome TLS stack
+    // which FortiGate SSL inspection intercepts on Android 10 (Chrome/149).
+    // OkHttp's TLS fingerprint is not targeted by the FortiGate policy.
+    private WebResourceResponse fetchViaOkHttp(String url, Map<String, String> headers) {
+        try {
+            Request.Builder builder = new Request.Builder().url(url);
+            if (headers != null) {
+                for (Map.Entry<String, String> entry : headers.entrySet()) {
+                    String key = entry.getKey();
+                    if (!key.equalsIgnoreCase("Host")) {
+                        builder.addHeader(key, entry.getValue());
+                    }
+                }
+            }
+            Response response = okHttpClient.newCall(builder.build()).execute();
+            ResponseBody body = response.body();
+            if (body == null) return null;
+
+            String contentType = response.header("Content-Type", "text/html");
+            String mimeType = contentType.contains(";")
+                ? contentType.split(";")[0].trim() : contentType;
+            String charset = "UTF-8";
+            if (contentType.contains("charset=")) {
+                charset = contentType.split("charset=")[1].trim();
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Map<String, String> responseHeaders = new HashMap<>();
+                for (int i = 0; i < response.headers().size(); i++) {
+                    responseHeaders.put(response.headers().name(i), response.headers().value(i));
+                }
+                String reason = response.message();
+                if (reason == null || reason.isEmpty()) reason = "OK";
+                return new WebResourceResponse(mimeType, charset,
+                    response.code(), reason, responseHeaders, body.byteStream());
+            } else {
+                return new WebResourceResponse(mimeType, charset, body.byteStream());
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private void setupWebView() {
-        // Enable chrome://inspect remote debugging.
-        // Latte already has ADB TCP:5555 open — no additional exposure.
-        // Lets a laptop connected via ADB inspect the WebView Network tab
-        // to pinpoint the exact TLS failure during a physical diagnostic visit.
         WebView.setWebContentsDebuggingEnabled(true);
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -104,16 +155,33 @@ public class KioskWebViewActivity extends Activity {
         s.setSupportZoom(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-        // Allow mixed content (HTTPS page loading HTTPS resources) on API 21+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
 
         webView.setWebViewClient(new WebViewClient() {
-            // Return false on all versions — the WebView handles all navigation itself.
-            // Kiosk mode: no external browser, no tel/mailto, everything stays in WebView.
-            // (Returning true + calling loadUrl() was wrong — it drops POST bodies on
-            // SAML redirects and can cause redirect loops on some WebView builds.)
+
+            // Route all Worker requests through OkHttp (API 21+, full request info)
+            @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                if (url.contains("ris-display.workers.dev")) {
+                    return fetchViaOkHttp(url, request.getRequestHeaders());
+                }
+                return super.shouldInterceptRequest(view, request);
+            }
+
+            // Route all Worker requests through OkHttp (API 11+, URL only)
+            @SuppressWarnings("deprecation")
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                if (url.contains("ris-display.workers.dev")) {
+                    return fetchViaOkHttp(url, null);
+                }
+                return super.shouldInterceptRequest(view, url);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 return false;
@@ -146,10 +214,8 @@ public class KioskWebViewActivity extends Activity {
 
     private void hideSystemUI() {
         if (Build.VERSION.SDK_INT >= 30) {
-            // Android 11+ (API 30): WindowInsetsController
             hideSystemUIModern();
         } else {
-            // Android 4.4 – 10: legacy SystemUI flags
             getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
@@ -158,7 +224,6 @@ public class KioskWebViewActivity extends Activity {
                 | View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             );
-            // Re-hide on any system UI visibility change (e.g. nav bar pop-up on touch)
             getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(
                 new View.OnSystemUiVisibilityChangeListener() {
                     @Override
