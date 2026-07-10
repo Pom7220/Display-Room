@@ -805,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 137,
+  patch: 138,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2520,9 +2520,9 @@ function renderMeetList(){
     // Hide the currently-active non-pending meeting — shown in card above
     var cur=getCur();
     if(cur&&!cur.isPending&&m.id===cur.id)return false;
-    // Also hide the next meeting shown in status card (available-but-upcoming state)
+    // Hide next meeting from list only when it's fully shown in status card (≤15 min away)
     var nxt=getNext();
-    if(!cur&&nxt&&m.id===nxt.id)return false;
+    if(!cur&&nxt&&m.id===nxt.id&&(nxt.start-n)/60000<=15)return false;
     return true;
   }):day;
   var list=el('meet-list');
