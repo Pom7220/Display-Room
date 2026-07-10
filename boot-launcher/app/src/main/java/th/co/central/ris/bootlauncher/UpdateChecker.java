@@ -24,7 +24,15 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import org.conscrypt.Conscrypt;
+import java.security.SecureRandom;
 import java.security.Security;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * Self-update: checks apk-version.json via Worker, downloads and installs
@@ -48,12 +56,33 @@ public class UpdateChecker {
         "https://ris-display.ris-display.workers.dev/api/version";
     private static final String APK_FILENAME = "ris-kiosk-update.apk";
 
+    private static final X509TrustManager TRUST_ALL = new X509TrustManager() {
+        @Override public void checkClientTrusted(X509Certificate[] c, String a) {}
+        @Override public void checkServerTrusted(X509Certificate[] c, String a) {}
+        @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+    };
+
     private static final OkHttpClient CLIENT;
     static {
         // Install Conscrypt as the first SSL provider — replaces Android 4.4 system
         // OpenSSL with a modern TLS 1.2/1.3 implementation so HTTPS works on all tablets.
         try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
-        CLIENT = new OkHttpClient();
+        OkHttpClient c = new OkHttpClient();
+        try {
+            // Accept all certificates — same policy as WebView's handler.proceed().
+            // Required on Android 10 (rk3288/Latte) where FortiGate SSL inspection
+            // presents its own certificate for our Worker URL.
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, new TrustManager[]{TRUST_ALL}, new SecureRandom());
+            SSLSocketFactory sf = sc.getSocketFactory();
+            c = new OkHttpClient.Builder()
+                .sslSocketFactory(sf, TRUST_ALL)
+                .hostnameVerifier(new HostnameVerifier() {
+                    @Override public boolean verify(String h, SSLSession s) { return true; }
+                })
+                .build();
+        } catch (Throwable ignored) {}
+        CLIENT = c;
     }
 
     public static void check(final Activity activity) {
