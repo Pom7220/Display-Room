@@ -379,8 +379,8 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .pin-dot.error{background:#cc1111;border-color:#cc1111;}
 .pin-grid{width:100%;margin-bottom:14px;}
 .pin-row{display:table;width:100%;margin-bottom:10px;}
-.pin-key{touch-action:manipulation;-ms-touch-action:manipulation;display:table-cell;width:33%;padding:26px 8px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:14px;border-radius:14px;font-size:30px;font-weight:600;color:#ffffff;cursor:pointer;text-align:center;-webkit-box-sizing:border-box;box-sizing:border-box;}
-.pin-key:active{background:#2a2a4a;}
+.pin-key{touch-action:manipulation;-ms-touch-action:manipulation;display:table-cell;width:33%;padding:26px 8px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:14px;border-radius:14px;font-size:30px;font-weight:600;color:#ffffff;cursor:pointer;text-align:center;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;}
+.pin-key:active,.pin-key.pressed{background:#3a3a6a;border-color:#4a4a7a;}
 .pin-key+.pin-key{border-left:none;-webkit-border-radius:0;border-radius:0;}
 .pin-key:first-child{-webkit-border-radius:14px 0 0 14px;border-radius:14px 0 0 14px;}
 .pin-key:last-child{-webkit-border-radius:0 14px 14px 0;border-radius:0 14px 14px 0;}
@@ -797,7 +797,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 124,
+  patch: 125,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -3089,6 +3089,8 @@ function handleTap(e){
   var pk=upCls(t,'pin-key');
   if(pk&&!pk.classList.contains('empty')){
     e.preventDefault();
+    pk.classList.add('pressed');
+    setTimeout(function(){pk.classList.remove('pressed');},150);
     pinInput(pk.getAttribute('data-pin'));
     return;
   }
