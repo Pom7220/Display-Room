@@ -15,43 +15,26 @@ import android.annotation.TargetApi;
 import android.net.http.SslError;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
-
 /**
- * Fullscreen WebView kiosk — no MSAL, no token injection.
- * Worker proxy handles auth via X-Tablet-Key header (set from URL param).
+ * Fullscreen WebView kiosk — loads room display via Cloudflare Worker.
+ * tabletkey URL param tells index.html to use Worker proxy (no MSAL).
  * webview=1 param tells index.html to skip the tap overlay.
  *
- * All requests to ris-display.workers.dev are fulfilled via OkHttp to bypass
- * FortiGate SSL inspection, which intercepts Chrome 149 WebView traffic on
- * Android 10 (rk3288) but does not intercept OkHttp's TLS fingerprint.
+ * FortiGate SSL inspection (rk3288/Android 10 on office LAN) is handled
+ * at the network layer — Cloudflare IP ranges are whitelisted in FortiGate
+ * policy per tablet IP. No app-level bypass needed.
+ *
+ * interceptNavigation() is kept as a safety net: if FortiGate ever redirects
+ * (rule expired, IP changed), it catches the redirect, persists tabletKey in
+ * localStorage, and reloads the Worker page instead of showing a blank screen.
  *
  * Android version compatibility:
- *   API 19  (Android 4.4 / LG tablets) : legacy WebView, old SystemUI flags
- *   API 21+ (Android 5+)               : WebResourceRequest override
+ *   API 19  (Android 4.4 / LG tablets) : legacy SystemUI flags
  *   API 29+ (Android 10 / Lenovo)      : WindowInsetsController for immersive
  */
 public class KioskWebViewActivity extends Activity {
@@ -62,7 +45,6 @@ public class KioskWebViewActivity extends Activity {
     private static final String PREFS_NAME = "ris_kiosk_prefs";
 
     private WebView webView;
-    private OkHttpClient okHttpClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,24 +57,6 @@ public class KioskWebViewActivity extends Activity {
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-        X509TrustManager trustAll = new X509TrustManager() {
-            @Override public void checkClientTrusted(X509Certificate[] c, String a) {}
-            @Override public void checkServerTrusted(X509Certificate[] c, String a) {}
-            @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-        };
-        OkHttpClient.Builder okBuilder = new OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS);
-        try {
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, new TrustManager[]{trustAll}, new SecureRandom());
-            okBuilder.sslSocketFactory(sc.getSocketFactory(), trustAll)
-                     .hostnameVerifier(new HostnameVerifier() {
-                         @Override public boolean verify(String h, SSLSession s) { return true; }
-                     });
-        } catch (Exception ignored) {}
-        okHttpClient = okBuilder.build();
 
         webView = new WebView(this);
         setContentView(webView);
@@ -126,82 +90,13 @@ public class KioskWebViewActivity extends Activity {
         webView.loadUrl(url.toString());
     }
 
-    // Fetch a Worker URL via OkHttp, bypassing the WebView's Chrome TLS stack
-    // which FortiGate SSL inspection intercepts on Android 10 (Chrome/149).
-    // OkHttp's TLS fingerprint is not targeted by the FortiGate policy.
-    private WebResourceResponse fetchViaOkHttp(String url, Map<String, String> headers) {
-        try {
-            Request.Builder builder = new Request.Builder().url(url);
-            if (headers != null) {
-                for (Map.Entry<String, String> entry : headers.entrySet()) {
-                    String key = entry.getKey();
-                    if (!key.equalsIgnoreCase("Host")) {
-                        builder.addHeader(key, entry.getValue());
-                    }
-                }
-            }
-            Response response = okHttpClient.newCall(builder.build()).execute();
-            ResponseBody body = response.body();
-            if (body == null) return null;
-
-            String contentType = response.header("Content-Type", "text/html");
-            String mimeType = contentType.contains(";")
-                ? contentType.split(";")[0].trim() : contentType;
-            String charset = "UTF-8";
-            if (contentType.contains("charset=")) {
-                charset = contentType.split("charset=")[1].trim();
-            }
-
-            InputStream stream;
-            if (mimeType.equals("text/html")) {
-                // Inject tabletKey into localStorage before index.html's startup check runs.
-                // loadDataWithBaseURL scopes localStorage to about:blank, not the Worker origin,
-                // so we must inject directly into the HTML served by OkHttp.
-                String html = body.string();
-                // Override localStorage.getItem so index.html always sees tabletKey
-                // regardless of origin scoping when shouldInterceptRequest serves the page.
-                String inject = "<script>(function(){" +
-                    "var _o=localStorage.getItem.bind(localStorage);" +
-                    "localStorage.getItem=function(k){" +
-                    "if(k==='roomdisplay_v5'){" +
-                    "try{var c=JSON.parse(_o(k)||'{}');c.tabletKey='" + TABLET_KEY + "';return JSON.stringify(c);}catch(e){}" +
-                    "}" +
-                    "return _o(k);" +
-                    "};})();</script>";
-                html = html.contains("<head>") ? html.replace("<head>", "<head>" + inject) : inject + html;
-                stream = new ByteArrayInputStream(html.getBytes("UTF-8"));
-            } else {
-                stream = body.byteStream();
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                Map<String, String> responseHeaders = new HashMap<>();
-                for (int i = 0; i < response.headers().size(); i++) {
-                    responseHeaders.put(response.headers().name(i), response.headers().value(i));
-                }
-                String reason = response.message();
-                if (reason == null || reason.isEmpty()) reason = "OK";
-                return new WebResourceResponse(mimeType, charset,
-                    response.code(), reason, responseHeaders, stream);
-            } else {
-                return new WebResourceResponse(mimeType, charset, stream);
-            }
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    // Called from both shouldOverrideUrlLoading overloads.
-    // Allows Worker-domain navigations; blocks everything else (MSAL redirect,
-    // FortiGate auth portal) by writing tabletKey into localStorage while the
-    // Worker page context is still active, then reloading the Worker.
+    // Safety net: catches any non-Worker navigation (FortiGate redirect, stray MSAL, etc.).
+    // Persists tabletKey into localStorage while the Worker page context is still active,
+    // then reloads. On reload tabletKey is found and launch() runs instead of initMsal().
     private boolean interceptNavigation(final WebView view, String url) {
         if (url.startsWith("about:") || url.contains("ris-display.workers.dev")) {
-            return false; // let WebView handle normally
+            return false;
         }
-        // Non-Worker navigation detected (MSAL, FortiGate, etc.).
-        // evaluateJavascript runs in the current (Worker) page context — localStorage
-        // is still scoped to the Worker origin here, so setItem works correctly.
         view.evaluateJavascript(
             "(function(){try{" +
             "var k='roomdisplay_v5';" +
@@ -211,11 +106,11 @@ public class KioskWebViewActivity extends Activity {
             "}catch(e){}})();",
             new ValueCallback<String>() {
                 @Override public void onReceiveValue(String value) {
-                    loadDisplay(); // reload now that tabletKey is persisted
+                    loadDisplay();
                 }
             }
         );
-        return true; // block the redirect
+        return true;
     }
 
     private void setupWebView() {
@@ -234,27 +129,6 @@ public class KioskWebViewActivity extends Activity {
 
         webView.setWebViewClient(new WebViewClient() {
 
-            // Route all Worker requests through OkHttp (API 21+, full request info)
-            @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-                if (url.contains("ris-display.workers.dev")) {
-                    return fetchViaOkHttp(url, request.getRequestHeaders());
-                }
-                return super.shouldInterceptRequest(view, request);
-            }
-
-            // Route all Worker requests through OkHttp (API 11+, URL only)
-            @SuppressWarnings("deprecation")
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
-                if (url.contains("ris-display.workers.dev")) {
-                    return fetchViaOkHttp(url, null);
-                }
-                return super.shouldInterceptRequest(view, url);
-            }
-
             @TargetApi(Build.VERSION_CODES.LOLLIPOP)
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
@@ -267,8 +141,8 @@ public class KioskWebViewActivity extends Activity {
                 return interceptNavigation(view, url);
             }
 
-            // Some Lenovo/Rockchip tablets have an outdated system CA store that
-            // doesn't trust Cloudflare's cert. Safe to proceed — kiosk on internal Wi-Fi.
+            // rk3288 tablets have an outdated system CA store that may not trust
+            // Cloudflare's cert. Safe to proceed — kiosk on internal LAN only.
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 handler.proceed();
