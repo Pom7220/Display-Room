@@ -56,8 +56,12 @@ public class KioskWebViewActivity extends Activity {
         setContentView(webView);
         hideSystemUI();
         setupWebView();
-        CookieManager.getInstance().removeAllCookies(null);
-        CookieManager.getInstance().flush();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            CookieManager.getInstance().removeAllCookies(null);
+            CookieManager.getInstance().flush();
+        } else {
+            CookieManager.getInstance().removeAllCookie();
+        }
         loadDisplay();
     }
 
