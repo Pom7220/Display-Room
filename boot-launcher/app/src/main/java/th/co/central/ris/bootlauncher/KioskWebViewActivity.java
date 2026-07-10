@@ -2,6 +2,7 @@ package th.co.central.ris.bootlauncher;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.os.Handler;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.net.Uri;
@@ -211,11 +212,19 @@ public class KioskWebViewActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
-        // Enforce One App: if user escapes to home/nav, relaunch immediately
+        // Enforce One App: delay relaunch slightly so SystemUI can finish its
+        // own home/recents transition — launching immediately from onStop()
+        // races with the system animation and crashes com.android.systemui.
         if (enforceOneApp && !isFinishing()) {
-            Intent relaunch = new Intent(this, KioskWebViewActivity.class);
-            relaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-            startActivity(relaunch);
+            new Handler().postDelayed(new Runnable() {
+                @Override public void run() {
+                    if (enforceOneApp && !isFinishing()) {
+                        Intent relaunch = new Intent(KioskWebViewActivity.this, KioskWebViewActivity.class);
+                        relaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                        startActivity(relaunch);
+                    }
+                }
+            }, 400);
         }
     }
 
