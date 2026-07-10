@@ -209,6 +209,11 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 .abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
+#noshow-bar-wrap{width:100%;margin:14px 0 4px;}
+#noshow-bar-track{width:100%;height:8px;background:rgba(255,170,68,0.18);-webkit-border-radius:4px;border-radius:4px;overflow:hidden;}
+#noshow-bar{height:8px;background:#ffaa44;-webkit-border-radius:4px;border-radius:4px;-webkit-transition:width 0.9s linear;transition:width 0.9s linear;}
+#noshow-secs{font-size:36px;font-weight:900;color:#ffaa44;text-align:center;margin:6px 0 2px;letter-spacing:2px;}
+.noshow-hint{font-size:13px;color:#997744;text-align:center;}
 @-webkit-keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
 @keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
 .abtn-checkin{touch-action:manipulation;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
@@ -496,6 +501,12 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
     <div class="field"><label>Room Email (mailbox)</label><input type="text" id="cfg-roomemail" placeholder="rismacchiato@central.co.th"><div class="hint">Shared mailbox in M365</div></div>
     <div class="field"><label>Auto-release (min without check-in)</label>
       <select id="cfg-release"><option value="0">Disabled</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
+    </div>
+    <div class="field"><label>No-show handling <span style="color:var(--hint);font-size:10px">(after countdown expires)</span></label>
+      <select id="cfg-noshow-action" class="cfg-input">
+        <option value="hold">On Hold — keep booking, show NO SHOW</option>
+        <option value="cancel">Cancel — delete booking from calendar</option>
+      </select>
     </div>
   </div>
 
@@ -797,7 +808,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 126,
+  patch: 127,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -869,6 +880,7 @@ var APP_VERSION = {
 var CFG_KEY='roomdisplay_v5';
 var cfg={},msalInst=null,account=null;
 var meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60,_todayOverflow=[],_instantBookings={};
+var _cardCountdownTimer=null;
 
 // Load persisted pending bookings from localStorage
 function loadPendingLocal(){
@@ -1127,7 +1139,8 @@ function saveConfig(){
     roomemail:v('cfg-roomemail'),release:parseInt(el('cfg-release').value),
     booking:b('cfg-booking'),approval:!!b('cfg-approval'),owner:v('cfg-owner'),
     extraRooms:extraRooms,teamsBtn:b('cfg-teams')!==false,
-    heartbeatMins:hbMinsVal,tabletKey:tkVal};
+    heartbeatMins:hbMinsVal,tabletKey:tkVal,
+    noShowAction:el('cfg-noshow-action')?el('cfg-noshow-action').value:'hold'};
   localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
   // Phase 4: bypass MSAL — launch directly via Worker proxy
   if(cfg.tabletKey){
@@ -1151,6 +1164,7 @@ function showConfig(){
   if(cfg.release!=null)el('cfg-release').value=cfg.release;
   if(el('cfg-heartbeat-mins')&&cfg.heartbeatMins)el('cfg-heartbeat-mins').value=cfg.heartbeatMins;
   if(el('cfg-tabletkey')&&cfg.tabletKey)el('cfg-tabletkey').value=cfg.tabletKey;
+  if(el('cfg-noshow-action')&&cfg.noShowAction)el('cfg-noshow-action').value=cfg.noShowAction;
   el('cfg-booking').checked=cfg.booking!==false; // default ON
   el('cfg-approval').checked=!!cfg.approval;      // default OFF
   el('cfg-teams').checked=cfg.teamsBtn!==false;   // default ON
@@ -2296,17 +2310,85 @@ function getNext(){
   return meetings.find(function(m){return (!m.isPending||!needsApproval)&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday;})||null;
 }
 
+function fmtMmSs(secs){
+  var m=Math.floor(secs/60),s=secs%60;
+  return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+}
+
 function updateCurrentCard(){
+  if(_cardCountdownTimer){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;}
   var n=new Date(),cur=getCur(),nxt=getNext();
   var card=el('cur-card'),cont=el('cur-content');
   // Check for any pending local bookings to show notice
   var hasPending=pendingLocal.length>0&&pendingLocal.some(function(p){return p.end>n;});
 
   if(cur){
-    // ── BUSY / IN USE ──
     var ip=cur.isPending&&activeRoom&&activeRoom.approval;
+
+    // ── NO SHOW — meeting started, no check-in, auto-release configured ──
+    if(!ip&&!checkedIn&&!isAllDay(cur)&&cfg.release>0){
+      var releaseMs=cur.start.getTime()+cfg.release*60000;
+      var secsLeft=Math.round((releaseMs-n)/1000);
+      var noShowAction=cfg.noShowAction||'hold';
+
+      if(secsLeft<=0&&noShowAction==='cancel'){
+        // Cancel mode: delete event from Exchange and show Available
+        if(cur.id&&locallyEnded.indexOf(cur.id)===-1)locallyEnded.push(cur.id);
+        meetings=meetings.filter(function(m){return m.id!==cur.id;});
+        if(cur.id&&cur.id.indexOf('loc-')!==0&&cfg.roomemail&&cfg.tabletKey){
+          (function(_id,_room,_key){
+            var xhr=new XMLHttpRequest();
+            xhr.open('DELETE',_monitorUrl+'event',true);
+            xhr.setRequestHeader('Content-Type','application/json');
+            xhr.setRequestHeader('X-Tablet-Key',_key);
+            xhr.onerror=function(){dbg('Auto-release delete failed (network)');};
+            xhr.send(JSON.stringify({room:_room,eventId:_id}));
+          }(cur.id,cfg.roomemail,cfg.tabletKey));
+        }
+        setTimeout(function(){updateCurrentCard();renderBadges();renderMeetList();},0);
+        return;
+      }
+
+      // Amber NO SHOW card
+      setTheme('soon');
+      el('status-txt').textContent='No Check-In';
+      var noShowExtra='';
+      if(secsLeft>0){
+        var totalSecs=cfg.release*60;
+        var pctLeft=Math.max(0,Math.round(secsLeft/totalSecs*100));
+        noShowExtra=
+          '<div id="noshow-bar-wrap">'+
+            '<div id="noshow-bar-track"><div id="noshow-bar" style="width:'+pctLeft+'%"></div></div>'+
+            '<div id="noshow-secs">'+fmtMmSs(secsLeft)+'</div>'+
+            '<div class="noshow-hint">Auto-releases if no check-in</div>'+
+          '</div>';
+      } else {
+        noShowExtra='<div class="noshow-hint" style="margin-top:10px">No one checked in &mdash; booking held</div>';
+      }
+      cont.innerHTML=
+        '<div class="meet-tag soon">&#128993; NO SHOW</div>'+
+        '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
+        '<div class="meet-time-lg" style="color:#ffaa44">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
+        (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
+        noShowExtra;
+      el('action-row-outer').innerHTML='<div class="action-row"><button class="abtn abtn-checkin" id="checkin-btn">Check In</button></div>';
+      el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
+
+      // Per-second countdown update
+      if(secsLeft>0){
+        _cardCountdownTimer=setInterval(function(){
+          var s2=Math.round((cur.start.getTime()+cfg.release*60000-new Date())/1000);
+          if(s2<=0){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;updateCurrentCard();return;}
+          var b=el('noshow-bar'),t=el('noshow-secs');
+          if(b)b.style.width=Math.max(0,Math.round(s2/(cfg.release*60)*100))+'%';
+          if(t)t.textContent=fmtMmSs(s2);
+        },1000);
+      }
+      return;
+    }
+
+    // ── BUSY / IN USE ──
     setTheme(ip?'pending':'busy');
-    // Update status text — show checked-in state prominently
     var stxt=el('status-txt');
     if(checkedIn&&!ip){
       stxt.textContent='Checked In';
@@ -2321,42 +2403,13 @@ function updateCurrentCard(){
       btns='<button class="abtn abtn-pend" disabled>'+svgClock()+' Awaiting approval&#8230;</button>';
     } else {
       if(!checkedIn){
-        // Not checked in — show ONLY Check In button (clean single action)
         btns='<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>';
       } else if(!isAllDay(cur)){
-        // Checked in — show End and +30m (Check In already done)
         btns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
         btns+='<button class="abtn abtn-extend" id="ext-btn">+30<br>min</button>';
       }
-      // Teams join button removed — kiosk tablets don't have Teams installed
-      // TEAMS badge in meeting list is sufficient indicator
     }
     var warn='';
-    if(!ip&&!checkedIn&&cfg.release>0){
-      var ml=Math.round((new Date(cur.start.getTime()+cfg.release*60000)-n)/60000);
-      if(ml>0){
-        warn='<div class="rel-warn">&#9888; Releases in '+ml+' min without check-in</div>';
-      } else {
-        // Release time expired — remove from meetings array, next tick re-renders
-        if(cur.id&&locallyEnded.indexOf(cur.id)===-1)locallyEnded.push(cur.id);
-        meetings=meetings.filter(function(m){return m.id!==cur.id;});
-        // Delete event from room calendar via Worker (only real Exchange IDs, not loc- placeholders)
-        // Uses XHR instead of fetch() — Chrome 30 on LG tablets has no Fetch API
-        if(cur.id&&cur.id.indexOf('loc-')!==0&&cfg.roomemail&&cfg.tabletKey){
-          (function(_id,_room,_key){
-            var xhr=new XMLHttpRequest();
-            xhr.open('DELETE',_monitorUrl+'event',true);
-            xhr.setRequestHeader('Content-Type','application/json');
-            xhr.setRequestHeader('X-Tablet-Key',_key);
-            xhr.onerror=function(){dbg('Auto-release delete failed (network)');};
-            xhr.send(JSON.stringify({room:_room,eventId:_id}));
-          }(cur.id,cfg.roomemail,cfg.tabletKey));
-        }
-        // Re-render via setTimeout to avoid recursion — updates card color immediately
-        setTimeout(function(){updateCurrentCard();renderBadges();renderMeetList();},0);
-        return;
-      }
-    }
     var timeDisplay;
     if(isAllDay(cur)){
       timeDisplay='<div class="meet-time-lg" style="color:#ff6666">Booked all day</div>';
