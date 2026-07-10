@@ -22,9 +22,17 @@ import android.webkit.WebViewClient;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -67,10 +75,23 @@ public class KioskWebViewActivity extends Activity {
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        okHttpClient = new OkHttpClient.Builder()
+        X509TrustManager trustAll = new X509TrustManager() {
+            @Override public void checkClientTrusted(X509Certificate[] c, String a) {}
+            @Override public void checkServerTrusted(X509Certificate[] c, String a) {}
+            @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+        };
+        OkHttpClient.Builder okBuilder = new OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build();
+            .readTimeout(30, TimeUnit.SECONDS);
+        try {
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, new TrustManager[]{trustAll}, new SecureRandom());
+            okBuilder.sslSocketFactory(sc.getSocketFactory(), trustAll)
+                     .hostnameVerifier(new HostnameVerifier() {
+                         @Override public boolean verify(String h, SSLSession s) { return true; }
+                     });
+        } catch (Exception ignored) {}
+        okHttpClient = okBuilder.build();
 
         webView = new WebView(this);
         setContentView(webView);
@@ -136,7 +157,16 @@ public class KioskWebViewActivity extends Activity {
                 // loadDataWithBaseURL scopes localStorage to about:blank, not the Worker origin,
                 // so we must inject directly into the HTML served by OkHttp.
                 String html = body.string();
-                String inject = "<script>try{var _c=JSON.parse(localStorage.getItem('roomdisplay_v5')||'{}');_c.tabletKey='" + TABLET_KEY + "';localStorage.setItem('roomdisplay_v5',JSON.stringify(_c));}catch(_e){}</script>";
+                // Override localStorage.getItem so index.html always sees tabletKey
+                // regardless of origin scoping when shouldInterceptRequest serves the page.
+                String inject = "<script>(function(){" +
+                    "var _o=localStorage.getItem.bind(localStorage);" +
+                    "localStorage.getItem=function(k){" +
+                    "if(k==='roomdisplay_v5'){" +
+                    "try{var c=JSON.parse(_o(k)||'{}');c.tabletKey='" + TABLET_KEY + "';return JSON.stringify(c);}catch(e){}" +
+                    "}" +
+                    "return _o(k);" +
+                    "};})();</script>";
                 html = html.contains("<head>") ? html.replace("<head>", "<head>" + inject) : inject + html;
                 stream = new ByteArrayInputStream(html.getBytes("UTF-8"));
             } else {
