@@ -155,7 +155,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .clock-date{font-size:17px;color:#8899bb;margin-top:4px;font-weight:400;display:block;}
 
 /* Weather — under clock, right-aligned */
-.weather-strip{display:inline-block;padding:6px 12px;background:#1a1a2e;border:1px solid #2a2a4a;-webkit-border-radius:50px;border-radius:50px;}
+.weather-strip{display:inline-block;padding:6px 12px;background:#000000;border:1px solid #2a2a4a;-webkit-border-radius:50px;border-radius:50px;}
 .weather-inner{display:table;}
 .weather-cell{display:table-cell;vertical-align:middle;padding-right:6px;}
 .weather-icon{font-size:22px;line-height:1;}
@@ -177,7 +177,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .body-scroll::-webkit-scrollbar{display:none;}
 
 /* ── CURRENT CARD ── */
-.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:36px 24px 24px 26%;margin-bottom:0;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;min-height:180px;}
+.cur-card{-webkit-border-radius:18px;border-radius:18px;padding:36px 24px 24px 26%;margin-bottom:0;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#000000;min-height:180px;}
 .cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:20%;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
 .cur-card.st-busy{border-color:#ff3333;background:#000000;}
 .cur-card.st-busy::before{background:#ff3333;}
@@ -201,7 +201,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 
 /* Available state */
 .av-state{text-align:center;padding:20px 0;}
-.av-icon{width:90px;height:90px;-webkit-border-radius:50%;border-radius:50%;background:#0d2a1a;border:3px dashed #00aa55;display:block;margin:0 auto 18px;line-height:90px;font-size:40px;}
+.av-icon{width:90px;height:90px;-webkit-border-radius:50%;border-radius:50%;background:#000000;border:3px dashed #00aa55;display:block;margin:0 auto 18px;line-height:90px;font-size:40px;}
 .av-title{font-size:36px;font-weight:800;color:#ffffff;margin-bottom:8px;}
 .av-sub{font-size:18px;color:#aaaacc;margin-bottom:20px;line-height:1.5;}
 .book-big{width:100%;padding:20px;background:#2979ff;border:none;-webkit-border-radius:14px;border-radius:14px;color:#ffffff;font-size:22px;font-weight:700;cursor:pointer;display:block;text-align:center;}
@@ -240,7 +240,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 
 /* ── MEETING LIST ── */
 .meet-list{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;gap:10px;}
-.mitem{display:table;width:100%;padding:16px 18px;background:#111122;border:2px solid #222233;-webkit-border-radius:12px;border-radius:12px;position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.mitem{display:table;width:100%;padding:16px 18px;background:#000000;border:2px solid #222233;-webkit-border-radius:12px;border-radius:12px;position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .mitem.is-now{border-color:#aa1111;background:#2a0606;}
 .mitem.is-next{border-color:#886600;background:#1a1200;}
 .mitem.is-pend{border-color:#886600;background:#1a1200;}
@@ -265,7 +265,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 /* More days strip */
 .more-days{margin-top:16px;padding-bottom:20px;}
 .more-days-hdr{font-size:13px;font-weight:600;color:#5566aa;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid #1a1a2e;padding-bottom:8px;}
-.day-row{margin-bottom:16px;background:#0d0d1a;-webkit-border-radius:10px;border-radius:10px;padding:12px 14px;}
+.day-row{margin-bottom:16px;background:#000000;-webkit-border-radius:10px;border-radius:10px;padding:12px 14px;}
 .day-row-hdr{font-size:15px;font-weight:700;color:#ccddee;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #1a1a2e;}
 .day-row-hdr .wkend{color:#7788aa;font-weight:400;}
 .day-row-count{font-size:11px;color:#7788aa;background:#1a1a2e;-webkit-border-radius:10px;border-radius:10px;padding:2px 8px;margin-left:6px;display:inline-block;}
@@ -279,7 +279,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .tslot{padding:8px 14px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:8px;border-radius:8px;font-size:15px;font-weight:600;color:#8899bb;cursor:pointer;}
 .tslot.active{background:#1a3a6a;border-color:#2979ff;color:#ffffff;}
 .book-note{background:#1a1200;border:2px solid #554400;-webkit-border-radius:8px;border-radius:8px;padding:10px 14px;font-size:14px;color:#ccaa44;line-height:1.6;margin-bottom:14px;}
-.nav{position:fixed;bottom:0;left:0;right:0;z-index:3;padding:12px 22px 56px;background:#0a0a12;border-top:2px solid #1a1a2e;display:table;width:100%;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:3;padding:12px 22px 56px;background:#000000;border-top:2px solid #1a1a2e;display:table;width:100%;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .nav-left{display:table-cell;vertical-align:middle;}
 .nav-center{display:table-cell;vertical-align:middle;text-align:center;}
 .nav-right{display:table-cell;vertical-align:middle;width:44px;}
@@ -288,7 +288,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 /* ── ACTION ROW OUTER (below card, fixed zone) ── */
 #action-row-outer{min-height:84px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;margin-bottom:16px;}
 /* ── UPCOMING SECTION LABEL ── */
-.upcoming-label{font-size:16px;font-weight:700;color:#5566aa;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;margin-top:32px;}
+.upcoming-label{font-size:16px;font-weight:700;color:#5566aa;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;margin-top:104px;}
 /* ── MORE ROW in meeting list ── */
 .more-list-row{text-align:center;padding:14px 18px;cursor:pointer;touch-action:manipulation;-ms-touch-action:manipulation;border-top:1px solid #1a1a2e;margin-top:10px;}
 .more-list-row-txt{font-size:18px;font-weight:600;color:#2979ff;}
@@ -805,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 135,
+  patch: 136,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
