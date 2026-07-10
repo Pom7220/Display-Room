@@ -209,9 +209,11 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 .abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
-.abtn-checkin{touch-action:manipulation;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;}
-.abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;}
-.abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;}
+@-webkit-keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
+@keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
+.abtn-checkin{touch-action:manipulation;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
+.abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;-webkit-animation:none;animation:none;}
+.abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
 .abtn-end{touch-action:manipulation;background:#8a0a0a;color:#ffaaaa;border:2px solid #cc2222;}
 .abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:0;-webkit-border-radius:50%;border-radius:50%;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;font-size:12px;font-weight:700;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;text-align:center;line-height:1.3;}
 .abtn-teams{background:#1a1a5a;color:#aaaaff;border:2px solid #3333aa;}
@@ -345,10 +347,10 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 #qr-overlay.hidden{display:none;}
 #qr-img-wrap{background:#ffffff;padding:12px;-webkit-border-radius:12px;border-radius:12px;}
 #qr-canvas{display:block;}
-#qr-canvas canvas,#qr-canvas img{display:block;width:220px;height:220px;}
-#qr-overlay-label{font-size:18px;font-weight:700;color:#ffffff;text-align:center;}
-#qr-overlay-sub{font-size:13px;color:#8899bb;text-align:center;}
-#qr-countdown-wrap{width:220px;}
+#qr-canvas canvas,#qr-canvas img{display:block;width:660px;height:660px;}
+#qr-overlay-label{font-size:22px;font-weight:700;color:#ffffff;text-align:center;}
+#qr-overlay-sub{font-size:14px;color:#8899bb;text-align:center;}
+#qr-countdown-wrap{width:660px;}
 #qr-countdown-bar{height:4px;background:#2979ff;-webkit-border-radius:2px;border-radius:2px;width:100%;-webkit-transition:width .9s linear;transition:width .9s linear;}
 #qr-countdown-txt{font-size:12px;color:#556688;text-align:center;margin-top:4px;}
 #qr-tap-hint{font-size:12px;color:#445566;text-align:center;}
@@ -2814,7 +2816,7 @@ function openQR(){
   var dashUrl=window.location.origin+window.location.pathname.replace('index.html','')+'dashboard.html';
   if(!_qrGenerated&&typeof QRCode!=='undefined'){
     try{
-      new QRCode(el('qr-canvas'),{text:dashUrl,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});
+      new QRCode(el('qr-canvas'),{text:dashUrl,width:660,height:660,correctLevel:QRCode.CorrectLevel.M});
       _qrGenerated=true;
     }catch(e){dbg('QR gen error: '+e);}
   }
