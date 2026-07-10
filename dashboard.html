@@ -336,9 +336,10 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   <div class="adm-stats">
     <div class="adm-stat"><div class="adm-stat-n" id="adm-online" style="color:var(--green)">—</div><div class="adm-stat-l">Online</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-offline" style="color:var(--red)">—</div><div class="adm-stat-l">Offline</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-incidents-open" style="color:var(--amber)">—</div><div class="adm-stat-l">Issues today</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-avg-resolve" style="color:var(--blue)">—</div><div class="adm-stat-l">Avg resolve</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-standby" style="color:#718096">—</div><div class="adm-stat-l">🌙 Standby</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-apk-outdated" style="color:var(--amber)">—</div><div class="adm-stat-l">⚠️ APK outdated</div></div>
   </div>
+  <div id="adm-qr-summary" style="font-size:11px;color:var(--muted);text-align:center;margin:-8px 0 12px"></div>
 
   <div id="adm-smart-actions" style="margin-bottom:12px"></div>
 
@@ -1006,10 +1007,11 @@ async function refreshAdmin() {
   const btn = document.getElementById('adm-refresh-btn');
   if (btn) { btn.textContent = '↻ Refreshing...'; btn.disabled = true; }
   try {
-    // Fetch status + incidents in parallel
-    const [statusResp, incResp] = await Promise.all([
+    // Fetch status, incidents, and latest APK version in parallel
+    const [statusResp, incResp, verResp] = await Promise.all([
       fetch(MONITOR_URL + 'status'),
-      fetch(MONITOR_URL + 'incidents?limit=50', {headers: {'X-Admin-Key': adminKey}})
+      fetch(MONITOR_URL + 'incidents?limit=50', {headers: {'X-Admin-Key': adminKey}}),
+      fetch(MONITOR_URL + 'version').catch(() => null)
     ]);
     if (incResp.status === 401) {
       adminKey = '';
@@ -1019,11 +1021,13 @@ async function refreshAdmin() {
       return;
     }
     const [statusData, incData] = await Promise.all([statusResp.json(), incResp.json()]);
+    const verData = verResp ? await verResp.json().catch(() => null) : null;
+    const latestVersion = verData ? verData.versionName : null;
 
     _lastAnalyzedRooms = statusData.rooms || [];
-    renderAdminRooms(statusData.rooms || []);
+    renderAdminRooms(statusData.rooms || [], latestVersion);
     renderSmartActions(statusData.rooms || []);
-    renderAdminStats(statusData.rooms || [], incData.incidents || []);
+    renderAdminStats(statusData.rooms || [], latestVersion);
     renderAdminIncidents(incData.incidents || []);
     fetchReports();
 
@@ -1037,21 +1041,33 @@ async function refreshAdmin() {
   }
 }
 
-function renderAdminStats(rooms, incidents) {
+function renderAdminStats(rooms, latestVersion) {
+  const online   = rooms.filter(r => r.isOnline && r.status !== 'sleep').length;
+  const offline  = rooms.filter(r => !r.isOnline).length;
   const sleeping = rooms.filter(r => r.isOnline && r.status === 'sleep').length;
-  const online  = rooms.filter(r => r.isOnline && r.status !== 'sleep').length;
-  const offline = rooms.filter(r => !r.isOnline).length;
-  document.getElementById('adm-online').textContent  = online + (sleeping ? ' (+' + sleeping + '🌙)' : '');
-  document.getElementById('adm-offline').textContent = offline;
-  // Count only today's open incidents
-  var bkk = new Date(Date.now() + 7*60*60*1000);
-  const today = bkk.toISOString().slice(0, 10);
-  const todayOpen = incidents.filter(i => !i.resolvedAt && (i.reportedAt || '').startsWith(today)).length;
-  document.getElementById('adm-incidents-open').textContent = todayOpen;
-  document.getElementById('adm-avg-resolve').textContent = '—';
+  const outdated = latestVersion
+    ? rooms.filter(r => r.isOnline && r.version && r.version !== latestVersion).length
+    : 0;
+
+  document.getElementById('adm-online').textContent      = online;
+  document.getElementById('adm-offline').textContent     = offline;
+  document.getElementById('adm-standby').textContent     = sleeping;
+  document.getElementById('adm-apk-outdated').textContent = outdated || '✓';
+  if (outdated === 0) document.getElementById('adm-apk-outdated').style.color = 'var(--green)';
+  else document.getElementById('adm-apk-outdated').style.color = 'var(--amber)';
+
+  // QR aggregate across all rooms
+  var totalQrAvg = 0, roomsWithQr = 0;
+  rooms.forEach(function(r) { if (r.qrAvgPerDay) { totalQrAvg += r.qrAvgPerDay; roomsWithQr++; } });
+  var qrEl = document.getElementById('adm-qr-summary');
+  if (qrEl) {
+    qrEl.textContent = roomsWithQr
+      ? '📱 QR scans (all rooms): avg ' + (totalQrAvg / roomsWithQr).toFixed(1) + '/day · ' + roomsWithQr + ' rooms reporting'
+      : '';
+  }
 }
 
-function renderAdminRooms(rooms) {
+function renderAdminRooms(rooms, latestVersion) {
   const lobbyGrid = document.getElementById('adm-room-grid-lobby');
   const officeGrid = document.getElementById('adm-room-grid-office');
   if (!lobbyGrid || !officeGrid) return;
@@ -1098,18 +1114,16 @@ function renderAdminRooms(rooms) {
       }
     }
 
-    const qrAvg = r && r.qrAvgPerDay != null ? r.qrAvgPerDay : null;
-    const qrPeak = r && r.qrPeakDay != null ? r.qrPeakDay : null;
-    const qrText = qrAvg !== null
-      ? '<div style="font-size:9px;color:var(--muted);margin-top:3px">📱 QR: avg <b>' + qrAvg + '</b>/day · peak <b>' + qrPeak + '</b>/day</div>'
-      : '';
+    const apkOutdated = latestVersion && r && r.version && r.version !== latestVersion;
+    const versionBadge = apkOutdated
+      ? '<span style="color:var(--amber);font-weight:700">⚠️ v' + r.version + '</span>'
+      : versionText;
 
     var card = '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
       '<div class="adm-room-name">' + ris.name + '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
-      '<div class="adm-room-meta">' + [tokenText, modeText, versionText, uptimeText].filter(Boolean).join(' · ') + '</div>' +
-      qrText +
+      '<div class="adm-room-meta">' + [tokenText, modeText, versionBadge, uptimeText].filter(Boolean).join(' · ') + '</div>' +
       (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
 
     if (r && r.log && r.log.length > 0) {
