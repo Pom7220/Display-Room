@@ -72,6 +72,11 @@ export default {
         return handleVersion();
       }
 
+      // GET /api/index-version — returns the latest deployed index.html version
+      if (path === '/api/index-version' && method === 'GET') {
+        return handleIndexVersion();
+      }
+
       // GET /api/apk — proxies APK binary so tablets never hit GitHub Pages TLS directly
       if (path === '/api/apk' && method === 'GET') {
         return handleApk();
@@ -808,6 +813,17 @@ async function handleVersion() {
     return jsonResponse(data);
   } catch(e) {
     return jsonResponse({ error: 'version fetch failed' }, 502);
+  }
+}
+
+async function handleIndexVersion() {
+  try {
+    var resp = await fetch('https://pom7220.github.io/Display-Room/index-version.json',
+      { cf: { cacheEverything: false } });
+    var data = await resp.json();
+    return jsonResponse(data);
+  } catch(e) {
+    return jsonResponse({ error: 'index-version fetch failed' }, 502);
   }
 }
 

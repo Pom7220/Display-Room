@@ -1011,11 +1011,11 @@ async function refreshAdmin() {
   const btn = document.getElementById('adm-refresh-btn');
   if (btn) { btn.textContent = '↻ Refreshing...'; btn.disabled = true; }
   try {
-    // Fetch status, incidents, and latest APK version in parallel
-    const [statusResp, incResp, verResp] = await Promise.all([
+    // Fetch status, incidents, and index version in parallel
+    const [statusResp, incResp, idxVerResp] = await Promise.all([
       fetch(MONITOR_URL + 'status'),
       fetch(MONITOR_URL + 'incidents?limit=50', {headers: {'X-Admin-Key': adminKey}}),
-      fetch(MONITOR_URL + 'version').catch(() => null)
+      fetch(MONITOR_URL + 'index-version').catch(() => null)
     ]);
     if (incResp.status === 401) {
       adminKey = '';
@@ -1025,13 +1025,13 @@ async function refreshAdmin() {
       return;
     }
     const [statusData, incData] = await Promise.all([statusResp.json(), incResp.json()]);
-    const verData = verResp ? await verResp.json().catch(() => null) : null;
-    const latestVersion = verData ? verData.versionName : null;
+    const idxVerData = idxVerResp ? await idxVerResp.json().catch(() => null) : null;
+    const latestIndexVersion = idxVerData ? idxVerData.version : null;
 
     _lastAnalyzedRooms = statusData.rooms || [];
-    renderAdminRooms(statusData.rooms || [], latestVersion);
+    renderAdminRooms(statusData.rooms || [], latestIndexVersion);
     renderSmartActions(statusData.rooms || []);
-    renderAdminStats(statusData.rooms || [], latestVersion);
+    renderAdminStats(statusData.rooms || [], latestIndexVersion);
     renderAdminIncidents(incData.incidents || []);
     fetchReports();
 
@@ -1050,11 +1050,8 @@ function renderAdminStats(rooms, latestVersion) {
   const offline  = rooms.filter(r => !r.isOnline).length;
   const sleeping = rooms.filter(r => r.isOnline && r.status === 'sleep').length;
 
-  // Find the newest index version among online tablets and flag those behind it
-  const onlineVersions = rooms.filter(r => r.isOnline && r.version).map(r => r.version);
-  const newestIndex = onlineVersions.sort().pop() || null;
-  const outdated = newestIndex
-    ? rooms.filter(r => r.isOnline && r.version && r.version !== newestIndex).length
+  const outdated = latestVersion
+    ? rooms.filter(r => r.isOnline && r.version && r.version !== latestVersion).length
     : 0;
 
   document.getElementById('adm-online').textContent      = online;
@@ -1079,9 +1076,6 @@ function renderAdminRooms(rooms, latestVersion) {
   const lobbyGrid = document.getElementById('adm-room-grid-lobby');
   const officeGrid = document.getElementById('adm-room-grid-office');
   if (!lobbyGrid || !officeGrid) return;
-
-  const onlineVersions = rooms.filter(function(r) { return r.isOnline && r.version; }).map(function(r) { return r.version; });
-  const newestIndex = onlineVersions.sort().pop() || null;
 
   const roomMap = {};
   rooms.forEach(function(r) { roomMap[r.room] = r; });
@@ -1125,7 +1119,7 @@ function renderAdminRooms(rooms, latestVersion) {
       }
     }
 
-    const indexOutdated = newestIndex && r && r.version && r.version !== newestIndex;
+    const indexOutdated = latestVersion && r && r.version && r.version !== latestVersion;
     const versionBadge = indexOutdated
       ? '<span style="color:var(--amber);font-weight:700">⚠️ ' + r.version + '</span>'
       : versionText;
