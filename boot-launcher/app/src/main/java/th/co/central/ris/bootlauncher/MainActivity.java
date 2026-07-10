@@ -346,7 +346,7 @@ public class MainActivity extends Activity {
         ShortcutInfo shortcut = new ShortcutInfo.Builder(this, "ris_kiosk_main")
             .setShortLabel("RIS Kiosk")
             .setLongLabel("RIS Kiosk Launcher")
-            .setIcon(Icon.createWithResource(this, R.mipmap.ic_launcher))
+            .setIcon(Icon.createWithResource(this, R.drawable.ic_launcher))
             .setIntent(new Intent(Intent.ACTION_MAIN, Uri.EMPTY,
                 this, MainActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK))
