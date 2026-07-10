@@ -348,10 +348,10 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 #qr-overlay.hidden{display:none;}
 #qr-img-wrap{background:#ffffff;padding:12px;-webkit-border-radius:12px;border-radius:12px;}
 #qr-canvas{display:block;}
-#qr-canvas canvas,#qr-canvas img{display:block;width:660px;height:660px;}
-#qr-overlay-label{font-size:22px;font-weight:700;color:#ffffff;text-align:center;}
+#qr-canvas canvas,#qr-canvas img{display:block;width:330px;height:330px;}
+#qr-overlay-label{font-size:22px;font-weight:700;color:#00d68f;text-align:center;}
 #qr-overlay-sub{font-size:14px;color:#8899bb;text-align:center;}
-#qr-countdown-wrap{width:660px;}
+#qr-countdown-wrap{width:330px;}
 #qr-countdown-bar{height:4px;background:#2979ff;-webkit-border-radius:2px;border-radius:2px;width:100%;-webkit-transition:width .9s linear;transition:width .9s linear;}
 #qr-countdown-txt{font-size:12px;color:#556688;text-align:center;margin-top:4px;}
 #qr-tap-hint{font-size:12px;color:#445566;text-align:center;}
@@ -714,7 +714,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 <!-- QR OVERLAY -->
 <div id="qr-overlay" class="hidden">
   <div id="qr-img-wrap"><div id="qr-canvas"></div></div>
-  <div id="qr-overlay-label">Scan to view all rooms</div>
+  <div id="qr-overlay-label">Scan to view other rooms availability</div>
   <div id="qr-overlay-sub">Open dashboard on your phone</div>
   <div id="qr-countdown-wrap">
     <div id="qr-countdown-bar"></div>
@@ -771,7 +771,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 120,
+  patch: 121,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
