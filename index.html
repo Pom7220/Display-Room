@@ -84,10 +84,10 @@ if(!Object.assign){Object.assign=function(t){for(var i=1;i<arguments.length;i++)
   --r:16px;--rs:12px;--rxs:8px;
 }
 
-html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'Inter',Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;}
+html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'Inter',Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;}
 
 /* ── BACKGROUND ── */
-#bg{position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;background:#0a1628;}
+#bg{position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;background:#000000;}
 
 /* ── BURN-IN ── */
 #pixel-drift{position:fixed;top:0;left:0;right:0;bottom:0;z-index:1;}
@@ -209,16 +209,14 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 .abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
-#noshow-bar-wrap{width:100%;margin:8px 0 4px;}
-#noshow-bar-track{width:100%;height:6px;background:rgba(255,255,255,0.2);-webkit-border-radius:3px;border-radius:3px;overflow:hidden;}
-#noshow-bar{height:6px;background:#fff;-webkit-border-radius:3px;border-radius:3px;-webkit-transition:width 0.9s linear;transition:width 0.9s linear;}
-#noshow-left{position:absolute;top:0;left:0;bottom:0;width:20%;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;gap:10px;-webkit-animation:noshow-blink 1.2s ease-in-out infinite;animation:noshow-blink 1.2s ease-in-out infinite;}
-#noshow-label{-webkit-writing-mode:vertical-lr;writing-mode:vertical-lr;-webkit-transform:rotate(180deg);transform:rotate(180deg);font-size:22px;font-weight:900;color:#fff;letter-spacing:5px;text-transform:uppercase;}
-#noshow-secs{font-size:17px;font-weight:900;color:#fff;text-align:center;letter-spacing:1px;line-height:1.2;-webkit-perspective:200px;perspective:200px;}
-#noshow-secs.flip{-webkit-animation:digit-flip 0.35s ease-out;animation:digit-flip 0.35s ease-out;}
-.noshow-hint{font-size:12px;color:#bb8844;text-align:center;margin-top:4px;}
-@-webkit-keyframes digit-flip{0%{-webkit-transform:rotateX(-90deg);opacity:0;}100%{-webkit-transform:rotateX(0deg);opacity:1;}}
-@keyframes digit-flip{0%{transform:rotateX(-90deg);opacity:0;}100%{transform:rotateX(0deg);opacity:1;}}
+#noshow-left{position:absolute;top:0;left:0;bottom:0;width:20%;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-animation:noshow-blink 1.2s ease-in-out infinite;animation:noshow-blink 1.2s ease-in-out infinite;}
+#noshow-label{font-size:20px;font-weight:900;color:#fff;text-align:center;line-height:1.15;text-transform:uppercase;letter-spacing:2px;}
+#noshow-msg{font-size:26px;font-weight:700;color:#fff;text-align:center;margin:10px 16px 8px;line-height:1.4;}
+#noshow-msg strong{color:#ff9500;}
+#noshow-mm,#noshow-ss{display:inline-block;color:#ff9500;-webkit-perspective:300px;perspective:300px;}
+#noshow-mm.fall,#noshow-ss.fall{-webkit-animation:digit-fall 0.4s ease-out;animation:digit-fall 0.4s ease-out;}
+@-webkit-keyframes digit-fall{0%{-webkit-transform:rotateX(-80deg) translateY(-6px);opacity:0;}100%{-webkit-transform:rotateX(0deg) translateY(0);opacity:1;}}
+@keyframes digit-fall{0%{transform:rotateX(-80deg) translateY(-6px);opacity:0;}100%{transform:rotateX(0deg) translateY(0);opacity:1;}}
 @-webkit-keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
 @keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
 @-webkit-keyframes noshow-blink{0%,100%{opacity:1;border-color:rgba(255,149,0,0.45);}50%{opacity:0.25;border-color:rgba(255,149,0,0.1);}}
@@ -807,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 132,
+  patch: 133,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2353,39 +2351,31 @@ function updateCurrentCard(){
       // Amber NO SHOW card
       setTheme('soon');
       el('status-txt').textContent='No Check-In';
-      var noShowExtra='';
-      if(secsLeft>0){
-        var totalSecs=cfg.release*60;
-        var pctLeft=Math.max(0,Math.round(secsLeft/totalSecs*100));
-        noShowExtra=
-          '<div id="noshow-bar-wrap">'+
-            '<div id="noshow-bar-track"><div id="noshow-bar" style="width:'+pctLeft+'%"></div></div>'+
-          '</div>';
-      } else {
-        noShowExtra='<div class="noshow-hint">No one checked in &mdash; booking held</div>';
-      }
-      var stripeContent=
-        '<div id="noshow-left">'+
-          '<div id="noshow-label">NO SHOW</div>'+
-          (secsLeft>0?'<div id="noshow-secs">'+fmtMmSs(secsLeft)+'</div>':'')+
-        '</div>';
+      var initTime=fmtMmSs(Math.max(0,secsLeft));
+      var initMm=initTime.slice(0,2),initSs=initTime.slice(3);
+      var releaseMsg= secsLeft>0
+        ? '<div id="noshow-msg">Check&#8209;in <strong>NOW</strong>, otherwise released in <span id="noshow-mm">'+initMm+'</span>:<span id="noshow-ss">'+initSs+'</span></div>'
+        : '<div id="noshow-msg">No one checked in &mdash; <strong>booking held</strong></div>';
       cont.innerHTML=
-        stripeContent+
+        '<div id="noshow-left"><div id="noshow-label">NO<br>SHOW</div></div>'+
         '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
         '<div class="meet-time-lg" style="color:#ff9500">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
-        (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'')+
-        noShowExtra;
-      el('action-row-outer').innerHTML='<div class="action-row"><button class="abtn abtn-checkin" id="checkin-btn">Check In</button></div>';
+        (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'');
+      el('action-row-outer').innerHTML=
+        releaseMsg+
+        '<div class="action-row"><button class="abtn abtn-checkin" id="checkin-btn">Check In</button></div>';
       el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
       // Per-second countdown update
+      var _prevMm=initMm;
       if(secsLeft>0){
         _cardCountdownTimer=setInterval(function(){
-          var s2=Math.round((cur.start.getTime()+cfg.release*60000-new Date())/1000);
+          var s2=Math.round((cur.start.getTime()+releaseMin*60000-new Date())/1000);
           if(s2<=0){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;updateCurrentCard();return;}
-          var b=el('noshow-bar'),t=el('noshow-secs');
-          if(b)b.style.width=Math.max(0,Math.round(s2/(releaseMin*60)*100))+'%';
-          if(t){t.classList.remove('flip');void t.offsetWidth;t.classList.add('flip');t.textContent=fmtMmSs(s2);}
+          var t2=fmtMmSs(s2),mm2=t2.slice(0,2),ss2=t2.slice(3);
+          var tMm=el('noshow-mm'),tSs=el('noshow-ss');
+          if(tSs){tSs.classList.remove('fall');void tSs.offsetWidth;tSs.classList.add('fall');tSs.textContent=ss2;}
+          if(tMm){if(mm2!==_prevMm){tMm.classList.remove('fall');void tMm.offsetWidth;tMm.classList.add('fall');_prevMm=mm2;}tMm.textContent=mm2;}
         },1000);
       }
       return;
