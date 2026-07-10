@@ -16,6 +16,7 @@ import android.net.http.SslError;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
+import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -190,6 +191,33 @@ public class KioskWebViewActivity extends Activity {
         }
     }
 
+    // Called from both shouldOverrideUrlLoading overloads.
+    // Allows Worker-domain navigations; blocks everything else (MSAL redirect,
+    // FortiGate auth portal) by writing tabletKey into localStorage while the
+    // Worker page context is still active, then reloading the Worker.
+    private boolean interceptNavigation(final WebView view, String url) {
+        if (url.startsWith("about:") || url.contains("ris-display.workers.dev")) {
+            return false; // let WebView handle normally
+        }
+        // Non-Worker navigation detected (MSAL, FortiGate, etc.).
+        // evaluateJavascript runs in the current (Worker) page context — localStorage
+        // is still scoped to the Worker origin here, so setItem works correctly.
+        view.evaluateJavascript(
+            "(function(){try{" +
+            "var k='roomdisplay_v5';" +
+            "var c=JSON.parse(localStorage.getItem(k)||'{}');" +
+            "c.tabletKey='" + TABLET_KEY + "';" +
+            "localStorage.setItem(k,JSON.stringify(c));" +
+            "}catch(e){}})();",
+            new ValueCallback<String>() {
+                @Override public void onReceiveValue(String value) {
+                    loadDisplay(); // reload now that tabletKey is persisted
+                }
+            }
+        );
+        return true; // block the redirect
+    }
+
     private void setupWebView() {
         WebView.setWebContentsDebuggingEnabled(true);
         WebSettings s = webView.getSettings();
@@ -227,15 +255,16 @@ public class KioskWebViewActivity extends Activity {
                 return super.shouldInterceptRequest(view, url);
             }
 
+            @TargetApi(Build.VERSION_CODES.LOLLIPOP)
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                return false;
+                return interceptNavigation(view, req.getUrl().toString());
             }
 
             @SuppressWarnings("deprecation")
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return false;
+                return interceptNavigation(view, url);
             }
 
             // Some Lenovo/Rockchip tablets have an outdated system CA store that
