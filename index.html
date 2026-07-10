@@ -808,7 +808,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 127,
+  patch: 128,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2325,9 +2325,11 @@ function updateCurrentCard(){
   if(cur){
     var ip=cur.isPending&&activeRoom&&activeRoom.approval;
 
-    // ── NO SHOW — meeting started, no check-in, auto-release configured ──
-    if(!ip&&!checkedIn&&!isAllDay(cur)&&cfg.release>0){
-      var releaseMs=cur.start.getTime()+cfg.release*60000;
+    // ── NO SHOW — meeting started, no check-in ──
+    // releaseMin defaults to 10 if cfg.release was never explicitly saved
+    var releaseMin=(cfg.release!=null&&cfg.release>=0)?cfg.release:10;
+    if(!ip&&!checkedIn&&!isAllDay(cur)&&releaseMin>0){
+      var releaseMs=cur.start.getTime()+releaseMin*60000;
       var secsLeft=Math.round((releaseMs-n)/1000);
       var noShowAction=cfg.noShowAction||'hold';
 
@@ -2380,7 +2382,7 @@ function updateCurrentCard(){
           var s2=Math.round((cur.start.getTime()+cfg.release*60000-new Date())/1000);
           if(s2<=0){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;updateCurrentCard();return;}
           var b=el('noshow-bar'),t=el('noshow-secs');
-          if(b)b.style.width=Math.max(0,Math.round(s2/(cfg.release*60)*100))+'%';
+          if(b)b.style.width=Math.max(0,Math.round(s2/(releaseMin*60)*100))+'%';
           if(t)t.textContent=fmtMmSs(s2);
         },1000);
       }
