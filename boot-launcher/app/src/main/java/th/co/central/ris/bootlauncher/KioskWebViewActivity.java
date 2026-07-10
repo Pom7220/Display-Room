@@ -20,6 +20,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -90,29 +92,16 @@ public class KioskWebViewActivity extends Activity {
         String roomEmail = prefs.getString("room_email", "");
         String roomName  = prefs.getString("room_name", "");
 
-        StringBuilder targetUrl = new StringBuilder(BASE_URL);
-        targetUrl.append("?nocache=").append(System.currentTimeMillis());
-        targetUrl.append("&tabletkey=").append(Uri.encode(TABLET_KEY));
-        targetUrl.append("&webview=1");
+        StringBuilder url = new StringBuilder(BASE_URL);
+        url.append("?nocache=").append(System.currentTimeMillis());
+        url.append("&tabletkey=").append(Uri.encode(TABLET_KEY));
+        url.append("&webview=1");
         if (roomEmail.length() > 0)
-            targetUrl.append("&room=").append(Uri.encode(roomEmail));
+            url.append("&room=").append(Uri.encode(roomEmail));
         if (roomName.length() > 0)
-            targetUrl.append("&roomname=").append(Uri.encode(roomName));
+            url.append("&roomname=").append(Uri.encode(roomName));
 
-        // Bootstrap page: runs at the Worker's origin so localStorage is scoped correctly.
-        // Sets tabletKey before index.html loads — needed because window.location.search
-        // may be empty when shouldInterceptRequest provides the main frame content,
-        // which would cause index.html to miss the tabletkey URL param and fall back to MSAL.
-        String bootstrap = "<html><head><script>" +
-            "try{" +
-            "var c=JSON.parse(localStorage.getItem('roomdisplay_v5')||'{}');" +
-            "c.tabletKey='" + TABLET_KEY + "';" +
-            "localStorage.setItem('roomdisplay_v5',JSON.stringify(c));" +
-            "}catch(e){}" +
-            "window.location.replace('" + targetUrl.toString() + "');" +
-            "</script></head><body></body></html>";
-
-        webView.loadDataWithBaseURL(BASE_URL, bootstrap, "text/html", "UTF-8", null);
+        webView.loadUrl(url.toString());
     }
 
     // Fetch a Worker URL via OkHttp, bypassing the WebView's Chrome TLS stack
@@ -141,6 +130,19 @@ public class KioskWebViewActivity extends Activity {
                 charset = contentType.split("charset=")[1].trim();
             }
 
+            InputStream stream;
+            if (mimeType.equals("text/html")) {
+                // Inject tabletKey into localStorage before index.html's startup check runs.
+                // loadDataWithBaseURL scopes localStorage to about:blank, not the Worker origin,
+                // so we must inject directly into the HTML served by OkHttp.
+                String html = body.string();
+                String inject = "<script>try{var _c=JSON.parse(localStorage.getItem('roomdisplay_v5')||'{}');_c.tabletKey='" + TABLET_KEY + "';localStorage.setItem('roomdisplay_v5',JSON.stringify(_c));}catch(_e){}</script>";
+                html = html.contains("<head>") ? html.replace("<head>", "<head>" + inject) : inject + html;
+                stream = new ByteArrayInputStream(html.getBytes("UTF-8"));
+            } else {
+                stream = body.byteStream();
+            }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 Map<String, String> responseHeaders = new HashMap<>();
                 for (int i = 0; i < response.headers().size(); i++) {
@@ -149,9 +151,9 @@ public class KioskWebViewActivity extends Activity {
                 String reason = response.message();
                 if (reason == null || reason.isEmpty()) reason = "OK";
                 return new WebResourceResponse(mimeType, charset,
-                    response.code(), reason, responseHeaders, body.byteStream());
+                    response.code(), reason, responseHeaders, stream);
             } else {
-                return new WebResourceResponse(mimeType, charset, body.byteStream());
+                return new WebResourceResponse(mimeType, charset, stream);
             }
         } catch (Exception e) {
             return null;
