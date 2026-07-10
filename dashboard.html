@@ -1050,8 +1050,9 @@ function renderAdminStats(rooms, latestVersion) {
   const offline  = rooms.filter(r => !r.isOnline).length;
   const sleeping = rooms.filter(r => r.isOnline && r.status === 'sleep').length;
 
+  // Treat online tablets with no apkVersion as outdated — they haven't restarted with the new APK yet
   const outdated = latestVersion
-    ? rooms.filter(r => r.isOnline && r.apkVersion && r.apkVersion !== latestVersion).length
+    ? rooms.filter(r => r.isOnline && r.status !== 'sleep' && (!r.apkVersion || r.apkVersion !== latestVersion)).length
     : 0;
 
   document.getElementById('adm-online').textContent      = online;
@@ -1119,9 +1120,9 @@ function renderAdminRooms(rooms, latestVersion) {
       }
     }
 
-    const apkOutdated = latestVersion && r && r.apkVersion && r.apkVersion !== latestVersion;
+    const apkOutdated = latestVersion && r && (!r.apkVersion || r.apkVersion !== latestVersion);
     const versionBadge = apkOutdated
-      ? '<span style="color:var(--amber);font-weight:700">⚠️ APK ' + r.apkVersion + '</span>'
+      ? '<span style="color:var(--amber);font-weight:700">⚠️ APK ' + (r.apkVersion || '?') + '</span>'
       : versionText;
 
     var card = '<div class="adm-room">' +
