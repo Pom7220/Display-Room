@@ -419,7 +419,7 @@ function initMsal(){
   try{
     msalInst=new Lib.UserAgentApplication({
       auth:{clientId:CLIENT,authority:`https://login.microsoftonline.com/${TENANT}`,
-        redirectUri:'https://pom7220.github.io/Display-Room/dashboard.html'},
+        redirectUri:window.location.origin+'/dashboard.html'},
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
     msalInst.handleRedirectCallback(function(err,resp){
