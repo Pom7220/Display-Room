@@ -191,6 +191,12 @@ public class KioskWebViewActivity extends Activity {
     }
 
     @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) hideSystemUI();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
