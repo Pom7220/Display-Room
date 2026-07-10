@@ -179,13 +179,13 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 /* ── CURRENT CARD ── */
 .cur-card{-webkit-border-radius:18px;border-radius:18px;padding:36px 24px 24px 26%;margin-bottom:0;position:relative;overflow:hidden;border:2px solid #2a2a4a;background:#111122;min-height:180px;}
 .cur-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:20%;background:#2979ff;-webkit-border-radius:16px 0 0 16px;border-radius:16px 0 0 16px;}
-.cur-card.st-busy{border-color:#ff3333;background:#4a0000;}
+.cur-card.st-busy{border-color:#ff3333;background:#000000;}
 .cur-card.st-busy::before{background:#ff3333;}
-.cur-card.st-soon{border-color:#ff9500;background:#3a1800;}
+.cur-card.st-soon{border-color:#ff9500;background:#000000;}
 .cur-card.st-soon::before{background:#ff9500;}
-.cur-card.st-avail{border-color:#2979ff;background:#0a2040;}
+.cur-card.st-avail{border-color:#2979ff;background:#000000;}
 .cur-card.st-avail::before{background:#2979ff;}
-.cur-card.st-pend{border-color:#ff9500;background:#3a1800;}
+.cur-card.st-pend{border-color:#ff9500;background:#000000;}
 .cur-card.st-pend::before{background:#ff9500;}
 
 /* Status tag — positioned top-left just outside the colour bar */
@@ -348,7 +348,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 #float-gear{position:fixed;bottom:24px;right:20px;width:44px;height:44px;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:50%;border-radius:50%;cursor:pointer;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;z-index:9000;color:#7788aa;}
 
 /* ── QR BUTTON ── */
-#qr-corner{position:fixed;bottom:80px;right:12px;z-index:9000;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;gap:5px;cursor:pointer;}
+#qr-corner{position:fixed;bottom:100px;right:12px;z-index:9000;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;gap:5px;cursor:pointer;}
 #qr-corner-btn{width:126px;height:126px;background:#ffffff;border:2px solid #2a2a4a;-webkit-border-radius:10px;border-radius:10px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;overflow:hidden;padding:4px;-webkit-box-sizing:border-box;box-sizing:border-box;}
 #qr-mini-canvas canvas,#qr-mini-canvas img{display:block;width:118px;height:118px;}
 #qr-corner-label{font-size:10px;color:#7788aa;text-align:center;line-height:1.3;max-width:130px;letter-spacing:.01em;}
@@ -805,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 133,
+  patch: 134,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2420,7 +2420,7 @@ function updateCurrentCard(){
 
   } else if(nxt){
     var m=mu(nxt.start);
-    var earlyCheckin=m<=15;
+    var earlyCheckin=(nxt.start-new Date())/60000<=15;
     if(earlyCheckin&&checkedIn){
       // ── EARLY CHECK-IN DONE — show IN USE red state ──
       setTheme('busy');
