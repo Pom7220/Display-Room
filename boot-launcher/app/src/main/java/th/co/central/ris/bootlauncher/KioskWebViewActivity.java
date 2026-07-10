@@ -1,6 +1,7 @@
 package th.co.central.ris.bootlauncher;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.net.Uri;
@@ -16,6 +17,7 @@ import android.net.http.SslError;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
 import android.webkit.ValueCallback;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -45,6 +47,7 @@ public class KioskWebViewActivity extends Activity {
     private static final String PREFS_NAME = "ris_kiosk_prefs";
 
     private WebView webView;
+    private boolean enforceOneApp = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +60,9 @@ public class KioskWebViewActivity extends Activity {
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        enforceOneApp = prefs.getBoolean("enforce_one_app", false);
 
         webView = new WebView(this);
         setContentView(webView);
@@ -114,6 +120,7 @@ public class KioskWebViewActivity extends Activity {
     }
 
     private void setupWebView() {
+        webView.addJavascriptInterface(new KioskInterface(), "Android");
         WebView.setWebContentsDebuggingEnabled(true);
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -194,6 +201,43 @@ public class KioskWebViewActivity extends Activity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) hideSystemUI();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Enforce One App: if user escapes to home/nav, relaunch immediately
+        if (enforceOneApp && !isFinishing()) {
+            Intent relaunch = new Intent(this, KioskWebViewActivity.class);
+            relaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            startActivity(relaunch);
+        }
+    }
+
+    // JavaScript interface — called from web config screen
+    public class KioskInterface {
+        @JavascriptInterface
+        public boolean getEnforceOneApp() {
+            return enforceOneApp;
+        }
+
+        @JavascriptInterface
+        public void setEnforceOneApp(boolean enabled) {
+            enforceOneApp = enabled;
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit().putBoolean("enforce_one_app", enabled).apply();
+        }
+
+        // Called after web-side PIN verification — just finishes the activity
+        @JavascriptInterface
+        public void exitKiosk() {
+            enforceOneApp = false;
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit().putBoolean("enforce_one_app", false).apply();
+            runOnUiThread(new Runnable() {
+                @Override public void run() { finish(); }
+            });
+        }
     }
 
     @Override

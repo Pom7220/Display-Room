@@ -485,37 +485,23 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 
 <!-- CONFIG SCREEN -->
 <div id="config-screen" class="hidden" style="display:none">
-  <div class="cfg-logo">⬡ Room Display</div>
-  <div class="cfg-title">Setup</div>
-  <div class="cfg-sub">Meeting Room Kiosk — Configuration</div>
+  <div class="cfg-logo">⬡ RIS KIOSK</div>
+  <div class="cfg-title">Settings</div>
   <div id="ver-display" style="font-size:10px;color:#444;text-align:center;margin-bottom:16px;font-family:monospace;"></div>
 
-  <!-- SAVE BUTTON AT TOP — always visible -->
+  <!-- 1. ROOM -->
   <div class="cfg-card">
-    <h3>Azure AD / Microsoft 365</h3>
-    <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="817e531d-191b-4cf5-8812-f0061d89b53d"></div>
-    <div class="field"><label>Client (Application) ID</label><input type="text" id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="80648895-4acf-4ac5-b4a3-c5bf6bc98983"></div>
-  </div>
-  <div class="cfg-card">
-    <h3>Primary Room</h3>
-    <div class="field"><label>Room Display Name</label><input type="text" id="cfg-roomname" placeholder="e.g. RIS Macchiato"></div>
-    <div class="field"><label>Room Email (mailbox)</label><input type="text" id="cfg-roomemail" placeholder="rismacchiato@central.co.th"><div class="hint">Shared room mailbox in Exchange / M365</div></div>
+    <h3>🏠 Room</h3>
+    <div class="field"><label>Display Name</label><input type="text" id="cfg-roomname" placeholder="e.g. Macchiato"></div>
+    <div class="field"><label>Room Email (mailbox)</label><input type="text" id="cfg-roomemail" placeholder="rismacchiato@central.co.th"><div class="hint">Shared mailbox in M365</div></div>
     <div class="field"><label>Auto-release (min without check-in)</label>
       <select id="cfg-release"><option value="0">Disabled</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
-      <div class="cfg-label" style="margin-top:10px">Heartbeat interval <span style="color:var(--hint);font-size:10px">(5–60 min · default 20 · use 30 for 12 tablets)</span></div>
-      <select id="cfg-heartbeat-mins" class="cfg-input"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20" selected>20 min</option><option value="30">30 min</option><option value="60">60 min</option></select>
-      <div class="cfg-label" style="margin-top:10px">Tablet key <span style="color:var(--hint);font-size:10px">(same value as RIS_ADMIN_KEY in Cloudflare)</span></div>
-      <input class="cfg-input" id="cfg-tabletkey" type="text" placeholder="auto-filled via set_tablet_key command">
     </div>
   </div>
+
+  <!-- 2. BOOKING -->
   <div class="cfg-card">
-    <h3>Additional Rooms (quick switcher)</h3>
-    <div class="rooms-list" id="extra-rooms-list"></div>
-    <button class="btn-add-room" id="btn-add-room">+ Add another room</button>
-    <div class="hint" style="margin-top:8px">Tap chips to switch rooms without re-signing in.</div>
-  </div>
-  <div class="cfg-card">
-    <h3>Booking Settings</h3>
+    <h3>📅 Booking</h3>
     <div class="toggle-row">
       <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Allow instant booking</div><div class="tr-sub">Book directly on this display</div></div>
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-booking" checked onchange="toggleApproval()"><span class="tog-slider"></span></label>
@@ -529,36 +515,76 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
         <div class="field" style="margin-bottom:0;margin-top:10px"><label>Room Owner Email</label><input type="text" id="cfg-owner" placeholder="owner@central.co.th"></div>
       </div>
     </div>
-  </div>
-  <div class="cfg-card">
-    <h3>Microsoft Teams</h3>
     <div class="toggle-row">
       <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Show "Join Teams" button</div><div class="tr-sub">One-tap join on active Teams meetings</div></div>
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-teams" checked><span class="tog-slider"></span></label>
     </div>
   </div>
-  <div class="cfg-card">
-    <h3>Developer</h3>
-    <div class="toggle-row">
-      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Kiosk mode (fullscreen lock)</div><div class="tr-sub">Auto fullscreen on launch, PIN required to exit</div></div>
+
+  <!-- 3. KIOSK CONTROL (Android native only) -->
+  <div class="cfg-card" id="cfg-kiosk-native-card">
+    <h3>🔒 Kiosk Control</h3>
+    <div id="cfg-kiosk-native-controls" style="display:none">
+      <div class="toggle-row">
+        <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Enforce One App</div><div class="tr-sub">Auto-relaunch if user navigates away via nav bar</div></div>
+        <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-enforce-one-app" onchange="setEnforceOneApp(this.checked)"><span class="tog-slider"></span></label>
+      </div>
+      <div style="margin-top:14px;">
+        <button onclick="doExitKiosk()" style="width:100%;padding:14px;background:#3a0a0a;border:2px solid #cc2222;border-radius:10px;color:#ffaaaa;font-size:15px;font-weight:700;cursor:pointer;">🚪 Exit Kiosk</button>
+        <div class="hint" style="margin-top:6px;text-align:center;">Requires your kiosk PIN · returns to Android launcher</div>
+      </div>
+    </div>
+    <div id="cfg-kiosk-web-only" style="color:#445566;font-size:12px;text-align:center;padding:8px 0;">
+      Kiosk controls available on tablet only
+    </div>
+    <div class="toggle-row" style="margin-top:12px;padding-top:12px;border-top:1px solid #2a2a4a">
+      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Fullscreen web lock</div><div class="tr-sub">Auto fullscreen on launch</div></div>
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-kiosk" checked><span class="tog-slider"></span></label>
     </div>
     <div class="toggle-row">
-      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Auto-relaunch on exit</div><div class="tr-sub">Return to display if user navigates away — disable for maintenance</div></div>
+      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Web auto-relaunch</div><div class="tr-sub">Return to display after web navigation away</div></div>
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-relaunch" checked><span class="tog-slider"></span></label>
     </div>
+  </div>
+
+  <!-- 4. ADDITIONAL ROOMS -->
+  <div class="cfg-card">
+    <h3>🔀 Additional Rooms</h3>
+    <div class="rooms-list" id="extra-rooms-list"></div>
+    <button class="btn-add-room" id="btn-add-room">+ Add another room</button>
+    <div class="hint" style="margin-top:8px">Tap chips to switch rooms without re-signing in.</div>
+  </div>
+
+  <!-- 5. SYSTEM / DEVELOPER -->
+  <div class="cfg-card">
+    <h3>⚙️ System</h3>
+    <div class="field"><label>Heartbeat interval <span style="color:var(--hint);font-size:10px">(default 20 · use 30 for 12 tablets)</span></label>
+      <select id="cfg-heartbeat-mins" class="cfg-input"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20" selected>20 min</option><option value="30">30 min</option><option value="60">60 min</option></select>
+    </div>
+    <div class="field"><label>Tablet key <span style="color:var(--hint);font-size:10px">(matches RIS_ADMIN_KEY in Cloudflare)</span></label>
+      <input class="cfg-input" id="cfg-tabletkey" type="text" placeholder="auto-filled via set_tablet_key command">
+    </div>
     <div class="toggle-row">
-      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Debug log overlay</div><div class="tr-sub">Show debug messages on screen — disable for production</div></div>
+      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Debug log overlay</div><div class="tr-sub">Show debug messages on screen</div></div>
       <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-debug-toggle" onchange="toggleDebugMode()"><span class="tog-slider"></span></label>
     </div>
-    <div style="font-size:11px;color:#555;margin-top:6px;">v<span id="ver-inline"></span> &nbsp;|&nbsp; To enable debug without config: open console and type <code style="background:#111;padding:1px 4px;border-radius:3px;color:#5599ff">dbgEnabled=true</code></div>
+    <div style="font-size:11px;color:#555;margin-top:10px;">v<span id="ver-inline"></span></div>
   </div>
+
+  <!-- 6. AZURE AD (collapsed by default) -->
+  <div class="cfg-card">
+    <h3 onclick="toggleAzureCard()" style="cursor:pointer;">🔑 Azure AD <span id="azure-toggle-icon" style="float:right;font-weight:400;color:#445566">▼ expand</span></h3>
+    <div id="azure-card-body" style="display:none">
+      <div class="field"><label>Tenant ID</label><input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="817e531d-191b-4cf5-8812-f0061d89b53d"></div>
+      <div class="field"><label>Client (Application) ID</label><input type="text" id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="80648895-4acf-4ac5-b4a3-c5bf6bc98983"></div>
+    </div>
+  </div>
+
   <div style="width:100%;max-width:480px;margin:0 auto 14px auto;">
-    <button onclick="startChangePin()" style="width:100%;padding:14px;background:none;border:2px solid #2a2a5a;border-radius:10px;color:#7788aa;font-size:15px;font-weight:600;cursor:pointer;">&#128274; Change PIN</button>
+    <button onclick="startChangePin()" style="width:100%;padding:14px;background:none;border:2px solid #2a2a5a;border-radius:10px;color:#7788aa;font-size:15px;font-weight:600;cursor:pointer;">🔐 Change Kiosk PIN</button>
   </div>
   <button class="btn-primary" onclick="saveConfig()">Save &amp; Launch Display</button>
 
-  <!-- DEBUG PANEL - always visible when config screen is open -->
   <div id="cfg-debug" style="display:none;width:100%;max-width:440px;padding:12px;background:#1a0000;border:2px solid #f00;border-radius:8px;color:#f88;font-size:13px;margin-bottom:12px;word-break:break-all;line-height:1.6;"></div>
 </div>
 
@@ -771,7 +797,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 123,
+  patch: 124,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1151,6 +1177,7 @@ function showConfig(){
   var list=el('extra-rooms-list');list.innerHTML='';
   (cfg.extraRooms||[]).forEach(function(r){addRoomRow(r.name,r.email);});
   toggleApproval();toggleOwner();
+  initKioskNativeControls();
 }
 
 function addRoomRow(name,email){
@@ -1163,6 +1190,42 @@ function addRoomRow(name,email){
   el('extra-rooms-list').appendChild(row);
 }
 function toggleApproval(){el('approval-fields').style.display=el('cfg-booking').checked?'block':'none';}
+
+function initKioskNativeControls(){
+  var isNative=typeof Android!=='undefined';
+  var nativeEl=el('cfg-kiosk-native-controls');
+  var webOnlyEl=el('cfg-kiosk-web-only');
+  if(nativeEl)nativeEl.style.display=isNative?'block':'none';
+  if(webOnlyEl)webOnlyEl.style.display=isNative?'none':'block';
+  if(isNative){
+    try{var t=el('cfg-enforce-one-app');if(t)t.checked=Android.getEnforceOneApp();}catch(e){}
+  }
+}
+
+function setEnforceOneApp(enabled){
+  try{if(typeof Android!=='undefined')Android.setEnforceOneApp(enabled);}catch(e){}
+}
+
+function doExitKiosk(){
+  if(typeof Android==='undefined'){toast('Native app only','warn');return;}
+  _pinCallback=function(){try{Android.exitKiosk();}catch(e){}};
+  pinBuffer='';
+  pinMode='exit_kiosk';
+  el('pin-title').textContent='Exit Kiosk';
+  el('pin-sub').textContent='Enter PIN to exit kiosk';
+  updatePinDots();
+  show('pin-overlay');
+}
+
+function toggleAzureCard(){
+  var body=el('azure-card-body');
+  var icon=el('azure-toggle-icon');
+  if(!body)return;
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  if(icon)icon.textContent=open?'▼ expand':'▲ collapse';
+}
+
 function toggleDebugMode(){
   dbgEnabled=el('cfg-debug-toggle').checked;
   var d=el('debug-overlay');
@@ -2800,7 +2863,8 @@ function sendApproval(name,email,title,s,e,done){
 // PIN PROTECTION
 // ══════════════════════════════════════
 var PIN_KEY='roomdisplay_pin';
-var pinBuffer='', pinMode='verify'; // 'verify' | 'setup' | 'confirm'
+var pinBuffer='', pinMode='verify'; // 'verify' | 'setup' | 'confirm' | 'exit_kiosk'
+var _pinCallback=null;
 var pinSetupFirst='';
 
 function getStoredPin(){return localStorage.getItem(PIN_KEY)||'9999';}
@@ -2886,19 +2950,23 @@ function pinInput(key){
 
   if(pinBuffer.length===4){
     setTimeout(function(){
-      if(pinMode==='verify'){
+      if(pinMode==='verify'||pinMode==='exit_kiosk'){
         if(pinBuffer===getStoredPin()){
           hide('pin-overlay');
-          // Exit fullscreen to allow settings interaction
-          try{
-            if(document.exitFullscreen)document.exitFullscreen();
-            else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
-          }catch(e){}
-          showConfig();
+          if(pinMode==='exit_kiosk'){
+            if(_pinCallback){_pinCallback();_pinCallback=null;}
+          } else {
+            try{
+              if(document.exitFullscreen)document.exitFullscreen();
+              else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
+            }catch(e){}
+            showConfig();
+          }
         } else {
           updatePinDots(true);
           el('pin-sub').textContent='Wrong PIN — try again';
-          setTimeout(function(){pinBuffer='';updatePinDots();el('pin-sub').textContent='Enter PIN to access settings';},900);
+          var resetMsg=pinMode==='exit_kiosk'?'Enter PIN to exit kiosk':'Enter PIN to access settings';
+          setTimeout(function(){pinBuffer='';updatePinDots();el('pin-sub').textContent=resetMsg;},900);
         }
       } else if(pinMode==='setup'){
         pinSetupFirst=pinBuffer;
