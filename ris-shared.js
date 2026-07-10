@@ -135,7 +135,7 @@ function deriveRoomStatus(meetings) {
     status = 'pending'; freeUntil = pendingCur.end;
   } else if (nxt) {
     var minsUntil = Math.round((nxt.start - now) / 60000);
-    status = minsUntil <= 30 ? 'soon' : 'avail';
+    status = minsUntil <= 15 ? 'soon' : 'avail';
     freeUntil = nxt.start;
   } else if (pendingCur) {
     // Pending upcoming meeting — show as pending instead of available

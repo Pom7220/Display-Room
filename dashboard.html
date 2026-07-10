@@ -337,7 +337,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="adm-stat"><div class="adm-stat-n" id="adm-online" style="color:var(--green)">—</div><div class="adm-stat-l">Online</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-offline" style="color:var(--red)">—</div><div class="adm-stat-l">Offline</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-standby" style="color:#718096">—</div><div class="adm-stat-l">🌙 Standby</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-apk-outdated" style="color:var(--amber)">—</div><div class="adm-stat-l">⚠️ Index outdated</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-apk-outdated" style="color:var(--amber)">—</div><div class="adm-stat-l">⚠️ APK outdated</div></div>
   </div>
   <div id="adm-qr-summary" style="font-size:11px;color:var(--muted);text-align:center;margin:-8px 0 12px"></div>
 
@@ -1011,11 +1011,11 @@ async function refreshAdmin() {
   const btn = document.getElementById('adm-refresh-btn');
   if (btn) { btn.textContent = '↻ Refreshing...'; btn.disabled = true; }
   try {
-    // Fetch status, incidents, and index version in parallel
-    const [statusResp, incResp, idxVerResp] = await Promise.all([
+    // Fetch status, incidents, and APK version in parallel
+    const [statusResp, incResp, apkVerResp] = await Promise.all([
       fetch(MONITOR_URL + 'status'),
       fetch(MONITOR_URL + 'incidents?limit=50', {headers: {'X-Admin-Key': adminKey}}),
-      fetch(MONITOR_URL + 'index-version').catch(() => null)
+      fetch(MONITOR_URL + 'version').catch(() => null)
     ]);
     if (incResp.status === 401) {
       adminKey = '';
@@ -1025,13 +1025,13 @@ async function refreshAdmin() {
       return;
     }
     const [statusData, incData] = await Promise.all([statusResp.json(), incResp.json()]);
-    const idxVerData = idxVerResp ? await idxVerResp.json().catch(() => null) : null;
-    const latestIndexVersion = idxVerData ? idxVerData.version : null;
+    const apkVerData = apkVerResp ? await apkVerResp.json().catch(() => null) : null;
+    const latestApkVersion = apkVerData ? apkVerData.versionName : null;
 
     _lastAnalyzedRooms = statusData.rooms || [];
-    renderAdminRooms(statusData.rooms || [], latestIndexVersion);
+    renderAdminRooms(statusData.rooms || [], latestApkVersion);
     renderSmartActions(statusData.rooms || []);
-    renderAdminStats(statusData.rooms || [], latestIndexVersion);
+    renderAdminStats(statusData.rooms || [], latestApkVersion);
     renderAdminIncidents(incData.incidents || []);
     fetchReports();
 
@@ -1051,7 +1051,7 @@ function renderAdminStats(rooms, latestVersion) {
   const sleeping = rooms.filter(r => r.isOnline && r.status === 'sleep').length;
 
   const outdated = latestVersion
-    ? rooms.filter(r => r.isOnline && r.version && r.version !== latestVersion).length
+    ? rooms.filter(r => r.isOnline && r.apkVersion && r.apkVersion !== latestVersion).length
     : 0;
 
   document.getElementById('adm-online').textContent      = online;
@@ -1119,9 +1119,9 @@ function renderAdminRooms(rooms, latestVersion) {
       }
     }
 
-    const indexOutdated = latestVersion && r && r.version && r.version !== latestVersion;
-    const versionBadge = indexOutdated
-      ? '<span style="color:var(--amber);font-weight:700">⚠️ ' + r.version + '</span>'
+    const apkOutdated = latestVersion && r && r.apkVersion && r.apkVersion !== latestVersion;
+    const versionBadge = apkOutdated
+      ? '<span style="color:var(--amber);font-weight:700">⚠️ APK ' + r.apkVersion + '</span>'
       : versionText;
 
     var card = '<div class="adm-room">' +

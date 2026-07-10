@@ -797,7 +797,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 125,
+  patch: 126,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1720,6 +1720,7 @@ function getMonitorStatus(){
     tokenMinsLeft: tokenMinsLeft,
     hasRefreshToken: hasRefresh,
     version: APP_VERSION.label(),
+    apkVersion: cfg.apkVersion||'',
     lastCal: _lastCalSuccess||0,
     meetingCount: (typeof meetings!=='undefined')?meetings.length:0,
     uptime: Math.round((Date.now()-_bootTime)/60000),
@@ -2371,14 +2372,10 @@ function updateCurrentCard(){
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
   } else if(nxt){
-    // ── AVAILABLE BUT UPCOMING SOON ──
     var m=mu(nxt.start);
-    var isSoon=m<=30;
-    setTheme(isSoon?'soon':'available');
-    el('status-txt').textContent=isSoon?('Available - meeting at '+ft(nxt.start)):('Available - free until '+ft(nxt.start));
     var earlyCheckin=m<=15;
     if(earlyCheckin&&checkedIn){
-      // Early check-in done — show full IN USE red state with End + +30m
+      // ── EARLY CHECK-IN DONE — show IN USE red state ──
       setTheme('busy');
       el('status-txt').textContent='In Use';
       cont.innerHTML=
@@ -2389,10 +2386,11 @@ function updateCurrentCard(){
       var earlyBtns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
       earlyBtns+='<button class="abtn abtn-extend" id="ext-btn">+30<br>min</button>';
       el('action-row-outer').innerHTML='<div class="action-row">'+earlyBtns+'</div>';
-    } else {
-      var checkinBtn=earlyCheckin
-        ? '<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>'
-        : '<button class="abtn abtn-checkin off" disabled>Check In opens in '+sharedFmtDur(m-15)+'</button>';
+    } else if(earlyCheckin){
+      // ── UPCOMING ≤15min — check-in open ──
+      setTheme('soon');
+      el('status-txt').textContent='Available - meeting at '+ft(nxt.start);
+      var checkinBtn='<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>';
       var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
       cont.innerHTML=
         '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
@@ -2400,6 +2398,15 @@ function updateCurrentCard(){
         '<div class="meet-time-lg" style="color:#ffaa44">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
         (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
       el('action-row-outer').innerHTML='<div class="action-row">'+checkinBtn+'</div>'+pendNotice;
+    } else {
+      // ── AVAILABLE — next meeting >15min away ──
+      setTheme('available');
+      el('status-txt').textContent='Available until '+ft(nxt.start);
+      cont.innerHTML=
+        '<div class="meet-tag avail">FREE</div>'+
+        '<div class="meet-title-lg">Available until</div>'+
+        '<div class="meet-time-lg" style="color:#64b5f6;font-size:56px;font-weight:900;letter-spacing:2px">'+ft(nxt.start)+'</div>';
+      el('action-row-outer').innerHTML='';
     }
     el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
 
@@ -2428,9 +2435,8 @@ function updateCurrentCard(){
       var pendNotice2=hasPending?'<div class="pend-notice">&#9203; Pending approval request — check your email</div>':'';
       cont.innerHTML=
         '<div class="meet-tag avail">FREE</div>'+
-        '<div class="meet-title-lg">No meetings booked</div>'+
-        '<div class="meet-time-lg" style="color:#64b5f6">Available all day</div>'+
-        '<div class="meet-org">Room is open for booking</div>'+
+        '<div class="meet-title-lg">Available</div>'+
+        '<div class="meet-time-lg" style="color:#64b5f6;font-size:56px;font-weight:900;letter-spacing:2px">all day</div>'+
         pendNotice2;
       el('action-row-outer').innerHTML='';
     }
@@ -3318,6 +3324,7 @@ loadCfg();
       var kiosk=get('kiosk');
       var tabletkey=get('tabletkey');
       var webview=get('webview');
+      var apkversion=get('apkversion');
       if(room){
         // Pre-fill config with room from APK
         if(!cfg.tenant)cfg.tenant='817e531d-191b-4cf5-8812-f0061d89b53d';
@@ -3344,6 +3351,12 @@ loadCfg();
       // kiosk=1 means launched from APK — note it in log
       if(kiosk==='1'){
         dbg('APK kiosk launch detected');
+      }
+      // apkversion — injected by KioskWebViewActivity, stored for heartbeat
+      if(apkversion){
+        cfg.apkVersion=apkversion;
+        try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(e){}
+        dbg('APK version from URL: '+apkversion);
       }
     }
   }catch(e){dbg('URL param parse error: '+e);}

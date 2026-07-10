@@ -192,6 +192,7 @@ async function handleHeartbeat(request, env) {
       tokenExpiry: data.tokenExpiry || null,
       hasRefreshToken: !!data.hasRefreshToken,
       version: data.version || '',
+      apkVersion: data.apkVersion || '',
       lastCal: data.lastCal || null,
       meetingCount: data.meetingCount || 0,
       uptime: data.uptime || 0,

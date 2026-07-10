@@ -92,6 +92,11 @@ public class KioskWebViewActivity extends Activity {
             url.append("&room=").append(Uri.encode(roomEmail));
         if (roomName.length() > 0)
             url.append("&roomname=").append(Uri.encode(roomName));
+        try {
+            String apkVersion = getPackageManager()
+                .getPackageInfo(getPackageName(), 0).versionName;
+            url.append("&apkversion=").append(Uri.encode(apkVersion));
+        } catch (Exception e) { /* skip if unavailable */ }
 
         webView.loadUrl(url.toString());
     }
