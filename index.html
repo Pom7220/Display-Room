@@ -214,15 +214,17 @@ html,body{height:100%;width:100%;background:#0a0a12;color:#ffffff;font-family:'I
 #noshow-bar{height:8px;background:#ff9500;-webkit-border-radius:4px;border-radius:4px;-webkit-transition:width 0.9s linear;transition:width 0.9s linear;}
 #noshow-secs{font-size:100px;font-weight:900;color:#ff9500;text-align:center;margin:2px 0;letter-spacing:2px;line-height:1;}
 .noshow-hint{font-size:13px;color:#997744;text-align:center;}
-#noshow-badge{width:118px;min-width:118px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;background:rgba(255,149,0,0.12);border:2px solid rgba(255,149,0,0.45);-webkit-border-radius:12px;border-radius:12px;padding:12px 4px;-webkit-align-self:stretch;align-self:stretch;}
+#noshow-badge{width:118px;min-width:118px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;background:rgba(255,149,0,0.12);border:2px solid rgba(255,149,0,0.45);-webkit-border-radius:12px;border-radius:12px;padding:12px 4px;-webkit-align-self:stretch;align-self:stretch;-webkit-animation:noshow-blink 1.2s ease-in-out infinite;animation:noshow-blink 1.2s ease-in-out infinite;}
 #noshow-badge-txt{-webkit-writing-mode:vertical-lr;writing-mode:vertical-lr;-webkit-transform:rotate(180deg);transform:rotate(180deg);font-size:30px;font-weight:900;color:#ff9500;letter-spacing:6px;text-transform:uppercase;}
 @-webkit-keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
 @keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
+@-webkit-keyframes noshow-blink{0%,100%{opacity:1;border-color:rgba(255,149,0,0.45);}50%{opacity:0.25;border-color:rgba(255,149,0,0.1);}}
+@keyframes noshow-blink{0%,100%{opacity:1;border-color:rgba(255,149,0,0.45);}50%{opacity:0.25;border-color:rgba(255,149,0,0.1);}}
 .abtn-checkin{touch-action:manipulation;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
 .abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;-webkit-animation:none;animation:none;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
 .abtn-end{touch-action:manipulation;background:#8a0a0a;color:#ffaaaa;border:2px solid #cc2222;}
-.abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:0;-webkit-border-radius:50%;border-radius:50%;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;font-size:12px;font-weight:700;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;text-align:center;line-height:1.3;}
+.abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:0;-webkit-border-radius:50%;border-radius:50%;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;font-size:12px;font-weight:700;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;text-align:center;line-height:1.3;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;}
 .abtn-teams{background:#1a1a5a;color:#aaaaff;border:2px solid #3333aa;}
 .abtn-pend{background:#3a2200;color:#ffcc44;border:2px solid #886600;cursor:default;-webkit-box-flex:2;-webkit-flex:2;flex:2;}
 .rel-warn{font-size:15px;color:#ffaa33;margin-top:10px;text-align:center;}
@@ -802,7 +804,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 130,
+  patch: 131,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2411,7 +2413,7 @@ function updateCurrentCard(){
         btns='<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>';
       } else if(!isAllDay(cur)){
         btns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
-        btns+='<button class="abtn abtn-extend" id="ext-btn">+30<br>min</button>';
+        btns+='<button class="abtn abtn-extend" id="ext-btn"><span style="display:block;text-align:center">+30</span><span style="display:block;text-align:center">min</span></button>';
       }
     }
     var warn='';
@@ -2442,7 +2444,7 @@ function updateCurrentCard(){
         '<div class="meet-time-lg" style="color:#ff6666">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
         (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
       var earlyBtns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
-      earlyBtns+='<button class="abtn abtn-extend" id="ext-btn">+30<br>min</button>';
+      earlyBtns+='<button class="abtn abtn-extend" id="ext-btn"><span style="display:block;text-align:center">+30</span><span style="display:block;text-align:center">min</span></button>';
       el('action-row-outer').innerHTML='<div class="action-row">'+earlyBtns+'</div>';
     } else if(earlyCheckin){
       // ── UPCOMING ≤15min — check-in open ──
