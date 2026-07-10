@@ -548,14 +548,6 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
     <div id="cfg-kiosk-web-only" style="color:#445566;font-size:12px;text-align:center;padding:8px 0;">
       Kiosk controls available on tablet only
     </div>
-    <div class="toggle-row" style="margin-top:12px;padding-top:12px;border-top:1px solid #2a2a4a">
-      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Fullscreen web lock</div><div class="tr-sub">Auto fullscreen on launch</div></div>
-      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-kiosk" checked><span class="tog-slider"></span></label>
-    </div>
-    <div class="toggle-row">
-      <div style="display:inline-block;width:80%;vertical-align:middle"><div class="tr-label">Web auto-relaunch</div><div class="tr-sub">Return to display after web navigation away</div></div>
-      <label class="tog" style="display:inline-block;vertical-align:middle"><input type="checkbox" id="cfg-relaunch" checked><span class="tog-slider"></span></label>
-    </div>
   </div>
 
   <!-- 4. ADDITIONAL ROOMS -->
@@ -808,7 +800,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 128,
+  patch: 129,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
