@@ -337,7 +337,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="adm-stat"><div class="adm-stat-n" id="adm-online" style="color:var(--green)">—</div><div class="adm-stat-l">Online</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-offline" style="color:var(--red)">—</div><div class="adm-stat-l">Offline</div></div>
     <div class="adm-stat"><div class="adm-stat-n" id="adm-standby" style="color:#718096">—</div><div class="adm-stat-l">🌙 Standby</div></div>
-    <div class="adm-stat"><div class="adm-stat-n" id="adm-apk-outdated" style="color:var(--amber)">—</div><div class="adm-stat-l">⚠️ APK outdated</div></div>
+    <div class="adm-stat"><div class="adm-stat-n" id="adm-apk-outdated" style="color:var(--amber)">—</div><div class="adm-stat-l">⚠️ Index outdated</div></div>
   </div>
   <div id="adm-qr-summary" style="font-size:11px;color:var(--muted);text-align:center;margin:-8px 0 12px"></div>
 
@@ -991,6 +991,8 @@ function toggleAdmin() {
     btn.classList.add('active');
     btn.textContent = 'ROOMS';
     if (mainContent) mainContent.style.display = 'none';
+    var sumRow = document.querySelector('.sum-row');
+    if (sumRow) sumRow.style.display = 'none';
     refreshAdmin();
     adminRefreshInterval = setInterval(refreshAdmin, 30000);
 
@@ -999,6 +1001,8 @@ function toggleAdmin() {
     btn.classList.remove('active');
     btn.textContent = 'ADMIN';
     if (mainContent) mainContent.style.display = '';
+    var sumRow = document.querySelector('.sum-row');
+    if (sumRow) sumRow.style.display = '';
     if (adminRefreshInterval) { clearInterval(adminRefreshInterval); adminRefreshInterval = null; }
   }
 }
@@ -1045,8 +1049,12 @@ function renderAdminStats(rooms, latestVersion) {
   const online   = rooms.filter(r => r.isOnline && r.status !== 'sleep').length;
   const offline  = rooms.filter(r => !r.isOnline).length;
   const sleeping = rooms.filter(r => r.isOnline && r.status === 'sleep').length;
-  const outdated = latestVersion
-    ? rooms.filter(r => r.isOnline && r.version && r.version !== latestVersion).length
+
+  // Find the newest index version among online tablets and flag those behind it
+  const onlineVersions = rooms.filter(r => r.isOnline && r.version).map(r => r.version);
+  const newestIndex = onlineVersions.sort().pop() || null;
+  const outdated = newestIndex
+    ? rooms.filter(r => r.isOnline && r.version && r.version !== newestIndex).length
     : 0;
 
   document.getElementById('adm-online').textContent      = online;
@@ -1071,6 +1079,9 @@ function renderAdminRooms(rooms, latestVersion) {
   const lobbyGrid = document.getElementById('adm-room-grid-lobby');
   const officeGrid = document.getElementById('adm-room-grid-office');
   if (!lobbyGrid || !officeGrid) return;
+
+  const onlineVersions = rooms.filter(function(r) { return r.isOnline && r.version; }).map(function(r) { return r.version; });
+  const newestIndex = onlineVersions.sort().pop() || null;
 
   const roomMap = {};
   rooms.forEach(function(r) { roomMap[r.room] = r; });
@@ -1098,7 +1109,7 @@ function renderAdminRooms(rooms, latestVersion) {
     const tokenText = ''; // removed: proxy auth — no token status needed
     const modeText = !r ? '' :
       (r.launchMode === 'pwa' ? '📱 PWA' : r.launchMode === 'fullscreen' ? '⛶ FS' : '🌐 Browser');
-    const versionText = r ? 'v' + r.version : '';
+    const versionText = r && r.version ? r.version : '';
     const uptimeText = r ? '⏱ ' + r.uptime + 'm' : '';
     const logId = 'log-' + ris.name.toLowerCase().replace(/[^a-z]/g, '');
 
@@ -1114,9 +1125,9 @@ function renderAdminRooms(rooms, latestVersion) {
       }
     }
 
-    const apkOutdated = latestVersion && r && r.version && r.version !== latestVersion;
-    const versionBadge = apkOutdated
-      ? '<span style="color:var(--amber);font-weight:700">⚠️ v' + r.version + '</span>'
+    const indexOutdated = newestIndex && r && r.version && r.version !== newestIndex;
+    const versionBadge = indexOutdated
+      ? '<span style="color:var(--amber);font-weight:700">⚠️ ' + r.version + '</span>'
       : versionText;
 
     var card = '<div class="adm-room">' +
