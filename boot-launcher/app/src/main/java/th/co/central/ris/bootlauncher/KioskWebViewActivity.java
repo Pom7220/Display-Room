@@ -65,6 +65,10 @@ public class KioskWebViewActivity extends Activity {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         enforceOneApp = prefs.getBoolean("enforce_one_app", false);
 
+        // Re-register standby/wake alarms on every launch — ensures they survive APK updates
+        // (BootReceiver only fires on full device reboot, not on APK update relaunch)
+        ScheduleReceiver.schedule(this);
+
         webView = new WebView(this);
         setContentView(webView);
         hideSystemUI();
