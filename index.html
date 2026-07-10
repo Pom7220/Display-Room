@@ -805,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 136,
+  patch: 137,
   date: '2026-07-10',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2264,7 +2264,7 @@ function fetchCal(){
 // THEME
 // ══════════════════════════════════════
 function setTheme(status){
-  var bgMap={available:'#071428',busy:'#300000',soon:'#071a0e',pending:'#201000'};
+  var bgMap={available:'#000000',busy:'#000000',soon:'#000000',pending:'#000000'};
   el('bg').style.background=bgMap[status]||bgMap.available;
   // Update theme-color meta for PWA status bar
   var tc=el('meta-theme-color');
