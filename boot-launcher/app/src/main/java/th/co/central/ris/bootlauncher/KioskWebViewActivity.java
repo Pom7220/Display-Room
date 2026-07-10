@@ -90,16 +90,29 @@ public class KioskWebViewActivity extends Activity {
         String roomEmail = prefs.getString("room_email", "");
         String roomName  = prefs.getString("room_name", "");
 
-        StringBuilder url = new StringBuilder(BASE_URL);
-        url.append("?nocache=").append(System.currentTimeMillis());
-        url.append("&tabletkey=").append(Uri.encode(TABLET_KEY));
-        url.append("&webview=1");
+        StringBuilder targetUrl = new StringBuilder(BASE_URL);
+        targetUrl.append("?nocache=").append(System.currentTimeMillis());
+        targetUrl.append("&tabletkey=").append(Uri.encode(TABLET_KEY));
+        targetUrl.append("&webview=1");
         if (roomEmail.length() > 0)
-            url.append("&room=").append(Uri.encode(roomEmail));
+            targetUrl.append("&room=").append(Uri.encode(roomEmail));
         if (roomName.length() > 0)
-            url.append("&roomname=").append(Uri.encode(roomName));
+            targetUrl.append("&roomname=").append(Uri.encode(roomName));
 
-        webView.loadUrl(url.toString());
+        // Bootstrap page: runs at the Worker's origin so localStorage is scoped correctly.
+        // Sets tabletKey before index.html loads — needed because window.location.search
+        // may be empty when shouldInterceptRequest provides the main frame content,
+        // which would cause index.html to miss the tabletkey URL param and fall back to MSAL.
+        String bootstrap = "<html><head><script>" +
+            "try{" +
+            "var c=JSON.parse(localStorage.getItem('roomdisplay_v5')||'{}');" +
+            "c.tabletKey='" + TABLET_KEY + "';" +
+            "localStorage.setItem('roomdisplay_v5',JSON.stringify(c));" +
+            "}catch(e){}" +
+            "window.location.replace('" + targetUrl.toString() + "');" +
+            "</script></head><body></body></html>";
+
+        webView.loadDataWithBaseURL(BASE_URL, bootstrap, "text/html", "UTF-8", null);
     }
 
     // Fetch a Worker URL via OkHttp, bypassing the WebView's Chrome TLS stack
