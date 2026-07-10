@@ -4,9 +4,13 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -101,6 +105,8 @@ public class MainActivity extends Activity {
             finish();
             return;
         }
+
+        requestPinShortcutOnce();
 
         selectedEmail = prefs.getString("room_email", "");
         selectedName  = prefs.getString("room_name", "");
@@ -327,6 +333,26 @@ public class MainActivity extends Activity {
             statusText.setText("No room assigned — tap a room below");
             statusText.setTextColor(Color.parseColor("#ff9500"));
         }
+    }
+
+    // Asks the launcher to pin a home-screen shortcut on first run.
+    // Uses ShortcutManager (API 26+); silently skips on older devices.
+    // One-time only — flag stored in SharedPreferences.
+    private void requestPinShortcutOnce() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        if (prefs.getBoolean("shortcut_requested", false)) return;
+        ShortcutManager sm = getSystemService(ShortcutManager.class);
+        if (sm == null || !sm.isRequestPinShortcutSupported()) return;
+        ShortcutInfo shortcut = new ShortcutInfo.Builder(this, "ris_kiosk_main")
+            .setShortLabel("RIS Kiosk")
+            .setLongLabel("RIS Kiosk Launcher")
+            .setIcon(Icon.createWithResource(this, R.mipmap.ic_launcher))
+            .setIntent(new Intent(Intent.ACTION_MAIN, Uri.EMPTY,
+                this, MainActivity.class)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK))
+            .build();
+        sm.requestPinShortcut(shortcut, null);
+        prefs.edit().putBoolean("shortcut_requested", true).apply();
     }
 
     private int dp(int val) {
