@@ -16,6 +16,7 @@ import android.net.http.SslError;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
+import android.webkit.CookieManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
@@ -36,6 +37,7 @@ public class KioskWebViewActivity extends Activity {
     private static final String TABLET_KEY = "RIS-TABLET-KEY2026";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
 
+
     private WebView webView;
 
     @Override
@@ -54,6 +56,8 @@ public class KioskWebViewActivity extends Activity {
         setContentView(webView);
         hideSystemUI();
         setupWebView();
+        CookieManager.getInstance().removeAllCookies(null);
+        CookieManager.getInstance().flush();
         loadDisplay();
     }
 
