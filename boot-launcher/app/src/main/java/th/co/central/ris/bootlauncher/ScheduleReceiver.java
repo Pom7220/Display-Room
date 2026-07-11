@@ -18,6 +18,8 @@ public class ScheduleReceiver extends BroadcastReceiver {
 
         if (ACTION_STANDBY.equals(action)) {
             launchStandby(context);
+            // Reschedule next day's exact alarm
+            setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
 
         } else if (ACTION_WAKE.equals(action)) {
             int day = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
@@ -26,15 +28,30 @@ public class ScheduleReceiver extends BroadcastReceiver {
                 BootReceiver.launchWebView(context);
             }
             // Weekend: stay in standby, do nothing
+            // Reschedule next day's exact alarm
+            setExactAlarm(context, ACTION_WAKE, 2, 8, 0);
 
         } else if (ACTION_RESTART.equals(action)) {
             // Switch to StandbyActivity to destroy the WebView and free memory.
             // The 08:00 ACTION_WAKE alarm will restore KioskWebViewActivity.
             launchStandby(context);
+            // Reschedule next day's exact alarm
+            setExactAlarm(context, ACTION_RESTART, 3, 6, 0);
         }
     }
 
+    // Called on every KioskWebViewActivity start and on boot — sets precise one-shot alarms
+    // for tonight's occurrences. Each alarm reschedules itself for the next day when it fires.
+    // Using setExact (not setInexactRepeating) so alarms fire within ~1 min of target,
+    // not batched by Android which can delay setInexactRepeating by 2-3 hours.
     static void schedule(Context context) {
+        setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
+        setExactAlarm(context, ACTION_WAKE,    2,  8,  0);
+        setExactAlarm(context, ACTION_RESTART, 3,  6,  0);
+    }
+
+    private static void setExactAlarm(Context context, String action, int requestCode,
+                                      int hour, int minute) {
         android.app.AlarmManager am = (android.app.AlarmManager)
             context.getSystemService(android.content.Context.ALARM_SERVICE);
         if (am == null) return;
@@ -43,23 +60,18 @@ public class ScheduleReceiver extends BroadcastReceiver {
             ? android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
             : android.app.PendingIntent.FLAG_UPDATE_CURRENT;
 
-        android.app.PendingIntent piStandby = android.app.PendingIntent.getBroadcast(context, 1,
-            new android.content.Intent(ACTION_STANDBY)
-                .setClass(context, ScheduleReceiver.class), flags);
-        am.setInexactRepeating(android.app.AlarmManager.RTC_WAKEUP,
-            nextOccurrence(20, 30), android.app.AlarmManager.INTERVAL_DAY, piStandby);
+        android.app.PendingIntent pi = android.app.PendingIntent.getBroadcast(context, requestCode,
+            new android.content.Intent(action).setClass(context, ScheduleReceiver.class), flags);
 
-        android.app.PendingIntent piWake = android.app.PendingIntent.getBroadcast(context, 2,
-            new android.content.Intent(ACTION_WAKE)
-                .setClass(context, ScheduleReceiver.class), flags);
-        am.setInexactRepeating(android.app.AlarmManager.RTC_WAKEUP,
-            nextOccurrence(8, 0), android.app.AlarmManager.INTERVAL_DAY, piWake);
+        long triggerAt = nextOccurrence(hour, minute);
 
-        android.app.PendingIntent piRestart = android.app.PendingIntent.getBroadcast(context, 3,
-            new android.content.Intent(ACTION_RESTART)
-                .setClass(context, ScheduleReceiver.class), flags);
-        am.setInexactRepeating(android.app.AlarmManager.RTC_WAKEUP,
-            nextOccurrence(6, 0), android.app.AlarmManager.INTERVAL_DAY, piRestart);
+        // setExactAndAllowWhileIdle (API 23+) fires even in Doze mode — critical for 20:30 standby.
+        // setExact (API 19-22) is precise but may be deferred in Doze (acceptable for older devices).
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
+        } else {
+            am.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
+        }
     }
 
     private static long nextOccurrence(int hour, int minute) {
