@@ -805,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 141,
+  patch: 142,
   date: '2026-07-13',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2582,6 +2582,11 @@ function renderMeetList(){
 // ══════════════════════════════════════
 // MORE DAYS SLIDE PANEL
 // ══════════════════════════════════════
+var _daysPanelTimer=null;
+function _resetDaysPanelTimer(){
+  if(_daysPanelTimer)clearTimeout(_daysPanelTimer);
+  _daysPanelTimer=setTimeout(function(){closeDaysPanel();},30000);
+}
 function openDaysPanel(){
   var weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   var html='';
@@ -2626,8 +2631,13 @@ function openDaysPanel(){
   el('btn-more-days').style.borderColor='rgba(99,179,255,0.5)';
   el('btn-more-days').style.color='#63b3ff';
   moreDaysOpen=true;
+  _resetDaysPanelTimer();
+  // Reset timer on any touch inside the panel
+  el('days-panel').ontouchstart=function(){_resetDaysPanelTimer();};
 }
 function closeDaysPanel(){
+  if(_daysPanelTimer){clearTimeout(_daysPanelTimer);_daysPanelTimer=null;}
+  el('days-panel').ontouchstart=null;
   el('days-panel').className='';
   el('days-panel-overlay').className='';
   el('btn-more-days').textContent='More +';
