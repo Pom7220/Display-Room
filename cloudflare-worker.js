@@ -811,6 +811,7 @@ async function generateWeeklyNoshowReport(env) {
       if (record.type !== 'noshow') continue;
       var detail = {};
       try { detail = JSON.parse(record.detail); } catch(e) {}
+      if (detail.organizer === 'Instant Booking') continue;
       noshows.push({
         room: record.room,
         roomname: record.roomname || record.room,
