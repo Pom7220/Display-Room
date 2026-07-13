@@ -817,7 +817,8 @@ async function generateWeeklyNoshowReport(env) {
         roomname: record.roomname || record.room,
         organizer: detail.organizer || '',
         organizerEmail: detail.organizerEmail || '',
-        subject: detail.subject || '(no title)'
+        subject: detail.subject || '(no title)',
+        isLateCheckin: !!(record.resolvedAt && record.resolution === 'late_checkin')
       });
     }
 
@@ -839,8 +840,10 @@ async function generateWeeklyNoshowReport(env) {
     var byRoom = Object.keys(roomMap).map(function(k) { return roomMap[k]; });
     byRoom.sort(function(a, b) { return b.count - a.count; });
 
+    var lateCheckins = noshows.filter(function(n) { return n.isLateCheckin; }).length;
     await sendWeeklyEmail(env, {
       total: noshows.length,
+      lateCheckins: lateCheckins,
       monLabel: monLabel,
       friLabel: friLabel,
       byOrganizer: byOrganizer.slice(0, 3),
@@ -882,7 +885,12 @@ async function sendWeeklyEmail(env, data) {
         + r.count + (r.count === 1 ? ' no-show' : ' no-shows') + '</td></tr>';
     }).join('');
 
-    bodyRows = '<p><strong>Total no-shows this week: ' + data.total + '</strong><br>'
+    var completeNoshow = data.total - data.lateCheckins;
+    bodyRows = '<p><strong>Total no-shows this week: ' + data.total + '</strong>'
+      + ' &nbsp;<span style="color:#c62828;font-size:13px">(' + completeNoshow + ' complete no-show'
+      + (completeNoshow !== 1 ? 's' : '') + ', '
+      + data.lateCheckins + ' late check-in'
+      + (data.lateCheckins !== 1 ? 's' : '') + ')</span><br>'
       + '<span style="color:#666;font-size:13px">Period: ' + weekLabel + '</span></p>'
       + '<h3 style="margin-bottom:6px">Top Organizers</h3>'
       + '<table style="border-collapse:collapse;font-size:14px">' + orgRows + '</table>'

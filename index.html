@@ -805,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 140,
+  patch: 141,
   date: '2026-07-13',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1956,6 +1956,7 @@ function reportIncident(type,detail,autoResolvable,onKey){
   }catch(e){}
 }
 
+var _noshowIncidentKey=null;
 function reportNoShow(meeting){
   if(!cfg.roomemail||!meeting)return;
   if(meeting.organizer==='Instant Booking')return;
@@ -1966,7 +1967,8 @@ function reportNoShow(meeting){
     meetingStart:meeting.start?meeting.start.toISOString():'',
     meetingEnd:meeting.end?meeting.end.toISOString():''
   });
-  reportIncident('noshow',detail,false,null);
+  _noshowIncidentKey=null;
+  reportIncident('noshow',detail,false,function(key){_noshowIncidentKey=key;});
 }
 
 function resolveIncident(incidentKey,resolution){
@@ -2646,6 +2648,7 @@ function doCheckin(){
   sleep(1200).then(function(){
     sc.remove();
     checkedIn=true;updateCurrentCard();toast('Checked in','success');
+    if(_noshowIncidentKey){resolveIncident(_noshowIncidentKey,'late_checkin');_noshowIncidentKey=null;}
     // Persist check-in so it survives page reload (SW auto-update, manual refresh, etc.)
     // Use getCur() OR getNext() — "Early Check In" (up to 15 min before start)
     // calls this same function while the meeting is still upcoming, not current,
