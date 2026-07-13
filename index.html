@@ -805,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 139,
+  patch: 140,
   date: '2026-07-13',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1958,6 +1958,7 @@ function reportIncident(type,detail,autoResolvable,onKey){
 
 function reportNoShow(meeting){
   if(!cfg.roomemail||!meeting)return;
+  if(meeting.organizer==='Instant Booking')return;
   var detail=JSON.stringify({
     subject:meeting.title||'',
     organizer:meeting.organizer||'',
