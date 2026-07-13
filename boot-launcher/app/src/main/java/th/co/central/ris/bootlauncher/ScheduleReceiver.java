@@ -3,7 +3,12 @@ package th.co.central.ris.bootlauncher;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import java.util.Calendar;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
 
 public class ScheduleReceiver extends BroadcastReceiver {
 
@@ -17,25 +22,24 @@ public class ScheduleReceiver extends BroadcastReceiver {
         if (action == null) return;
 
         if (ACTION_STANDBY.equals(action)) {
+            logAlarmEvent(context, "standby");
             launchStandby(context);
-            // Reschedule next day's exact alarm
             setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
 
         } else if (ACTION_WAKE.equals(action)) {
             int day = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
             boolean isWeekend = (day == Calendar.SATURDAY || day == Calendar.SUNDAY);
             if (!isWeekend) {
+                logAlarmEvent(context, "wake");
                 BootReceiver.launchWebView(context);
+            } else {
+                logAlarmEvent(context, "wake_weekend");
             }
-            // Weekend: stay in standby, do nothing
-            // Reschedule next day's exact alarm
             setExactAlarm(context, ACTION_WAKE, 2, 7, 30);
 
         } else if (ACTION_RESTART.equals(action)) {
-            // Switch to StandbyActivity to destroy the WebView and free memory.
-            // The 08:00 ACTION_WAKE alarm will restore KioskWebViewActivity.
+            logAlarmEvent(context, "restart");
             launchStandby(context);
-            // Reschedule next day's exact alarm
             setExactAlarm(context, ACTION_RESTART, 3, 6, 0);
         }
     }
@@ -84,6 +88,38 @@ public class ScheduleReceiver extends BroadcastReceiver {
             cal.add(java.util.Calendar.DAY_OF_YEAR, 1);
         }
         return cal.getTimeInMillis();
+    }
+
+    private static void logAlarmEvent(final Context context, final String event) {
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    SharedPreferences prefs = context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE);
+                    String room = prefs.getString("room_email", "");
+                    if (room.isEmpty()) return;
+                    String roomName = prefs.getString("room_name", "");
+                    String apkVer = "";
+                    try {
+                        apkVer = context.getPackageManager()
+                            .getPackageInfo(context.getPackageName(), 0).versionName;
+                    } catch (Exception ignored) {}
+
+                    String json = "{\"room\":\"" + room
+                        + "\",\"roomname\":\"" + roomName
+                        + "\",\"event\":\"" + event
+                        + "\",\"apkVersion\":\"" + apkVer + "\"}";
+
+                    OkHttpClient client = new OkHttpClient();
+                    RequestBody body = RequestBody.create(
+                        MediaType.parse("application/json"), json);
+                    Request req = new Request.Builder()
+                        .url("https://ris-display.ris-display.workers.dev/api/alarm")
+                        .post(body)
+                        .build();
+                    client.newCall(req).execute().close();
+                } catch (Exception ignored) {}
+            }
+        }).start();
     }
 
     static void launchStandby(Context context) {

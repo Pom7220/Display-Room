@@ -87,6 +87,11 @@ export default {
         return handleHeartbeat(request, env);
       }
 
+      // POST /api/alarm — APK logs alarm events (standby/wake/restart)
+      if (path === '/api/alarm' && method === 'POST') {
+        return handleAlarmLog(request, env);
+      }
+
       // GET /api/status — admin reads all room statuses
       if (path === '/api/status' && method === 'GET') {
         return handleStatus(env);
@@ -101,6 +106,12 @@ export default {
       // GET /api/command?room=email — tablet polls for command
       if (path === '/api/command' && method === 'GET') {
         return handleCommandGet(url, env);
+      }
+
+      // GET /api/noshow — no-show incidents filtered and stats (protected)
+      if (path === '/api/noshow' && method === 'GET') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        return handleNoshowStats(url, env);
       }
 
       // GET /api/incidents — incident history (protected)
@@ -224,6 +235,38 @@ async function handleHeartbeat(request, env) {
 }
 
 // ═══════════════════════════════════════
+// ALARM LOG — APK alarm events
+// ═══════════════════════════════════════
+
+async function handleAlarmLog(request, env) {
+  try {
+    var data = await request.json();
+    if (!data.room || !data.event) {
+      return jsonResponse({ error: 'Missing room or event' }, 400);
+    }
+
+    var entry = {
+      event: data.event,
+      roomname: data.roomname || '',
+      apkVersion: data.apkVersion || '',
+      ts: new Date().toISOString()
+    };
+
+    // Append to per-room alarm log (last 50 events)
+    var key = 'alarm_log:' + data.room;
+    var raw = await env.RIS_KV.get(key);
+    var log = raw ? JSON.parse(raw) : [];
+    log.unshift(entry);
+    if (log.length > 50) log = log.slice(0, 50);
+    await env.RIS_KV.put(key, JSON.stringify(log), { expirationTtl: 604800 }); // 7 days
+
+    return jsonResponse({ ok: true });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
 // STATUS — all rooms
 // ═══════════════════════════════════════
 
@@ -237,12 +280,14 @@ async function handleStatus(env) {
       var val = await env.RIS_KV.get(list.keys[i].name);
       if (val) {
         var record = JSON.parse(val);
-        // Calculate "last seen" minutes
         var lastSeen = Math.round(
           (Date.now() - new Date(record.timestamp).getTime()) / 60000
         );
         record.lastSeenMinutes = lastSeen;
-        record.isOnline = lastSeen < 30; // offline if no heartbeat for 30 min
+        record.isOnline = lastSeen < 30;
+        // Include recent alarm events for this room
+        var alarmRaw = await env.RIS_KV.get('alarm_log:' + record.room);
+        record.alarmLog = alarmRaw ? JSON.parse(alarmRaw).slice(0, 10) : [];
         rooms.push(record);
       }
     }
@@ -457,6 +502,71 @@ async function handleIncidentReport(request, env) {
     await env.RIS_KV.put('incidents_index', JSON.stringify(index));
 
     return jsonResponse({ ok: true, incident: incident, key: incidentKey });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+async function handleNoshowStats(url, env) {
+  try {
+    var days = parseInt(url.searchParams.get('days') || '30');
+    var room = url.searchParams.get('room') || null;
+    var cutoff = new Date(Date.now() - days * 86400000).toISOString();
+
+    var indexRaw = await env.RIS_KV.get('incidents_index');
+    var index = indexRaw ? JSON.parse(indexRaw) : [];
+
+    var noshows = [];
+    for (var i = 0; i < index.length; i++) {
+      var val = await env.RIS_KV.get(index[i]);
+      if (!val) continue;
+      var record = JSON.parse(val);
+      if (record.type !== 'noshow') continue;
+      if (record.reportedAt < cutoff) break; // index is newest-first
+      if (room && record.room !== room) continue;
+      // Parse detail JSON for organizer info
+      var detail = {};
+      try { detail = JSON.parse(record.detail); } catch(e) {}
+      noshows.push({
+        room: record.room,
+        roomname: record.roomname,
+        reportedAt: record.reportedAt,
+        subject: detail.subject || '',
+        organizer: detail.organizer || '',
+        organizerEmail: detail.organizerEmail || '',
+        meetingStart: detail.meetingStart || '',
+        meetingEnd: detail.meetingEnd || ''
+      });
+    }
+
+    // Count by organizer email
+    var byOrganizer = {};
+    noshows.forEach(function(n) {
+      var key = n.organizerEmail || n.organizer || 'unknown';
+      if (!byOrganizer[key]) byOrganizer[key] = { organizer: n.organizer, organizerEmail: n.organizerEmail, count: 0 };
+      byOrganizer[key].count++;
+    });
+    var organizerRank = Object.keys(byOrganizer).map(function(k) { return byOrganizer[k]; });
+    organizerRank.sort(function(a, b) { return b.count - a.count; });
+
+    // Count by room
+    var byRoom = {};
+    noshows.forEach(function(n) {
+      var key = n.room;
+      if (!byRoom[key]) byRoom[key] = { room: n.room, roomname: n.roomname, count: 0 };
+      byRoom[key].count++;
+    });
+    var roomRank = Object.keys(byRoom).map(function(k) { return byRoom[k]; });
+    roomRank.sort(function(a, b) { return b.count - a.count; });
+
+    return jsonResponse({
+      total: noshows.length,
+      days: days,
+      byOrganizer: organizerRank,
+      byRoom: roomRank,
+      recent: noshows.slice(0, 20),
+      timestamp: new Date().toISOString()
+    });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
   }

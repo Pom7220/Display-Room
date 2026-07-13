@@ -805,8 +805,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 138,
-  date: '2026-07-10',
+  patch: 139,
+  date: '2026-07-13',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -1956,6 +1956,18 @@ function reportIncident(type,detail,autoResolvable,onKey){
   }catch(e){}
 }
 
+function reportNoShow(meeting){
+  if(!cfg.roomemail||!meeting)return;
+  var detail=JSON.stringify({
+    subject:meeting.title||'',
+    organizer:meeting.organizer||'',
+    organizerEmail:meeting.organizerEmail||'',
+    meetingStart:meeting.start?meeting.start.toISOString():'',
+    meetingEnd:meeting.end?meeting.end.toISOString():''
+  });
+  reportIncident('noshow',detail,false,null);
+}
+
 function resolveIncident(incidentKey,resolution){
   if(!cfg.roomemail)return;
   var data={
@@ -2371,7 +2383,7 @@ function updateCurrentCard(){
       if(secsLeft>0){
         _cardCountdownTimer=setInterval(function(){
           var s2=Math.round((cur.start.getTime()+releaseMin*60000-new Date())/1000);
-          if(s2<=0){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;updateCurrentCard();return;}
+          if(s2<=0){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;reportNoShow(cur);updateCurrentCard();return;}
           var t2=fmtMmSs(s2),mm2=t2.slice(0,2),ss2=t2.slice(3);
           var tMm=el('noshow-mm'),tSs=el('noshow-ss');
           if(tSs){tSs.classList.remove('fall');void tSs.offsetWidth;tSs.classList.add('fall');tSs.textContent=ss2;}
