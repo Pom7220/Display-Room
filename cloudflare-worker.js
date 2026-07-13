@@ -24,7 +24,7 @@ export default {
   async scheduled(event, env) {
     if (!env.RIS_KV) return;
 
-    // Weekly report cron: 0 10 * * 5 (Friday 10:00 UTC = 17:00 BKK)
+    // Weekly report cron: 0 11 * * 6 (Friday 11:00 UTC = 18:00 BKK)
     // Daily report cron:  0 13 * * * (daily 13:00 UTC = 20:00 BKK)
     var nowBkkDay = new Date(Date.now() + 7 * 3600000).getUTCDay(); // 5 = Friday
     var isFriday = nowBkkDay === 5;
