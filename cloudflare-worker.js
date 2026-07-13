@@ -23,7 +23,16 @@ export default {
   // Cron trigger — runs daily at 20:00 UTC+7 (13:00 UTC)
   async scheduled(event, env) {
     if (!env.RIS_KV) return;
+
+    // Weekly report cron: 0 10 * * 5 (Friday 10:00 UTC = 17:00 BKK)
+    // Daily report cron:  0 13 * * * (daily 13:00 UTC = 20:00 BKK)
+    var nowBkkDay = new Date(Date.now() + 7 * 3600000).getUTCDay(); // 5 = Friday
+    var isFriday = nowBkkDay === 5;
+
     await generateDailyReport(env);
+    if (isFriday) {
+      await generateWeeklyNoshowReport(env);
+    }
   },
 
   async fetch(request, env) {
@@ -112,6 +121,13 @@ export default {
       if (path === '/api/noshow' && method === 'GET') {
         if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
         return handleNoshowStats(url, env);
+      }
+
+      // POST /api/noshow/send-report — manually trigger weekly email (protected, for testing)
+      if (path === '/api/noshow/send-report' && method === 'POST') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        await generateWeeklyNoshowReport(env);
+        return jsonResponse({ ok: true, message: 'Weekly report triggered' });
       }
 
       // GET /api/incidents — incident history (protected)
@@ -753,6 +769,162 @@ async function handleReportsList(url, env) {
     return jsonResponse({ reports: reports, timestamp: new Date().toISOString() });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
+// WEEKLY NO-SHOW REPORT — email summary
+// ═══════════════════════════════════════
+
+async function generateWeeklyNoshowReport(env) {
+  try {
+    var nowUtcMs = Date.now();
+    var bkkOffsetMs = 7 * 60 * 60 * 1000;
+    var nowBkk = new Date(nowUtcMs + bkkOffsetMs);
+
+    var dowBkk = nowBkk.getUTCDay();
+    var daysSinceMon = (dowBkk === 0) ? 6 : dowBkk - 1;
+
+    var monBkkMs = nowUtcMs - (daysSinceMon * 86400000)
+      - (nowBkk.getUTCHours() * 3600000)
+      - (nowBkk.getUTCMinutes() * 60000)
+      - (nowBkk.getUTCSeconds() * 1000)
+      - nowBkk.getUTCMilliseconds();
+    var monCutoff = new Date(monBkkMs).toISOString();
+
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function fmtDate(d) {
+      return d.getUTCDate() + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+    }
+    var monLabel = fmtDate(new Date(monBkkMs));
+    var friLabel = fmtDate(nowBkk);
+
+    var indexRaw = await env.RIS_KV.get('incidents_index');
+    var index = indexRaw ? JSON.parse(indexRaw) : [];
+
+    var noshows = [];
+    for (var i = 0; i < index.length; i++) {
+      var val = await env.RIS_KV.get(index[i]);
+      if (!val) continue;
+      var record = JSON.parse(val);
+      if (record.reportedAt < monCutoff) break;
+      if (record.type !== 'noshow') continue;
+      var detail = {};
+      try { detail = JSON.parse(record.detail); } catch(e) {}
+      noshows.push({
+        room: record.room,
+        roomname: record.roomname || record.room,
+        organizer: detail.organizer || '',
+        organizerEmail: detail.organizerEmail || '',
+        subject: detail.subject || '(no title)'
+      });
+    }
+
+    var orgMap = {};
+    noshows.forEach(function(n) {
+      var key = n.organizerEmail || n.organizer || 'unknown';
+      if (!orgMap[key]) orgMap[key] = { name: n.organizer, email: n.organizerEmail, count: 0 };
+      orgMap[key].count++;
+    });
+    var byOrganizer = Object.keys(orgMap).map(function(k) { return orgMap[k]; });
+    byOrganizer.sort(function(a, b) { return b.count - a.count; });
+
+    var roomMap = {};
+    noshows.forEach(function(n) {
+      var key = n.room;
+      if (!roomMap[key]) roomMap[key] = { name: n.roomname, count: 0 };
+      roomMap[key].count++;
+    });
+    var byRoom = Object.keys(roomMap).map(function(k) { return roomMap[k]; });
+    byRoom.sort(function(a, b) { return b.count - a.count; });
+
+    await sendWeeklyEmail(env, {
+      total: noshows.length,
+      monLabel: monLabel,
+      friLabel: friLabel,
+      byOrganizer: byOrganizer.slice(0, 3),
+      byRoom: byRoom.slice(0, 3)
+    });
+  } catch(e) {
+    console.error('generateWeeklyNoshowReport failed:', e.message);
+  }
+}
+
+async function sendWeeklyEmail(env, data) {
+  var token = await getServiceToken(env);
+  if (!token) {
+    console.error('sendWeeklyEmail: getServiceToken returned null — check RIS_SVC_USER/PASSWORD');
+    return;
+  }
+
+  var hasIncidents = data.total > 0;
+  var weekLabel = data.monLabel + ' – ' + data.friLabel;
+
+  var subject = hasIncidents
+    ? '[RIS] Weekly No-Show Report — Week of ' + data.monLabel
+    : '[RIS] Weekly No-Show Report — All Clear ✓';
+
+  var bodyRows = '';
+  if (!hasIncidents) {
+    bodyRows = '<p style="color:#2e7d32">No meetings were released as no-show this week.</p>';
+  } else {
+    var orgRows = data.byOrganizer.map(function(o, i) {
+      return '<tr><td style="padding:4px 12px 4px 0">' + (i+1) + '. ' + (o.name || o.email)
+        + '</td><td style="padding:4px 0;color:#555">' + (o.email ? '(' + o.email + ')' : '')
+        + '</td><td style="padding:4px 0 4px 16px;text-align:right;font-weight:bold">'
+        + o.count + (o.count === 1 ? ' time' : ' times') + '</td></tr>';
+    }).join('');
+
+    var roomRows = data.byRoom.map(function(r, i) {
+      return '<tr><td style="padding:4px 12px 4px 0">' + (i+1) + '. ' + r.name
+        + '</td><td style="padding:4px 0 4px 16px;text-align:right;font-weight:bold">'
+        + r.count + (r.count === 1 ? ' no-show' : ' no-shows') + '</td></tr>';
+    }).join('');
+
+    bodyRows = '<p><strong>Total no-shows this week: ' + data.total + '</strong><br>'
+      + '<span style="color:#666;font-size:13px">Period: ' + weekLabel + '</span></p>'
+      + '<h3 style="margin-bottom:6px">Top Organizers</h3>'
+      + '<table style="border-collapse:collapse;font-size:14px">' + orgRows + '</table>'
+      + '<h3 style="margin-top:20px;margin-bottom:6px">Most Affected Rooms</h3>'
+      + '<table style="border-collapse:collapse;font-size:14px">' + roomRows + '</table>';
+  }
+
+  var html = '<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;padding:24px">'
+    + '<h2 style="color:#1a1a2e">RIS Room Display — Weekly No-Show Report</h2>'
+    + '<p style="color:#555;font-size:13px">Week: ' + weekLabel + '</p>'
+    + '<hr style="border:none;border-top:1px solid #eee;margin:16px 0">'
+    + bodyRows
+    + '<hr style="border:none;border-top:1px solid #eee;margin:24px 0">'
+    + '<p style="color:#999;font-size:11px">Sent automatically by RIS Room Display every Friday 17:00 BKK.</p>'
+    + '</body></html>';
+
+  var mailPayload = {
+    message: {
+      subject: subject,
+      body: { contentType: 'HTML', content: html },
+      toRecipients: [{ emailAddress: { address: 'vorutchapon@central.co.th' } }]
+    },
+    saveToSentItems: false
+  };
+
+  var svcUser = env.RIS_SVC_USER || '';
+  var resp = await fetch(
+    'https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(svcUser) + '/sendMail',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(mailPayload)
+    }
+  );
+
+  if (resp.status === 202) {
+    console.log('Weekly no-show email sent OK');
+  } else {
+    var errBody = await resp.text().catch(function(){ return ''; });
+    console.error('sendWeeklyEmail Graph error', resp.status, errBody);
   }
 }
 
