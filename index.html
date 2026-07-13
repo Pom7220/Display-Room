@@ -805,7 +805,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 142,
+  patch: 143,
   date: '2026-07-13',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1956,7 +1956,6 @@ function reportIncident(type,detail,autoResolvable,onKey){
   }catch(e){}
 }
 
-var _noshowIncidentKey=null;
 function reportNoShow(meeting){
   if(!cfg.roomemail||!meeting)return;
   if(meeting.organizer==='Instant Booking')return;
@@ -1967,8 +1966,10 @@ function reportNoShow(meeting){
     meetingStart:meeting.start?meeting.start.toISOString():'',
     meetingEnd:meeting.end?meeting.end.toISOString():''
   });
-  _noshowIncidentKey=null;
-  reportIncident('noshow',detail,false,function(key){_noshowIncidentKey=key;});
+  try{localStorage.removeItem('ris_noshow_incident');}catch(e){}
+  reportIncident('noshow',detail,false,function(key){
+    try{localStorage.setItem('ris_noshow_incident',JSON.stringify({key:key,meetingId:meeting.id,room:activeRoom.email}));}catch(e){}
+  });
 }
 
 function resolveIncident(incidentKey,resolution){
@@ -2658,7 +2659,17 @@ function doCheckin(){
   sleep(1200).then(function(){
     sc.remove();
     checkedIn=true;updateCurrentCard();toast('Checked in','success');
-    if(_noshowIncidentKey){resolveIncident(_noshowIncidentKey,'late_checkin');_noshowIncidentKey=null;}
+    try{
+      var _noshowRaw=localStorage.getItem('ris_noshow_incident');
+      if(_noshowRaw){
+        var _noshowRec=JSON.parse(_noshowRaw);
+        var _ci=getCur()||getNext();
+        if(_noshowRec.key&&_noshowRec.room===activeRoom.email&&_ci&&_noshowRec.meetingId===_ci.id){
+          resolveIncident(_noshowRec.key,'late_checkin');
+        }
+        localStorage.removeItem('ris_noshow_incident');
+      }
+    }catch(e){}
     // Persist check-in so it survives page reload (SW auto-update, manual refresh, etc.)
     // Use getCur() OR getNext() — "Early Check In" (up to 15 min before start)
     // calls this same function while the meeting is still upcoming, not current,
