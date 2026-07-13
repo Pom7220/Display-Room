@@ -30,7 +30,8 @@ public class BootReceiver extends BroadcastReceiver {
         int hour = now.get(Calendar.HOUR_OF_DAY);
         int day  = now.get(Calendar.DAY_OF_WEEK);
         boolean isWeekend    = (day == Calendar.SATURDAY || day == Calendar.SUNDAY);
-        boolean isOfficeHours = !isWeekend && hour >= 8 && hour < 20;
+        int minute = now.get(Calendar.MINUTE);
+        boolean isOfficeHours = !isWeekend && (hour > 7 || (hour == 7 && minute >= 30)) && hour < 20;
 
         if (isOfficeHours) {
             // Delay so MEET IN TOUCH can open first, then our WebView takes over

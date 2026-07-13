@@ -29,7 +29,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
             }
             // Weekend: stay in standby, do nothing
             // Reschedule next day's exact alarm
-            setExactAlarm(context, ACTION_WAKE, 2, 8, 0);
+            setExactAlarm(context, ACTION_WAKE, 2, 7, 30);
 
         } else if (ACTION_RESTART.equals(action)) {
             // Switch to StandbyActivity to destroy the WebView and free memory.
@@ -46,7 +46,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
     // not batched by Android which can delay setInexactRepeating by 2-3 hours.
     static void schedule(Context context) {
         setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
-        setExactAlarm(context, ACTION_WAKE,    2,  8,  0);
+        setExactAlarm(context, ACTION_WAKE,    2,  7, 30);
         setExactAlarm(context, ACTION_RESTART, 3,  6,  0);
     }
 
