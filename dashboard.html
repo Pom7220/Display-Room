@@ -1121,9 +1121,9 @@ function renderAdminRooms(rooms, latestVersion) {
     }
 
     const apkOutdated = latestVersion && r && (!r.apkVersion || r.apkVersion !== latestVersion);
-    const versionBadge = apkOutdated
-      ? '<span style="color:var(--amber);font-weight:700">⚠️ APK ' + (r.apkVersion || '?') + '</span>'
-      : versionText;
+    const versionBadge = (apkOutdated
+      ? '<span style="color:var(--amber);font-weight:700">⚠️ APK ' + (r.apkVersion || '?') + '</span> '
+      : '') + versionText;
 
     var card = '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
