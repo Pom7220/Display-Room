@@ -818,6 +818,9 @@ async function generateWeeklyNoshowReport(env) {
         organizer: detail.organizer || '',
         organizerEmail: detail.organizerEmail || '',
         subject: detail.subject || '(no title)',
+        meetingStart: detail.meetingStart || '',
+        meetingEnd: detail.meetingEnd || '',
+        reportedAt: record.reportedAt || '',
         isLateCheckin: !!(record.resolvedAt && record.resolution === 'late_checkin')
       });
     }
@@ -847,7 +850,8 @@ async function generateWeeklyNoshowReport(env) {
       monLabel: monLabel,
       friLabel: friLabel,
       byOrganizer: byOrganizer.slice(0, 3),
-      byRoom: byRoom.slice(0, 3)
+      byRoom: byRoom.slice(0, 3),
+      noshows: noshows
     });
   } catch(e) {
     console.error('generateWeeklyNoshowReport failed:', e.message);
@@ -885,6 +889,68 @@ async function sendWeeklyEmail(env, data) {
         + r.count + (r.count === 1 ? ' no-show' : ' no-shows') + '</td></tr>';
     }).join('');
 
+    // Build daily detail — group by BKK date
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+    function fmtBkkTime(iso) {
+      if (!iso) return '';
+      var d = new Date(new Date(iso).getTime() + 7 * 3600000);
+      return pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes());
+    }
+    function bkkDateKey(iso) {
+      if (!iso) return '';
+      var d = new Date(new Date(iso).getTime() + 7 * 3600000);
+      return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+    }
+    function bkkDateLabel(iso) {
+      if (!iso) return '';
+      var d = new Date(new Date(iso).getTime() + 7 * 3600000);
+      return d.getUTCDate() + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+    }
+
+    var byDate = {};
+    (data.noshows || []).forEach(function(n) {
+      var ts = n.meetingStart || n.reportedAt;
+      var key = bkkDateKey(ts) || 'unknown';
+      var label = bkkDateLabel(ts) || 'Unknown date';
+      if (!byDate[key]) byDate[key] = { label: label, items: [] };
+      byDate[key].items.push(n);
+    });
+    var sortedDateKeys = Object.keys(byDate).sort();
+    var dailyHtml = '';
+    sortedDateKeys.forEach(function(dk) {
+      var group = byDate[dk];
+      // Sort items within a day by meetingStart
+      group.items.sort(function(a, b) {
+        return (a.meetingStart || a.reportedAt) < (b.meetingStart || b.reportedAt) ? -1 : 1;
+      });
+      var rows = group.items.map(function(n) {
+        var timeRange = n.meetingStart
+          ? fmtBkkTime(n.meetingStart) + ' – ' + fmtBkkTime(n.meetingEnd)
+          : fmtBkkTime(n.reportedAt);
+        var status = n.isLateCheckin
+          ? '<span style="color:#e65100;font-size:11px">late check-in</span>'
+          : '<span style="color:#c62828;font-size:11px">no-show</span>';
+        return '<tr style="border-bottom:1px solid #f0f0f0">'
+          + '<td style="padding:5px 10px 5px 0;white-space:nowrap;color:#555;font-size:13px">' + timeRange + '</td>'
+          + '<td style="padding:5px 10px 5px 0;font-size:13px">' + n.subject + '</td>'
+          + '<td style="padding:5px 10px 5px 0;font-size:13px;color:#333">' + (n.organizer || n.organizerEmail || '—') + '</td>'
+          + '<td style="padding:5px 10px 5px 0;font-size:13px;color:#555">' + n.roomname + '</td>'
+          + '<td style="padding:5px 0;font-size:11px">' + status + '</td>'
+          + '</tr>';
+      }).join('');
+      dailyHtml += '<h4 style="margin:20px 0 6px;color:#1a1a2e">' + group.label + '</h4>'
+        + '<table style="border-collapse:collapse;width:100%;font-size:13px">'
+        + '<tr style="border-bottom:2px solid #ddd">'
+        + '<th style="padding:4px 10px 4px 0;text-align:left;font-size:12px;color:#888">Time</th>'
+        + '<th style="padding:4px 10px 4px 0;text-align:left;font-size:12px;color:#888">Meeting</th>'
+        + '<th style="padding:4px 10px 4px 0;text-align:left;font-size:12px;color:#888">Organizer</th>'
+        + '<th style="padding:4px 10px 4px 0;text-align:left;font-size:12px;color:#888">Room</th>'
+        + '<th style="padding:4px 0;text-align:left;font-size:12px;color:#888">Status</th>'
+        + '</tr>'
+        + rows + '</table>';
+    });
+
     var completeNoshow = data.total - data.lateCheckins;
     bodyRows = '<p><strong>Total no-shows this week: ' + data.total + '</strong>'
       + ' &nbsp;<span style="color:#c62828;font-size:13px">(' + completeNoshow + ' complete no-show'
@@ -895,7 +961,9 @@ async function sendWeeklyEmail(env, data) {
       + '<h3 style="margin-bottom:6px">Top Organizers</h3>'
       + '<table style="border-collapse:collapse;font-size:14px">' + orgRows + '</table>'
       + '<h3 style="margin-top:20px;margin-bottom:6px">Most Affected Rooms</h3>'
-      + '<table style="border-collapse:collapse;font-size:14px">' + roomRows + '</table>';
+      + '<table style="border-collapse:collapse;font-size:14px">' + roomRows + '</table>'
+      + '<h3 style="margin-top:28px;margin-bottom:4px">Daily Detail</h3>'
+      + dailyHtml;
   }
 
   var html = '<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;padding:24px">'
