@@ -126,12 +126,6 @@ export default {
       // POST /api/noshow/send-report — manually trigger weekly email (protected, for testing)
       if (path === '/api/noshow/send-report' && method === 'POST') {
         if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
-        // Debounce: block duplicate sends within 30 minutes
-        var lastSent = await env.RIS_KV.get('noshow_report_last_sent');
-        if (lastSent && (Date.now() - parseInt(lastSent)) < 30 * 60 * 1000) {
-          return jsonResponse({ ok: false, message: 'Report already sent recently — wait 30 minutes' });
-        }
-        await env.RIS_KV.put('noshow_report_last_sent', String(Date.now()), { expirationTtl: 3600 });
         await generateWeeklyNoshowReport(env);
         return jsonResponse({ ok: true, message: 'Weekly report triggered' });
       }
