@@ -1101,7 +1101,7 @@ async function getServiceToken(env) {
     if (data.access_token) {
       _cachedToken = data.access_token;
       // expires_in is in seconds; default to 1h if missing
-      _cachedTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+      _cachedTokenExpiry = Date.now() + Math.min((data.expires_in || 3600), 10 * 60) * 1000;
     }
     return data.access_token || null;
   } catch(e) { return null; }
