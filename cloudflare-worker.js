@@ -1070,7 +1070,16 @@ async function handleEventPatch(request, env) {
 // SERVICE TOKEN — ROPC for Graph API calls
 // ═══════════════════════════════════════
 
+// Module-level cache — survives across requests within the same Worker instance.
+// Workers are evicted after ~30s idle, so this naturally resets; no stale-token risk.
+var _cachedToken = null;
+var _cachedTokenExpiry = 0; // Unix ms
+
 async function getServiceToken(env) {
+  // Return cached token if still valid for at least 5 more minutes
+  if (_cachedToken && Date.now() < _cachedTokenExpiry - 5 * 60 * 1000) {
+    return _cachedToken;
+  }
   var svcUser = env.RIS_SVC_USER || '';
   var svcPass = env.RIS_SVC_PASSWORD || '';
   var tenantId = env.RIS_TENANT_ID || '';
@@ -1089,6 +1098,11 @@ async function getServiceToken(env) {
         + '&grant_type=password'
     });
     var data = await resp.json();
+    if (data.access_token) {
+      _cachedToken = data.access_token;
+      // expires_in is in seconds; default to 1h if missing
+      _cachedTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+    }
     return data.access_token || null;
   } catch(e) { return null; }
 }
