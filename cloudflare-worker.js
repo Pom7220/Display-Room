@@ -913,46 +913,45 @@ async function sendWeeklyEmail(env, data) {
       if (n.isLateCheckin) byDate[key].late++; else byDate[key].noshow++;
     });
     var sortedDateKeys = Object.keys(byDate).sort();
-    // Fixed column widths ensure consistent alignment across all day tables
-    var colGroup = '<colgroup>'
-      + '<col style="width:110px"><col style="width:220px">'
-      + '<col style="width:175px"><col style="width:100px"><col style="width:85px">'
-      + '</colgroup>';
-    var thead = '<tr style="border-bottom:2px solid #ddd">'
-      + '<th style="padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888">Time</th>'
-      + '<th style="padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888">Meeting</th>'
-      + '<th style="padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888">Organizer</th>'
-      + '<th style="padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888">Room</th>'
-      + '<th style="padding:4px 0;text-align:left;font-size:12px;color:#888">Status</th>'
+    // Single table for all days — Outlook ignores table-layout:fixed/colgroup,
+    // so width attributes on every th/td are the only reliable alignment method.
+    var W = { time: '110', meet: '200', org: '160', room: '90', status: '80' };
+    var allRows = '<tr>'
+      + '<th width="' + W.time + '" style="width:' + W.time + 'px;padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888;border-bottom:2px solid #ddd">Time</th>'
+      + '<th width="' + W.meet + '" style="width:' + W.meet + 'px;padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888;border-bottom:2px solid #ddd">Meeting</th>'
+      + '<th width="' + W.org  + '" style="width:' + W.org  + 'px;padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888;border-bottom:2px solid #ddd">Organizer</th>'
+      + '<th width="' + W.room + '" style="width:' + W.room + 'px;padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888;border-bottom:2px solid #ddd">Room</th>'
+      + '<th width="' + W.status + '" style="width:' + W.status + 'px;padding:4px 0;text-align:left;font-size:12px;color:#888;border-bottom:2px solid #ddd">Status</th>'
       + '</tr>';
-    var dailyHtml = '';
     sortedDateKeys.forEach(function(dk) {
       var group = byDate[dk];
       group.items.sort(function(a, b) {
         return (a.meetingStart || a.reportedAt) < (b.meetingStart || b.reportedAt) ? -1 : 1;
       });
-      var rows = group.items.map(function(n) {
+      var dayTotals = group.noshow + ' no-show' + (group.noshow !== 1 ? 's' : '')
+        + (group.late > 0 ? ', ' + group.late + ' late check-in' + (group.late !== 1 ? 's' : '') : '');
+      // Date separator row spanning all columns
+      allRows += '<tr><td colspan="5" style="padding:18px 0 4px;font-size:14px;font-weight:bold;color:#1a1a2e">'
+        + group.label
+        + ' <span style="font-weight:normal;color:#888;font-size:12px">— ' + dayTotals + '</span>'
+        + '</td></tr>';
+      group.items.forEach(function(n) {
         var timeRange = n.meetingStart
           ? fmtBkkTime(n.meetingStart) + ' – ' + fmtBkkTime(n.meetingEnd)
           : fmtBkkTime(n.reportedAt);
         var status = n.isLateCheckin
           ? '<span style="color:#e65100;font-size:11px">late check-in</span>'
           : '<span style="color:#c62828;font-size:11px">no-show</span>';
-        return '<tr style="border-bottom:1px solid #f0f0f0">'
-          + '<td style="padding:5px 8px 5px 0;white-space:nowrap;color:#555;font-size:13px">' + timeRange + '</td>'
-          + '<td style="padding:5px 8px 5px 0;font-size:13px;word-break:break-word">' + n.subject + '</td>'
-          + '<td style="padding:5px 8px 5px 0;font-size:13px;color:#333">' + (n.organizer || n.organizerEmail || '—') + '</td>'
-          + '<td style="padding:5px 8px 5px 0;font-size:13px;color:#555">' + n.roomname + '</td>'
-          + '<td style="padding:5px 0;font-size:11px">' + status + '</td>'
+        allRows += '<tr style="border-bottom:1px solid #f0f0f0">'
+          + '<td width="' + W.time + '" style="width:' + W.time + 'px;padding:5px 8px 5px 0;white-space:nowrap;color:#555;font-size:13px">' + timeRange + '</td>'
+          + '<td width="' + W.meet + '" style="width:' + W.meet + 'px;padding:5px 8px 5px 0;font-size:13px;word-break:break-word">' + n.subject + '</td>'
+          + '<td width="' + W.org  + '" style="width:' + W.org  + 'px;padding:5px 8px 5px 0;font-size:13px;color:#333">' + (n.organizer || n.organizerEmail || '—') + '</td>'
+          + '<td width="' + W.room + '" style="width:' + W.room + 'px;padding:5px 8px 5px 0;font-size:13px;color:#555">' + n.roomname + '</td>'
+          + '<td width="' + W.status + '" style="width:' + W.status + 'px;padding:5px 0;font-size:11px">' + status + '</td>'
           + '</tr>';
-      }).join('');
-      var dayTotals = group.noshow + ' no-show' + (group.noshow !== 1 ? 's' : '')
-        + (group.late > 0 ? ', ' + group.late + ' late check-in' + (group.late !== 1 ? 's' : '') : '');
-      dailyHtml += '<h4 style="margin:24px 0 2px;color:#1a1a2e">' + group.label
-        + ' <span style="font-weight:normal;color:#888;font-size:12px">— ' + dayTotals + '</span></h4>'
-        + '<table style="border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px">'
-        + colGroup + thead + rows + '</table>';
+      });
     });
+    var dailyHtml = '<table style="border-collapse:collapse;width:100%;font-size:13px">' + allRows + '</table>';
 
     var completeNoshow = data.total - data.lateCheckins;
     bodyRows = '<p><strong>Total no-shows this week: ' + data.total + '</strong>'
