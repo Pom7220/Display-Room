@@ -915,7 +915,8 @@ async function sendWeeklyEmail(env, data) {
     var sortedDateKeys = Object.keys(byDate).sort();
     // Single table for all days — Outlook ignores table-layout:fixed/colgroup,
     // so width attributes on every th/td are the only reliable alignment method.
-    var W = { time: '110', meet: '200', org: '160', room: '90', status: '80' };
+    function trunc(str, max) { return str && str.length > max ? str.slice(0, max - 1) + '…' : (str || ''); }
+    var W = { time: '105', meet: '185', org: '150', room: '85', status: '75' };
     var allRows = '<tr>'
       + '<th width="' + W.time + '" style="width:' + W.time + 'px;padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888;border-bottom:2px solid #ddd">Time</th>'
       + '<th width="' + W.meet + '" style="width:' + W.meet + 'px;padding:4px 8px 4px 0;text-align:left;font-size:12px;color:#888;border-bottom:2px solid #ddd">Meeting</th>'
@@ -944,8 +945,8 @@ async function sendWeeklyEmail(env, data) {
           : '<span style="color:#c62828;font-size:11px">no-show</span>';
         allRows += '<tr style="border-bottom:1px solid #f0f0f0">'
           + '<td width="' + W.time + '" style="width:' + W.time + 'px;padding:5px 8px 5px 0;white-space:nowrap;color:#555;font-size:13px">' + timeRange + '</td>'
-          + '<td width="' + W.meet + '" style="width:' + W.meet + 'px;padding:5px 8px 5px 0;font-size:13px;word-break:break-word">' + n.subject + '</td>'
-          + '<td width="' + W.org  + '" style="width:' + W.org  + 'px;padding:5px 8px 5px 0;font-size:13px;color:#333">' + (n.organizer || n.organizerEmail || '—') + '</td>'
+          + '<td width="' + W.meet + '" style="width:' + W.meet + 'px;padding:5px 8px 5px 0;font-size:13px;overflow:hidden">' + trunc(n.subject, 28) + '</td>'
+          + '<td width="' + W.org  + '" style="width:' + W.org  + 'px;padding:5px 8px 5px 0;font-size:13px;color:#333;overflow:hidden">' + trunc(n.organizer || n.organizerEmail || '—', 22) + '</td>'
           + '<td width="' + W.room + '" style="width:' + W.room + 'px;padding:5px 8px 5px 0;font-size:13px;color:#555">' + n.roomname + '</td>'
           + '<td width="' + W.status + '" style="width:' + W.status + 'px;padding:5px 0;font-size:11px">' + status + '</td>'
           + '</tr>';
