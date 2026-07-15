@@ -5,10 +5,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import java.util.Calendar;
+import java.security.Security;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import org.conscrypt.Conscrypt;
 
 public class ScheduleReceiver extends BroadcastReceiver {
 
@@ -94,6 +96,10 @@ public class ScheduleReceiver extends BroadcastReceiver {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
+                    // Install Conscrypt so TLS 1.2 works on Android 4.4 even when the
+                    // main app hasn't run yet (alarm fires from a fresh process).
+                    try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
+
                     SharedPreferences prefs = context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE);
                     String room = prefs.getString("room_email", "");
                     if (room.isEmpty()) return;
