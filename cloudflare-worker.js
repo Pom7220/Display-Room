@@ -29,7 +29,8 @@ export default {
     var nowBkkDay = new Date(Date.now() + 7 * 3600000).getUTCDay(); // 5 = Friday
     var isFriday = nowBkkDay === 5;
 
-    await generateDailyReport(env);
+    var report = await generateDailyReport(env);
+    await sendDailyHealthDigest(env, report);
     if (isFriday) {
       await generateWeeklyNoshowReport(env);
     }
@@ -121,6 +122,14 @@ export default {
       if (path === '/api/noshow' && method === 'GET') {
         if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
         return handleNoshowStats(url, env);
+      }
+
+      // POST /api/health/send-digest — manually trigger daily health digest email
+      if (path === '/api/health/send-digest' && method === 'POST') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        var digestReport = await generateDailyReport(env);
+        await sendDailyHealthDigest(env, digestReport);
+        return jsonResponse({ ok: true });
       }
 
       // POST /api/noshow/send-report — manually trigger weekly email (protected, for testing)
@@ -1020,6 +1029,274 @@ async function sendWeeklyEmail(env, data) {
   } else {
     var errBody = await resp.text().catch(function(){ return ''; });
     console.error('sendWeeklyEmail Graph error', resp.status, errBody);
+  }
+}
+
+// ═══════════════════════════════════════
+// DAILY HEALTH DIGEST EMAIL
+// ═══════════════════════════════════════
+
+async function sendDailyHealthDigest(env, report) {
+  try {
+    var token = await getGraphToken(env);
+    var now = Date.now();
+    var bkkNow = new Date(now + 7 * 3600000);
+    var todayBkk = bkkNow.toISOString().slice(0, 10);
+
+    // ── Collect full room data (heartbeat + alarm log) ──
+    var list = await env.RIS_KV.list({ prefix: 'room:' });
+    var roomData = [];
+    for (var i = 0; i < list.keys.length; i++) {
+      var val = await env.RIS_KV.get(list.keys[i].name);
+      if (val) roomData.push(JSON.parse(val));
+    }
+    roomData.sort(function(a, b) { return (a.roomname || '').localeCompare(b.roomname || ''); });
+
+    // ── Collect today's + yesterday's incidents ──
+    var yesterdayBkk = new Date(bkkNow.getTime() - 86400000).toISOString().slice(0, 10);
+    var indexRaw = await env.RIS_KV.get('incidents_index');
+    var incIndex = indexRaw ? JSON.parse(indexRaw) : [];
+    var recentIncidents = [];
+    for (var j = 0; j < Math.min(incIndex.length, 150); j++) {
+      var inc = await env.RIS_KV.get(incIndex[j]);
+      if (inc) {
+        var rec = JSON.parse(inc);
+        var d = (rec.reportedAt || '').slice(0, 10);
+        if (d === todayBkk || d === yesterdayBkk) recentIncidents.push(rec);
+      }
+    }
+
+    // ── Alarm chain analysis ──
+    // Expected today (UTC): restart ~23:00 yesterday, wake ~00:30 today, standby ~13:30 today
+    var ALARM_WINDOW_MS = 25 * 60 * 1000; // ±25 min tolerance
+    var todayUTC = new Date(now).toISOString().slice(0, 10);
+    var yestUTC  = new Date(now - 86400000).toISOString().slice(0, 10);
+
+    function alarmExpected(isoTarget) {
+      return now > new Date(isoTarget).getTime() + ALARM_WINDOW_MS;
+    }
+
+    var restartTarget = yestUTC + 'T23:00:00Z'; // 06:00 BKK today
+    var wakeTarget    = todayUTC + 'T00:30:00Z'; // 07:30 BKK today
+    var standbyTarget = todayUTC + 'T13:30:00Z'; // 20:30 BKK today
+
+    function findAlarm(log, eventType, targetIso) {
+      var targetMs = new Date(targetIso).getTime();
+      return (log || []).some(function(e) {
+        return e.event === eventType && Math.abs(new Date(e.ts).getTime() - targetMs) < ALARM_WINDOW_MS;
+      });
+    }
+
+    // ── Per-room analysis ──
+    var allVersions = [];
+    var allApkVersions = [];
+    var roomRows = '';
+    var anomalies = [];
+    var crashBoots = [];
+
+    roomData.forEach(function(r) {
+      var ageMins = (now - new Date(r.timestamp).getTime()) / 60000;
+      var online = ageMins < 70;
+      var statusIcon = online ? '✅' : '❌';
+      var flags = [];
+
+      // Version check
+      if (r.version) allVersions.push(r.version);
+      if (r.apkVersion) allApkVersions.push(r.apkVersion);
+
+      // Alarm chain gaps
+      var alarmLog = r.alarmLog || [];
+      var restartOk = !alarmExpected(restartTarget) || findAlarm(alarmLog, 'restart', restartTarget);
+      var wakeOk    = !alarmExpected(wakeTarget)    || findAlarm(alarmLog, 'wake',    wakeTarget);
+      var standbyOk = !alarmExpected(standbyTarget) || findAlarm(alarmLog, 'standby', standbyTarget);
+      if (!restartOk) flags.push('⚠️ missing 06:00 restart');
+      if (!wakeOk)    flags.push('⚠️ missing 07:30 wake');
+      if (!standbyOk) flags.push('⚠️ missing 20:30 standby');
+
+      // Offline
+      if (!online) {
+        flags.push('❌ offline ' + Math.round(ageMins) + 'min');
+        anomalies.push(r.roomname + ': offline ' + Math.round(ageMins) + ' min (last seen ' + new Date(r.timestamp).toISOString() + ')');
+      }
+
+      if (flags.length) {
+        anomalies.push(r.roomname + ': ' + flags.join(', '));
+      }
+
+      var flagStr = flags.length ? ' — ' + flags.join(', ') : '';
+      roomRows += '<tr>'
+        + '<td style="padding:4px 10px 4px 0;font-weight:600">' + statusIcon + ' ' + r.roomname + '</td>'
+        + '<td style="padding:4px 10px;color:#555;font-size:12px">' + (r.version || '?') + ' / APK ' + (r.apkVersion || '?') + '</td>'
+        + '<td style="padding:4px 10px;color:#555;font-size:12px">' + Math.round(ageMins) + 'm ago</td>'
+        + '<td style="padding:4px 0;font-size:12px;color:' + (flags.length ? '#cc3333' : '#339933') + '">'
+          + (flags.length ? flags.join(' ') : '✓ OK') + '</td>'
+        + '</tr>';
+    });
+
+    // ── Version consistency ──
+    var uniqueVersions = allVersions.filter(function(v, i, a) { return a.indexOf(v) === i; });
+    var uniqueApk = allApkVersions.filter(function(v, i, a) { return a.indexOf(v) === i; });
+    if (uniqueVersions.length > 1) anomalies.push('Version mismatch across tablets: ' + uniqueVersions.join(', '));
+    if (uniqueApk.length > 1) anomalies.push('APK version mismatch: ' + uniqueApk.join(', '));
+
+    // ── Crash boot incidents ──
+    recentIncidents.forEach(function(inc) {
+      if (inc.type === 'boot_detected' && inc.description && inc.description.indexOf('stale') !== -1) {
+        crashBoots.push({
+          room: inc.room || inc.roomname || '?',
+          ts: inc.reportedAt,
+          desc: inc.description
+        });
+        anomalies.push('Crash/unexpected reboot: ' + (inc.room || inc.roomname) + ' at ' + new Date(inc.reportedAt).toISOString());
+      }
+    });
+
+    // ── Open incidents ──
+    var openIncidents = recentIncidents.filter(function(i) { return !i.resolvedAt; });
+    openIncidents.forEach(function(inc) {
+      anomalies.push('Open incident: [' + inc.type + '] ' + (inc.room || '') + ' — ' + (inc.description || ''));
+    });
+
+    // ── KV write estimate ──
+    var kvWritesPerDay = roomData.length * 24 + roomData.length * 3 + 5; // heartbeat ~1/hr + 3 alarms + overhead
+
+    // ── Summary line ──
+    var onlineCount = roomData.filter(function(r) {
+      return (now - new Date(r.timestamp).getTime()) / 60000 < 70;
+    }).length;
+    var allOk = anomalies.length === 0;
+    var subjectEmoji = allOk ? '✅' : '⚠️';
+    var subject = '[RIS] Daily Health Digest ' + subjectEmoji + ' — ' + todayBkk
+      + (allOk ? ' — All Good' : ' — ' + anomalies.length + ' issue(s)');
+
+    // ── Anomaly section ──
+    var anomalyHtml = '';
+    if (anomalies.length) {
+      anomalyHtml = '<h3 style="color:#cc3333;margin-top:24px">⚠️ Issues (' + anomalies.length + ')</h3>'
+        + '<ul style="font-size:13px;color:#333;line-height:1.8">'
+        + anomalies.map(function(a) { return '<li>' + a + '</li>'; }).join('')
+        + '</ul>';
+    } else {
+      anomalyHtml = '<p style="color:#339933;font-weight:600;margin-top:16px">✅ No anomalies detected — everything looks healthy.</p>';
+    }
+
+    // ── Crash boot detail ──
+    var crashHtml = '';
+    if (crashBoots.length) {
+      crashHtml = '<h3 style="margin-top:20px">Unexpected Reboots / Crashes</h3>'
+        + '<table style="border-collapse:collapse;width:100%;font-size:12px">'
+        + '<tr style="background:#f5f5f5"><th style="padding:4px 8px;text-align:left">Room</th>'
+        + '<th style="padding:4px 8px;text-align:left">Time (UTC)</th>'
+        + '<th style="padding:4px 8px;text-align:left">Detail</th></tr>'
+        + crashBoots.map(function(c) {
+          return '<tr><td style="padding:4px 8px">' + c.room + '</td>'
+            + '<td style="padding:4px 8px">' + new Date(c.ts).toISOString().replace('T', ' ').slice(0, 16) + '</td>'
+            + '<td style="padding:4px 8px;color:#888">' + c.desc + '</td></tr>';
+        }).join('')
+        + '</table>';
+    }
+
+    // ── Claude prompt block (plain text, monospace) ──
+    var claudeData = {
+      reportDate: todayBkk,
+      generatedAtUTC: new Date(now).toISOString(),
+      tablets: roomData.map(function(r) {
+        var ageMins = Math.round((now - new Date(r.timestamp).getTime()) / 60000);
+        return {
+          room: r.roomname,
+          online: ageMins < 70,
+          lastSeenMinutesAgo: ageMins,
+          version: r.version,
+          apkVersion: r.apkVersion,
+          uptime: r.uptime,
+          meetingCount: r.meetingCount,
+          alarmLogToday: (r.alarmLog || []).filter(function(e) {
+            return e.ts && e.ts.startsWith(todayUTC) || e.ts.startsWith(yestUTC);
+          }),
+          alarmChain: {
+            restart06h: findAlarm(r.alarmLog, 'restart', restartTarget),
+            wake07h30: findAlarm(r.alarmLog, 'wake', wakeTarget),
+            standby20h30: findAlarm(r.alarmLog, 'standby', standbyTarget)
+          }
+        };
+      }),
+      incidents: recentIncidents,
+      anomalies: anomalies,
+      kvWriteEstimate: kvWritesPerDay + '/day (' + roomData.length + ' tablets)'
+    };
+
+    var claudePrompt = 'You are analyzing RIS Room Display — a meeting room kiosk system for 12 rooms at Central Silom Tower, Bangkok. Tablets run Android 4.4.2 with APK that has 3 scheduled alarms daily: restart at 06:00 BKK, wake at 07:30 BKK, standby at 20:30 BKK. The alarm chain is self-scheduling and breaks on cold restart.\n\n'
+      + 'Here is today\'s health snapshot:\n\n'
+      + JSON.stringify(claudeData, null, 2) + '\n\n'
+      + 'Please:\n'
+      + '1. Identify any tablets with problems (offline, alarm gaps, unexpected reboots)\n'
+      + '2. Spot patterns across rooms (e.g. same room crashing repeatedly, alarm chain consistently failing)\n'
+      + '3. Flag anything that needs action today vs. can wait\n'
+      + '4. Suggest 1-2 specific improvements to monitoring or the tablet software based on what you see';
+
+    var claudeHtml = '<h3 style="margin-top:28px">📋 Paste to Claude for Deeper Analysis</h3>'
+      + '<p style="font-size:12px;color:#555">Copy the block below and paste into Claude (claude.ai or Claude Code):</p>'
+      + '<pre style="background:#1a1a2e;color:#e0e0e0;padding:16px;border-radius:8px;font-size:11px;'
+      + 'white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto">'
+      + claudePrompt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      + '</pre>';
+
+    var html = '<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:680px;padding:24px">'
+      + '<h2 style="color:#1a1a2e">RIS Room Display — Daily Health Digest</h2>'
+      + '<p style="color:#555;font-size:13px">' + todayBkk + ' &nbsp;·&nbsp; Generated 20:00 BKK &nbsp;·&nbsp; '
+      + onlineCount + '/' + roomData.length + ' tablets online</p>'
+      + '<hr style="border:none;border-top:1px solid #eee;margin:16px 0">'
+      + anomalyHtml
+      + '<h3 style="margin-top:24px">Tablet Status</h3>'
+      + '<table style="border-collapse:collapse;width:100%;font-size:13px">'
+      + '<tr style="background:#f5f5f5">'
+      + '<th style="padding:4px 10px 4px 0;text-align:left">Room</th>'
+      + '<th style="padding:4px 10px;text-align:left">Version / APK</th>'
+      + '<th style="padding:4px 10px;text-align:left">Last seen</th>'
+      + '<th style="padding:4px 0;text-align:left">Alarm chain</th>'
+      + '</tr>'
+      + roomRows
+      + '</table>'
+      + (uniqueVersions.length > 1
+          ? '<p style="color:#cc3333;font-size:12px;margin-top:8px">⚠️ Version mismatch: ' + uniqueVersions.join(', ') + '</p>'
+          : '<p style="color:#888;font-size:12px;margin-top:8px">All tablets: ' + (uniqueVersions[0] || '?') + ' / APK ' + (uniqueApk[0] || '?') + '</p>')
+      + crashHtml
+      + '<hr style="border:none;border-top:1px solid #eee;margin:24px 0">'
+      + claudeHtml
+      + '<hr style="border:none;border-top:1px solid #eee;margin:24px 0">'
+      + '<p style="color:#999;font-size:11px">Sent automatically by RIS Room Display daily at 20:00 BKK.</p>'
+      + '</body></html>';
+
+    var mailPayload = {
+      message: {
+        subject: subject,
+        body: { contentType: 'HTML', content: html },
+        toRecipients: [{ emailAddress: { address: 'vorutchapon@central.co.th' } }]
+      },
+      saveToSentItems: false
+    };
+
+    var svcUser = env.RIS_SVC_USER || '';
+    var resp = await fetch(
+      'https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(svcUser) + '/sendMail',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(mailPayload)
+      }
+    );
+
+    if (resp.status === 202) {
+      console.log('Daily health digest sent OK');
+    } else {
+      var errBody = await resp.text().catch(function(){ return ''; });
+      console.error('sendDailyHealthDigest Graph error', resp.status, errBody);
+    }
+  } catch (e) {
+    console.error('sendDailyHealthDigest failed', e.message);
   }
 }
 
