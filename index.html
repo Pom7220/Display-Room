@@ -210,7 +210,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 .abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
 #noshow-left{position:absolute;top:0;left:0;bottom:0;width:20%;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-animation:noshow-blink 1.2s ease-in-out infinite;animation:noshow-blink 1.2s ease-in-out infinite;}
-#noshow-label{font-size:40px;font-weight:900;color:#fff;text-align:center;line-height:1.15;text-transform:uppercase;letter-spacing:2px;}
+#noshow-label{font-size:40px;font-weight:900;color:#000;text-align:center;line-height:1.15;text-transform:uppercase;letter-spacing:2px;}
 #noshow-msg{font-size:26px;font-weight:700;color:#fff;text-align:center;margin:10px 16px 8px;line-height:1.4;}
 #noshow-msg strong{color:#ff9500;}
 #noshow-mm,#noshow-ss{display:inline-block;color:#ff9500;-webkit-perspective:300px;perspective:300px;}
@@ -806,7 +806,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 144,
+  patch: 145,
   date: '2026-07-16',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
