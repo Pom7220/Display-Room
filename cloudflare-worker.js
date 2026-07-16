@@ -211,35 +211,52 @@ async function handleHeartbeat(request, env) {
       return jsonResponse({ error: 'Missing room' }, 400);
     }
 
-    // Build heartbeat record
-    var record = {
-      room: data.room,
-      roomname: data.roomname || '',
-      status: data.status || 'unknown',
-      tokenExpiry: data.tokenExpiry || null,
-      hasRefreshToken: !!data.hasRefreshToken,
-      version: data.version || '',
-      apkVersion: data.apkVersion || '',
-      lastCal: data.lastCal || null,
-      meetingCount: data.meetingCount || 0,
-      uptime: data.uptime || 0,
-      log: (data.log || []).slice(-10),
-      qrAvgPerDay: data.qrAvgPerDay || 0,
-      qrPeakDay: data.qrPeakDay || 0,
-      timestamp: new Date().toISOString(),
-      ip: request.headers.get('CF-Connecting-IP') || ''
-    };
+    var roomKey = 'room:' + data.room;
+    var cmdKey  = 'cmd:'  + data.room;
 
-    // Store in KV (TTL 1 hour — if no heartbeat for 1h, record expires)
-    await env.RIS_KV.put(
-      'room:' + data.room,
-      JSON.stringify(record),
-      { expirationTtl: 3600 }
-    );
+    // Read existing record and pending command in parallel (reads are cheap)
+    var [existingRaw, pendingCmd] = await Promise.all([
+      env.RIS_KV.get(roomKey),
+      env.RIS_KV.get(cmdKey)
+    ]);
 
-    // Check if there's a pending command for this tablet
-    var cmdKey = 'cmd:' + data.room;
-    var pendingCmd = await env.RIS_KV.get(cmdKey);
+    var prev = existingRaw ? JSON.parse(existingRaw) : null;
+    var newStatus  = data.status  || 'unknown';
+    var newVersion = data.version || '';
+    var newApk     = data.apkVersion || '';
+    var newRefresh = !!data.hasRefreshToken;
+
+    // Only write if something health-critical changed, or >55 min since last write.
+    // This keeps heartbeat KV writes to ~1/hour per room instead of 3/hour.
+    var msSinceLast = prev ? Date.now() - new Date(prev.timestamp).getTime() : Infinity;
+    var criticalChange = !prev
+      || prev.status         !== newStatus
+      || prev.version        !== newVersion
+      || prev.apkVersion     !== newApk
+      || prev.hasRefreshToken !== newRefresh;
+    var staleEnough = msSinceLast > 55 * 60 * 1000;
+
+    if (criticalChange || staleEnough) {
+      var record = {
+        room: data.room,
+        roomname: data.roomname || '',
+        status: newStatus,
+        tokenExpiry: data.tokenExpiry || null,
+        hasRefreshToken: newRefresh,
+        version: newVersion,
+        apkVersion: newApk,
+        lastCal: data.lastCal || null,
+        meetingCount: data.meetingCount || 0,
+        uptime: data.uptime || 0,
+        log: (data.log || []).slice(-10),
+        qrAvgPerDay: data.qrAvgPerDay || 0,
+        qrPeakDay: data.qrPeakDay || 0,
+        timestamp: new Date().toISOString(),
+        ip: request.headers.get('CF-Connecting-IP') || ''
+      };
+      // TTL 2 hours — covers up to 55-min write interval with headroom
+      await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
+    }
 
     return jsonResponse({
       ok: true,
@@ -300,7 +317,7 @@ async function handleStatus(env) {
           (Date.now() - new Date(record.timestamp).getTime()) / 60000
         );
         record.lastSeenMinutes = lastSeen;
-        record.isOnline = lastSeen < 30;
+        record.isOnline = lastSeen < 70; // writes every ~55min, so 70min gives safe headroom
         // Include recent alarm events for this room
         var alarmRaw = await env.RIS_KV.get('alarm_log:' + record.room);
         record.alarmLog = alarmRaw ? JSON.parse(alarmRaw).slice(0, 10) : [];
