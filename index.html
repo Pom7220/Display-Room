@@ -225,6 +225,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;-webkit-animation:none;animation:none;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
 .abtn-end{touch-action:manipulation;background:#8a0a0a;color:#ffaaaa;border:2px solid #cc2222;}
+.abtn-end-early{touch-action:manipulation;background:transparent;color:#aa4444;border:1px solid #663333;font-size:15px;font-weight:600;min-width:auto;min-height:36px;padding:8px 20px;margin-top:6px;}
 .abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:0;-webkit-border-radius:50%;border-radius:50%;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;font-size:12px;font-weight:700;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;text-align:center;line-height:1.3;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;}
 .abtn-teams{background:#1a1a5a;color:#aaaaff;border:2px solid #3333aa;}
 .abtn-pend{background:#3a2200;color:#ffcc44;border:2px solid #886600;cursor:default;-webkit-box-flex:2;-webkit-flex:2;flex:2;}
@@ -805,8 +806,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 143,
-  date: '2026-07-13',
+  patch: 144,
+  date: '2026-07-16',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -878,6 +879,16 @@ var CFG_KEY='roomdisplay_v5';
 var cfg={},msalInst=null,account=null;
 var meetings=[],pendingLocal=[],checkedIn=false,selDurMin=60,_todayOverflow=[],_instantBookings={};
 var _cardCountdownTimer=null;
+var _ENDED_EARLY_KEY='ris_ended_early';
+function setEndedEarly(meetingId,room){
+  try{localStorage.setItem(_ENDED_EARLY_KEY,JSON.stringify({meetingId:meetingId,room:room,endedAt:Date.now()}));}catch(e){}
+}
+function getEndedEarly(){
+  try{var r=localStorage.getItem(_ENDED_EARLY_KEY);return r?JSON.parse(r):null;}catch(e){return null;}
+}
+function clearEndedEarly(){
+  try{localStorage.removeItem(_ENDED_EARLY_KEY);}catch(e){}
+}
 
 // Load persisted pending bookings from localStorage
 function loadPendingLocal(){
@@ -2332,6 +2343,27 @@ function updateCurrentCard(){
   if(_cardCountdownTimer){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;}
   var n=new Date(),cur=getCur(),nxt=getNext();
   var card=el('cur-card'),cont=el('cur-content');
+  // Released-early state: meeting ended early by organizer tap
+  var _ee=getEndedEarly();
+  if(_ee&&cur&&_ee.meetingId===cur.id&&_ee.room===activeRoom.email){
+    if(new Date()<cur.end){
+      setTheme('available');
+      el('status-txt').textContent='Released Early';
+      el('sdot').className='sdot av';
+      cont.innerHTML=
+        '<div class="meet-tag avail">RELEASED</div>'+
+        '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
+        '<div class="meet-time-lg" style="color:#64b5f6">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
+        (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'<\/div>':'');
+      el('action-row-outer').innerHTML=
+        '<div style="text-align:center;font-size:18px;font-weight:700;color:#44ee88;margin:10px 0">'+
+        '&#10003;&nbsp;Room released early &middot; Available now</div>';
+      el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
+      return;
+    } else {
+      clearEndedEarly();
+    }
+  }
   // Check for any pending local bookings to show notice
   var hasPending=pendingLocal.length>0&&pendingLocal.some(function(p){return p.end>n;});
 
@@ -2415,8 +2447,8 @@ function updateCurrentCard(){
       if(!checkedIn){
         btns='<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>';
       } else if(!isAllDay(cur)){
-        btns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
-        btns+='<button class="abtn abtn-extend" id="ext-btn"><span style="display:block;text-align:center">+30</span><span style="display:block;text-align:center">min</span></button>';
+        btns='<button class="abtn abtn-extend" id="ext-btn"><span style="display:block;text-align:center">+30</span><span style="display:block;text-align:center">min</span></button>';
+        btns+='<br><button class="abtn abtn-end-early" id="end-btn">End early</button>';
       }
     }
     var warn='';
@@ -2446,8 +2478,8 @@ function updateCurrentCard(){
         '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
         '<div class="meet-time-lg" style="color:#ff6666">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
         (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
-      var earlyBtns='<button class="abtn abtn-end" id="end-btn">'+svgX()+' End</button>';
-      earlyBtns+='<button class="abtn abtn-extend" id="ext-btn"><span style="display:block;text-align:center">+30</span><span style="display:block;text-align:center">min</span></button>';
+      var earlyBtns='<button class="abtn abtn-extend" id="ext-btn"><span style="display:block;text-align:center">+30</span><span style="display:block;text-align:center">min</span></button>';
+      earlyBtns+='<br><button class="abtn abtn-end-early" id="end-btn">End early</button>';
       el('action-row-outer').innerHTML='<div class="action-row">'+earlyBtns+'</div>';
     } else if(earlyCheckin){
       // ── UPCOMING ≤15min — check-in open ──
@@ -2679,6 +2711,13 @@ function doCheckin(){
       try{localStorage.setItem('roomdisplay_checkedin',JSON.stringify({id:cur.id,start:cur.start.getTime(),room:activeRoom.email}));}catch(e){}
     }
   });
+}
+function endMeetingEarly(){
+  var cur=getCur();if(!cur&&checkedIn)cur=getNext();if(!cur)return;
+  setEndedEarly(cur.id,activeRoom.email);
+  checkedIn=false;
+  try{localStorage.removeItem('roomdisplay_checkedin');}catch(e){}
+  updateCurrentCard();
 }
 function endMeeting(){
   var cur=getCur();if(!cur&&checkedIn)cur=getNext();if(!cur)return;
@@ -3284,7 +3323,7 @@ function handleTap(e){
 
   // Current card actions
   if(upId(t,'checkin-btn')){e.preventDefault();doCheckin();return;}
-  if(upId(t,'end-btn')){e.preventDefault();endMeeting();return;}
+  if(upId(t,'end-btn')){e.preventDefault();endMeetingEarly();return;}
   if(upId(t,'ext-btn')){e.preventDefault();extendMeeting();return;}
   if(upId(t,'teams-btn')){e.preventDefault();var cur=getCur();if(cur&&cur.joinUrl)joinTeams(cur.joinUrl);return;}
   if(upId(t,'more-list-btn')){e.preventDefault();openDaysPanel();return;}
