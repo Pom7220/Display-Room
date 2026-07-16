@@ -806,7 +806,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 147,
+  patch: 148,
   date: '2026-07-16',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1772,6 +1772,16 @@ function getMonitorStatus(){
         for(var i=0;i<keys.length;i++)if(counts[keys[i]]>peak)peak=counts[keys[i]];
         return peak;
       }catch(e){return 0;}
+    }()),
+    endedEarly: (function(){
+      try{
+        var ee=getEndedEarly();
+        if(!ee)return null;
+        var cur=getCur();
+        if(!cur||ee.meetingId!==cur.id||ee.room!==activeRoom.email)return null;
+        if(new Date()>=cur.end){clearEndedEarly();return null;}
+        return {meetingId:ee.meetingId,endedAt:ee.endedAt};
+      }catch(e){return null;}
     }())
   };
 }
