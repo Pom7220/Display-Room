@@ -1043,12 +1043,17 @@ async function sendDailyHealthDigest(env, report) {
     var bkkNow = new Date(now + 7 * 3600000);
     var todayBkk = bkkNow.toISOString().slice(0, 10);
 
-    // ── Collect full room data (heartbeat + alarm log) ──
+    // ── Collect full room data (heartbeat + alarm log from separate KV key) ──
     var list = await env.RIS_KV.list({ prefix: 'room:' });
     var roomData = [];
     for (var i = 0; i < list.keys.length; i++) {
       var val = await env.RIS_KV.get(list.keys[i].name);
-      if (val) roomData.push(JSON.parse(val));
+      if (!val) continue;
+      var rec = JSON.parse(val);
+      // Alarm log is stored separately — merge it in (same as handleStatus does)
+      var alarmRaw = await env.RIS_KV.get('alarm_log:' + rec.room);
+      rec.alarmLog = alarmRaw ? JSON.parse(alarmRaw) : [];
+      roomData.push(rec);
     }
     roomData.sort(function(a, b) { return (a.roomname || '').localeCompare(b.roomname || ''); });
 
@@ -1140,21 +1145,37 @@ async function sendDailyHealthDigest(env, report) {
     if (uniqueApk.length > 1) anomalies.push('APK version mismatch: ' + uniqueApk.join(', '));
 
     // ── Crash boot incidents ──
+    // Unexpected = boot_detected that does NOT land near a scheduled alarm time
+    // Expected alarm UTC times: restart ~23:00 prev day, wake ~00:30, standby ~13:30
+    var expectedBootWindowsUTC = [restartTarget, wakeTarget, standbyTarget];
     recentIncidents.forEach(function(inc) {
-      if (inc.type === 'boot_detected' && inc.description && inc.description.indexOf('stale') !== -1) {
-        crashBoots.push({
-          room: inc.room || inc.roomname || '?',
-          ts: inc.reportedAt,
-          desc: inc.description
-        });
-        anomalies.push('Crash/unexpected reboot: ' + (inc.room || inc.roomname) + ' at ' + new Date(inc.reportedAt).toISOString());
-      }
+      if (inc.type !== 'boot_detected') return;
+      var incMs = new Date(inc.reportedAt).getTime();
+      var nearScheduled = expectedBootWindowsUTC.some(function(t) {
+        return Math.abs(incMs - new Date(t).getTime()) < ALARM_WINDOW_MS;
+      });
+      if (nearScheduled) return; // normal alarm-triggered boot — skip
+      // Check for stale-flag wording in detail (inc.detail, not inc.description)
+      var isStale = inc.detail && inc.detail.indexOf('stale') !== -1;
+      crashBoots.push({
+        room: inc.roomname || inc.room || '?',
+        email: inc.room || '',
+        ts: inc.reportedAt,
+        desc: inc.detail || 'boot detected'
+      });
+      anomalies.push((isStale ? 'Crash reboot' : 'Unexpected reboot') + ': '
+        + (inc.roomname || inc.room) + ' at '
+        + new Date(inc.reportedAt).toISOString().replace('T', ' ').slice(0, 16) + ' UTC');
     });
 
-    // ── Open incidents ──
-    var openIncidents = recentIncidents.filter(function(i) { return !i.resolvedAt; });
+    // ── Open incidents — only non-auto-resolvable ones ──
+    var openIncidents = recentIncidents.filter(function(i) {
+      return !i.resolvedAt && !i.autoResolvable;
+    });
     openIncidents.forEach(function(inc) {
-      anomalies.push('Open incident: [' + inc.type + '] ' + (inc.room || '') + ' — ' + (inc.description || ''));
+      var detail = '';
+      try { detail = JSON.parse(inc.detail || '{}').subject || inc.detail || ''; } catch(e) { detail = inc.detail || ''; }
+      anomalies.push('Open: [' + inc.type + '] ' + (inc.roomname || inc.room || '') + (detail ? ' — ' + detail.slice(0, 60) : ''));
     });
 
     // ── KV write estimate ──
@@ -1187,10 +1208,12 @@ async function sendDailyHealthDigest(env, report) {
         + '<table style="border-collapse:collapse;width:100%;font-size:12px">'
         + '<tr style="background:#f5f5f5"><th style="padding:4px 8px;text-align:left">Room</th>'
         + '<th style="padding:4px 8px;text-align:left">Time (UTC)</th>'
+        + '<th style="padding:4px 8px;text-align:left">Time (BKK)</th>'
         + '<th style="padding:4px 8px;text-align:left">Detail</th></tr>'
         + crashBoots.map(function(c) {
           return '<tr><td style="padding:4px 8px">' + c.room + '</td>'
-            + '<td style="padding:4px 8px">' + new Date(c.ts).toISOString().replace('T', ' ').slice(0, 16) + '</td>'
+            + '<td style="padding:4px 8px">' + new Date(c.ts).toISOString().replace('T', ' ').slice(0, 16) + ' UTC</td>'
+            + '<td style="padding:4px 8px">' + (new Date(new Date(c.ts).getTime() + 7*3600000)).toISOString().slice(11, 16) + ' BKK</td>'
             + '<td style="padding:4px 8px;color:#888">' + c.desc + '</td></tr>';
         }).join('')
         + '</table>';
@@ -1220,7 +1243,7 @@ async function sendDailyHealthDigest(env, report) {
           }
         };
       }),
-      incidents: recentIncidents,
+      incidents: recentIncidents.filter(function(i) { return !i.autoResolvable; }),
       anomalies: anomalies,
       kvWriteEstimate: kvWritesPerDay + '/day (' + roomData.length + ' tablets)'
     };
