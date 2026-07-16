@@ -1038,7 +1038,7 @@ async function sendWeeklyEmail(env, data) {
 
 async function sendDailyHealthDigest(env, report) {
   try {
-    var token = await getGraphToken(env);
+    var token = await getServiceToken(env);
     var now = Date.now();
     var bkkNow = new Date(now + 7 * 3600000);
     var todayBkk = bkkNow.toISOString().slice(0, 10);
