@@ -806,7 +806,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 146,
+  patch: 147,
   date: '2026-07-16',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1751,11 +1751,15 @@ function getMonitorStatus(){
       try{
         var raw=localStorage.getItem('ris_qr_daily');
         if(!raw)return 0;
-        var counts=JSON.parse(raw);
-        var days=Object.keys(counts);
+        var counts=_qrPruneCounts(JSON.parse(raw));
+        var days=Object.keys(counts).sort();
         if(!days.length)return 0;
         var total=0;for(var i=0;i<days.length;i++)total+=counts[days[i]];
-        return Math.round(total/days.length*10)/10;
+        // Elapsed calendar days from first tap to today (capped at 30)
+        var first=new Date(days[0]+'T00:00:00');
+        var elapsed=Math.round((new Date()-first)/86400000)+1;
+        elapsed=Math.min(Math.max(elapsed,1),30);
+        return Math.round(total/elapsed*10)/10;
       }catch(e){return 0;}
     }()),
     qrPeakDay: (function(){
@@ -3002,12 +3006,18 @@ function getStoredPin(){return localStorage.getItem(PIN_KEY)||'9999';}
 var _qrTimer=null;
 var _qrSecs=15;
 var _qrGenerated=false;
+function _qrPruneCounts(counts){
+  var cutoff=new Date();cutoff.setDate(cutoff.getDate()-30);
+  var cutoffKey=cutoff.getFullYear()+'-'+('0'+(cutoff.getMonth()+1)).slice(-2)+'-'+('0'+cutoff.getDate()).slice(-2);
+  Object.keys(counts).forEach(function(k){if(k<cutoffKey)delete counts[k];});
+  return counts;
+}
 function _trackQRTap(){
   try{
     var today=new Date();
     var dateKey=today.getFullYear()+'-'+('0'+(today.getMonth()+1)).slice(-2)+'-'+('0'+today.getDate()).slice(-2);
     var raw=localStorage.getItem('ris_qr_daily');
-    var counts=raw?JSON.parse(raw):{};
+    var counts=_qrPruneCounts(raw?JSON.parse(raw):{});
     counts[dateKey]=(counts[dateKey]||0)+1;
     localStorage.setItem('ris_qr_daily',JSON.stringify(counts));
   }catch(e){}
