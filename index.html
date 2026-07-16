@@ -806,7 +806,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 149,
+  patch: 150,
   date: '2026-07-16',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2383,18 +2383,37 @@ function updateCurrentCard(){
       var noShowAction=cfg.noShowAction||'hold';
 
       if(secsLeft<=0&&noShowAction==='cancel'){
-        // Cancel mode: delete event from Exchange and show Available
-        if(cur.id&&locallyEnded.indexOf(cur.id)===-1)locallyEnded.push(cur.id);
-        meetings=meetings.filter(function(m){return m.id!==cur.id;});
-        if(cur.id&&cur.id.indexOf('loc-')!==0&&cfg.roomemail&&cfg.tabletKey){
+        var _cid=cur.id;
+        // Persist cancelled IDs so a WebView reload can't re-trigger the same DELETE
+        var _cancelledKey='ris_cancelled_events';
+        var _cancelled=[];
+        try{_cancelled=JSON.parse(localStorage.getItem(_cancelledKey)||'[]');}catch(e){}
+        if(_cancelled.indexOf(_cid)!==-1){
+          // Already cancelled this event — just hide it locally and render Available
+          meetings=meetings.filter(function(m){return m.id!==_cid;});
+          setTimeout(function(){updateCurrentCard();renderBadges();renderMeetList();},0);
+          return;
+        }
+        // Mark as cancelled in memory and localStorage before firing XHR
+        if(locallyEnded.indexOf(_cid)===-1)locallyEnded.push(_cid);
+        _cancelled.push(_cid);
+        if(_cancelled.length>50)_cancelled=_cancelled.slice(-50); // cap to prevent unbounded growth
+        try{localStorage.setItem(_cancelledKey,JSON.stringify(_cancelled));}catch(e){}
+        meetings=meetings.filter(function(m){return m.id!==_cid;});
+        if(_cid&&_cid.indexOf('loc-')!==0&&cfg.roomemail&&cfg.tabletKey){
           (function(_id,_room,_key){
             var xhr=new XMLHttpRequest();
             xhr.open('DELETE',_monitorUrl+'event',true);
             xhr.setRequestHeader('Content-Type','application/json');
             xhr.setRequestHeader('X-Tablet-Key',_key);
+            xhr.timeout=10000;
+            xhr.onload=function(){
+              if(xhr.status>=400){dbg('Auto-release delete HTTP '+xhr.status+': '+xhr.responseText.slice(0,120));}
+            };
             xhr.onerror=function(){dbg('Auto-release delete failed (network)');};
+            xhr.ontimeout=function(){dbg('Auto-release delete timed out');};
             xhr.send(JSON.stringify({room:_room,eventId:_id}));
-          }(cur.id,cfg.roomemail,cfg.tabletKey));
+          }(_cid,cfg.roomemail,cfg.tabletKey));
         }
         setTimeout(function(){updateCurrentCard();renderBadges();renderMeetList();},0);
         return;
