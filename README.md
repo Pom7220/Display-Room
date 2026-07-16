@@ -4,10 +4,12 @@ Meeting room kiosk display and mobile dashboard for the RIS floor at Central Sil
 
 **Live URLs:**
 - Kiosk (via Cloudflare): `https://ris-display.ris-display.workers.dev/`
-- Kiosk (direct GitHub Pages): `https://<corporate-github-org>.github.io/Display-Room/` *(update after repo transfer)*
-- Dashboard: `https://<corporate-github-org>.github.io/Display-Room/dashboard.html` *(update after repo transfer)*
+- Dashboard: `https://ris-display.ris-display.workers.dev/dashboard.html`
+- GitHub Pages (direct): `https://pom7220.github.io/Display-Room/` *(update after corporate repo transfer)*
 
-**Current versions:** index v3.10.110 · dashboard v2.0 · ris-shared v1.4 · msal-v1 v1.3 · boot-launcher v5.0
+**Current versions:** index v3.10.149 · boot-launcher APK v5.42 · cloudflare-worker (auto-deployed via GitHub Actions)
+
+**Deployment status:** 6 of 12 tablets live (office zone — Macchiato, Viennese, Decaffinato, Latte, Mocha, Affogato). All run Android 4.4.2.
 
 ---
 
@@ -15,7 +17,7 @@ Meeting room kiosk display and mobile dashboard for the RIS floor at Central Sil
 
 ```
 LG Tablet (Android 4.4.2)            iPhone/Surface (modern browser)
-WebView APK v5.0                               │
+Boot Launcher APK v5.42                        │
         │                                      │
         │ loads Worker URL                     │
         │ ?tabletkey=...&webview=1             │
@@ -24,6 +26,8 @@ WebView APK v5.0                               │
   - Serves index.html/JS         (Let's Encrypt cert)
   - ROPC auth proxy to Graph             │
   - Heartbeat & command API              │
+  - Alarm event logging                  │
+  - Weekly no-show email report          │
   - DigiCert cert (trusted by            │
     Android 4.4.2 natively)              │
         │                                │
@@ -53,14 +57,14 @@ WebView APK v5.0                               │
 
 ## File Specifications
 
-### index.html (v3.10.110) — Kiosk Display
+### index.html (v3.10.149) — Kiosk Display
 
 **Language:** ES5 only. Runs on Chromium 30 (WebView APK) and Chrome 42 (browser). No `const`/`let`, arrows, template literals, `fetch()`, or CSS variables.
 
 **Screens:**
 1. **Config screen** — Room email/name, tablet key, auto-release timer, booking toggle, heartbeat interval, debug/kiosk toggles
 2. **Auth overlay** — MSAL sign-in (browser mode only)
-3. **Main app** — Header (room name, clock, weather), status strip (available/busy/soon/pending), current meeting card (title, organiser, time, progress bar, check-in/end/extend buttons), meeting list (today/tomorrow/more+ tabs), Book Room button
+3. **Main app** — Header (room name, clock, weather), status strip (available/busy/soon/pending/no-show), current meeting card, meeting list, Book Room / Instant Booking button
 
 **Key functions:**
 
@@ -68,14 +72,36 @@ WebView APK v5.0                               │
 |---|---|
 | `initMsal()` | Creates MSAL v1 instance, handles redirect callback (browser mode only) |
 | `fetchCal()` | Fetches room calendar via Worker proxy — XHR, every 2 minutes |
-| `updateCurrentCard()` | Renders current meeting card; handles auto-release (10 min), early check-in, end/extend, PENDING state for approval rooms |
-| `renderMeetList()` | Today/tomorrow meeting list |
-| `enterKiosk()` | Fullscreen — skips tap overlay if `webview=1` param or `ris_from_reload` sessionStorage flag set |
-| `openModal()` / `confirmBooking()` | Instant booking: email + title only (name removed), conflict check, starts at next free slot |
-| `doCheckin()` / `endMeeting()` / `extendMeeting()` | Check-in (early up to 15 min before), auto-release (10 min), end/extend with stale-ref safety |
-| `sendHeartbeat()` | Posts tablet status to Worker `/api/heartbeat` every 20 minutes |
-| `pollCommand()` | Polls Worker `/api/poll` every 2 minutes for remote commands (reload, reauth) |
-| `fetchWeather()` | XHR fetch from open-meteo.com — static Bangkok fallback if unavailable |
+| `updateCurrentCard()` | Renders current meeting card; checks `ris_ended_early` localStorage for released-early state; handles auto-release, early check-in, end/extend, PENDING state |
+| `renderMeetList()` | Today/tomorrow meeting list with upcoming indicator |
+| `enterKiosk()` | Fullscreen — skips tap overlay if `webview=1` param or `ris_from_reload` sessionStorage flag |
+| `openModal()` / `confirmBooking()` | Instant booking: email + title, conflict check, starts at next free slot |
+| `doCheckin()` | Check-in — clears pending no-show incident on late check-in |
+| `endMeetingEarly()` | Sets `ris_ended_early` localStorage, resets check-in, calls `updateCurrentCard()` — no dialog, no Exchange cancellation |
+| `extendMeeting()` | Extends current meeting by 30 minutes |
+| `sendHeartbeat()` | Posts tablet status to Worker `/api/heartbeat` every 20 min. Worker only writes to KV if status/version changed or >55 min elapsed (saves KV write quota) |
+| `pollCommand()` | Polls Worker `/api/command` every 2 min for remote admin commands |
+| `fetchWeather()` | XHR from open-meteo.com — static Bangkok fallback if unavailable |
+| `setEndedEarly(id,room)` / `getEndedEarly()` / `clearEndedEarly()` | localStorage helpers for End Early state — keyed by meetingId + room email |
+| `_trackQRTap()` / `_qrPruneCounts()` | Tracks QR button taps per day in `ris_qr_daily` localStorage; prunes entries >30 days old; avg computed over elapsed calendar days |
+
+**End Early flow:**
+```
+User taps "End early" (ghost button below +30 min)
+→ endMeetingEarly() → setEndedEarly(meetingId, room) → updateCurrentCard()
+→ Card turns green: "RELEASED" tag + meeting details + "✓ Room released early · Available now"
+→ Buttons hidden. State survives reload. Auto-clears at scheduled meeting end time.
+→ Exchange booking NOT cancelled — room stays in Outlook calendar.
+```
+
+**No-Show flow:**
+```
+Meeting started → no check-in within releaseMin (default 10 min)
+→ Amber card with blinking "NO SHOW" label (black text)
+→ Countdown: "Check in NOW, otherwise released in MM:SS"
+→ On expiry: meeting removed from local list, reportNoShow() fires
+→ Check-in after no-show: resolves incident as 'late_checkin'
+```
 
 **Boot sequence (tablet/WebView):**
 ```
@@ -95,99 +121,102 @@ loadCfg() → initMsal() → handleRedirectCallback → launch()
 
 ---
 
-### dashboard.html (v2.0) — Mobile Dashboard
+### dashboard.html — Mobile Dashboard
 
 **Language:** ES6 (modern browsers only — not used on LG tablets).
 
-**Layout:** Two-zone grid (Lobby 1–6, Office 7–12), 3-column tiles with status dots and badges, detail card with book/request button, schedule popup, remote command panel (reload all, reauth).
+**Layout:** Two-zone grid (Lobby 1–6, Office 7–12), tiles with status dot + badge, detail card with book/request button, schedule popup, ADMIN panel.
 
 **Key functions:**
 
 | Function | Purpose |
 |---|---|
-| `fetchAllRooms()` | Parallel fetch of all 12 room calendars, 60-second refresh |
-| `getStatusProps(room)` | Maps `deriveRoomStatus()` to UI (dot colour, badge, info text) |
-| `showSchedule()` | Schedule popup — splits all-day (blue banner) from timed meetings |
-| `confirmBooking()` | Resource booking with conflict check before POST |
-| `/api/status` | Shows last heartbeat time and online status for each tablet |
+| `fetchAllRooms()` | Parallel fetch of all room calendars from MS Graph, 60-second auto-refresh |
+| `getStatusProps(room)` | Maps `deriveRoomStatus()` result to UI — dot colour, badge text, info string |
+| `showSchedule()` | Schedule popup — all-day meetings shown as blue banner, timed as list |
+| `confirmBooking()` | Resource booking with conflict check before POST to Worker |
+| `refreshAdmin()` | Fetches `/api/status` (heartbeat data), renders per-room health cards, smart action buttons |
+
+**Admin panel features:**
+- Per-tablet: online status, last seen time, version, APK version, launch mode, recent alarm log
+- Remote commands: Reload, Force Fullscreen, Auto-tap, Reauth per room or bulk
+- Smart actions: auto-detect offline, needs-fullscreen, needs-reload conditions
+- Incident log: no-show events with resolution status
+- QR stats: avg taps/day across rooms (30-day rolling window)
+- Weekly report trigger: manual POST to `/api/noshow/send-report`
 
 ---
 
 ### ris-shared.js (v1.4) — Shared Logic
 
-**Language:** ES5 only. Loaded by both `index.html` and `dashboard.html`. All network calls use XHR — no `fetch()`.
-
-**Exports:**
+**Language:** ES5 only. Loaded by both `index.html` and `dashboard.html`.
 
 | Symbol | Purpose |
 |---|---|
 | `RIS_ROOMS` | Array of 12 room definitions (num, name, email, seats, zone, approval) |
-| `gDate(o)` | Parses Graph API dateTime objects — handles UTC, Z-suffix, bare local time (Chrome 42 safe) |
-| `isAllDay(m)` | True if meeting duration ≥ 86,399,000ms (23h 59m 59s) |
-| `mapEvent(ev)` | Maps Graph API event → internal object (id, title, organiser, start, end, joinUrl, isOnline, showAs, isPending) |
+| `gDate(o)` | Parses Graph API dateTime — handles UTC, Z-suffix, bare local (Chrome 42 safe) |
+| `isAllDay(m)` | True if meeting duration ≥ 86,399,000ms |
+| `mapEvent(ev)` | Maps Graph event → internal object |
 | `filterMeetings(evArr)` | Maps, filters cancelled, sorts by start |
 | `deriveRoomStatus(meetings)` | Returns `{status, cur, nxt, freeUntil, allDayCur}`. Status: avail/busy/soon/pending |
-| `fetchCalendarForRoom(email, tok, start, end, tabletKey)` | XHR Promise — uses Worker proxy if `tabletKey` present, else direct Graph API |
-| `sharedFmtDur(mins)` | "3h 45m" formatter |
-| `sharedFt(d)` | "HH:MM" formatter |
+| `fetchCalendarForRoom(...)` | XHR Promise — Worker proxy if tabletKey, else direct Graph |
 
 ---
 
 ### cloudflare-worker.js — Cloudflare Worker
 
+**Auto-deployed** via GitHub Actions on every push to `main` that touches `cloudflare-worker.js` or `wrangler.toml`. No manual copy/paste needed.
+
 **Roles:**
 1. Transparent proxy to GitHub Pages through DigiCert certificate (trusted by Android 4.4.2)
 2. ROPC auth proxy — fetches Microsoft Graph tokens for tablets via service account
-3. REST API: `/api/calendar`, `/api/book`, `/api/heartbeat`, `/api/poll`, `/api/status`
+3. Graph token caching — module-level `_cachedToken` / `_cachedTokenExpiry`, capped at 10 minutes, reduces login.microsoftonline.com subrequests
+4. REST API — see routes below
+5. Cron jobs — daily report at 20:00 BKK, weekly no-show email on Fridays at 18:00 BKK
 
-All tablet requests authenticated via `X-Tablet-Key: RIS-TABLET-KEY2026` header. Worker validates key against `RIS_TABLET_KEY` secret before proxying to Graph API.
+**API Routes:**
 
----
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/calendar` | GET | Fetch room calendar via service account ROPC |
+| `/api/book` | POST | Create calendar event (resource booking) |
+| `/api/heartbeat` | POST | Tablet health report — conditional KV write (only if status changed or >55 min) |
+| `/api/command` | GET | Tablet polls for pending admin command |
+| `/api/command` | POST | Admin sends command to tablet |
+| `/api/status` | GET | All room heartbeat records for dashboard admin panel |
+| `/api/alarm` | POST | APK alarm events (standby/wake/restart) — stored in `alarm_log:{room}` KV key |
+| `/api/incident` | POST | Report or resolve a no-show incident |
+| `/api/incidents` | GET | Incident history with resolution tracking |
+| `/api/noshow/send-report` | POST | Manual trigger for weekly no-show email |
+| `/api/version` | GET | Latest APK version from `apk-version.json` |
+| `/api/apk` | GET | APK binary download |
 
-### msal-v1.min.js (v1.3) — Authentication Library
+**KV design (optimised for free tier):**
 
-**Browser mode only** — not loaded or used by WebView APK (tablets use Worker ROPC proxy instead).
+| Key | TTL | Write frequency |
+|---|---|---|
+| `room:{email}` | 2 hours | ~1×/hour per room (conditional — only on status change or >55 min elapsed) |
+| `cmd:{email}` | — | Written by admin, deleted after tablet reads |
+| `alarm_log:{email}` | 7 days | 3×/day per room (standby/wake/restart alarms) |
+| `incident:{id}` | 30 days | On each no-show event |
+| `incidents_index` | — | On each no-show event |
+| `report:{date}` | 90 days | Daily cron |
 
-**Key design:**
-- OAuth2 implicit flow with Microsoft Identity Platform v2.0
-- Tokens stored in localStorage with expiry tracking
-- `acquireTokenSilent()` — checks cached token first, then hidden iframe renewal
-- Hidden iframe: navigates to Azure AD with `prompt=none`, listens for postMessage, 15-second timeout
-- `_processRedirectIfRequired()` — detects iframe context, posts hash to parent instead of processing locally
+**KV usage estimate (12 tablets, free tier = 1,000 writes/day):**
+- Heartbeat writes: ~288/day (12 rooms × 24 × 1/hr)
+- Alarm writes: ~36/day
+- Incidents: ~10/day
+- **Total: ~334/day — well under 1,000 limit**
 
-**Token lifecycle:**
-```
-Sign in → token stored (~60 min expiry)
-  → 45-min keepalive → acquireTokenSilent → cache hit → OK
-  → ~55 min → expired → iframe renewal (invisible)
-    → Azure session cookie alive → new token → next 60 min covered
-  → If iframe fails (session expired) → loginRedirect
-```
-
-Silent renewal works for 24 hours (default Azure session) or 90 days (IT-configured persistent browser session).
-
----
-
-### sw.js — Service Worker
-
-**Browser/PWA mode only.** Not used by WebView APK (`LOAD_NO_CACHE` setting bypasses it entirely).
-
-**Strategy:** Network-first. Fetches from network; caches on success; serves cache if offline.
-
-**Critical rules:**
-- No `skipWaiting()` — prevents mid-session disruption
-- No `clients.claim()` — avoids taking over live sessions
-- Bump `CACHE_VERSION` on every deploy to trigger old cache deletion
-
----
-
-### manifest.json — PWA Manifest
-
-Enables "Add to Home Screen" standalone mode on modern devices. `display: fullscreen` for browser kiosk mode. Not relevant for WebView APK (APK manages its own fullscreen).
+**Weekly no-show email:**
+- Sent Fridays 18:00 BKK to `vorutchapon@central.co.th`
+- Summary: total no-shows and late check-ins for the week
+- Daily detail table: time, meeting title (28 char max), organizer (22 char max), room, status
+- Excludes Instant Booking meetings, all-day events
 
 ---
 
-### boot-launcher/ (v5.0) — Android APK
+### boot-launcher/ (v5.42) — Android APK
 
 **Package:** `th.co.central.ris.bootlauncher`
 
@@ -195,21 +224,35 @@ Enables "Add to Home Screen" standalone mode on modern devices. `display: fullsc
 
 | File | Purpose |
 |---|---|
-| `KioskWebViewActivity.java` | Fullscreen WebView — loads Worker URL with `tabletkey` + `webview=1`. Hides system nav bar (immersive sticky). Portrait orientation. Blocks back button. |
-| `BootReceiver.java` | Listens for `BOOT_COMPLETED` — waits 90s for WiFi, launches `KioskWebViewActivity` |
-| `MainActivity.java` | Setup screen — room email/name selection, saved to SharedPreferences |
+| `KioskWebViewActivity.java` | Fullscreen WebView — loads Worker URL with `tabletkey` + `webview=1`. Hides system nav bar. Portrait. Blocks back button. Registers alarm chain on every start. |
+| `BootReceiver.java` | `BOOT_COMPLETED` → 90s WiFi settle → launches KioskWebViewActivity |
+| `ScheduleReceiver.java` | Three daily alarms: standby 20:30, wake 07:30, restart 06:00. Each alarm reschedules itself +1 day. Logs event to Worker `/api/alarm`. Installs Conscrypt for TLS 1.2 on Android 4.4. |
+| `MainActivity.java` | Setup screen — room email/name, saved to SharedPreferences |
+| `UpdateChecker.java` | Polls Worker `/api/version` on boot — downloads and installs APK if newer version found |
 | `ForegroundWatchService.java` | Watchdog — checks every 5 min if WebView is foreground; relaunches if not |
-| `KioskAccessibilityService.java` | Accessibility service for auto-tap if needed |
+
+**Alarm chain (critical for daily restarts):**
+```
+KioskWebViewActivity.onCreate() → ScheduleReceiver.schedule()
+→ Sets 3 exact alarms: standby (20:30), wake (07:30), restart (06:00)
+→ Each alarm fires → logs to Worker → reschedules itself for next day
+→ If chain breaks (alarm not received): open app manually to re-register via onCreate()
+```
+
+**Conscrypt / TLS 1.2 on Android 4.4:**
+Android 4.4 system SSL cannot negotiate TLS 1.2 with Cloudflare. Conscrypt is installed at the start of every `logAlarmEvent()` background thread via:
+```java
+try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
+```
+This covers alarms firing from cold process (no main app running).
 
 **Boot flow:**
 ```
 Tablet powers on → BootReceiver fires
 → 90s delay (WiFi settle)
-→ KioskWebViewActivity launches
+→ KioskWebViewActivity launches → schedule() registers alarm chain
 → Loads Worker URL ?tabletkey=RIS-TABLET-KEY2026&webview=1&room=...
-→ No SSL warning (DigiCert, trusted natively by Android 4.4.2)
 → index.html loads → proxy mode → fetchCal → display shown
-→ No tap required (webview=1 param suppresses overlay)
 ```
 
 ---
@@ -224,13 +267,16 @@ Tablet powers on → BootReceiver fires
 | Auth method | Implicit flow (browser) + ROPC via Cloudflare Worker (tablets) |
 | Service account | `rismeetingroomsystem@central.co.th` (no MFA) |
 | Delegated scopes | `Calendars.ReadWrite`, `Calendars.ReadWrite.Shared`, `Mail.Send`, `User.Read` |
-| Redirect URIs | `https://<corporate-github-org>.github.io/Display-Room/index.html`, `https://<corporate-github-org>.github.io/Display-Room/dashboard.html`, `https://ris-display.ris-display.workers.dev/index.html` *(update first two after repo transfer)* |
 
 ---
 
-## Cloudflare Worker Secrets
+## Cloudflare Setup
 
-Set in Cloudflare dashboard → Workers → `ris-display` → Settings → Variables:
+**Worker name:** `ris-display`  
+**KV namespace:** `RIS_KV` (ID: `cfa88e438ad9445087bf7fbcbe66dd21`)  
+**Account ID:** stored in GitHub Secret `CLOUDFLARE_ACCOUNT_ID`
+
+**Worker Secrets** (set in Cloudflare dashboard → Workers → `ris-display` → Settings → Variables):
 
 | Secret | Purpose |
 |---|---|
@@ -242,56 +288,60 @@ Set in Cloudflare dashboard → Workers → `ris-display` → Settings → Varia
 | `RIS_TABLET_KEY` | Tablet auth key (`RIS-TABLET-KEY2026`) |
 | `RIS_ADMIN_KEY` | Admin operations key — for dashboard remote commands |
 
-**Free tier:** 100,000 requests/day. Expected at 12 tablets: ~13,000/day.
+**GitHub Secrets** (for CI/CD auto-deploy):
+
+| Secret | Purpose |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers edit permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
 
 ---
 
 ## 12 Rooms
 
-| # | Name | Email | Seats | Zone | Approval |
-|---|---|---|---|---|---|
-| 1 | Espresso | risespresso@central.co.th | 8–12 | Lobby | No |
-| 2 | Doppio | risdoppio@central.co.th | 6–8 | Lobby | No |
-| 3 | Cappuccino | riscappuccino@central.co.th | 6 | Lobby | No |
-| 4 | Americano | risamericano@central.co.th | 6 | Lobby | No |
-| 5 | Lungo | rislungo@central.co.th | 4 | Lobby | No |
-| 6 | Ristretto | risristretto@central.co.th | 4 | Lobby | No |
-| 7 | Macchiato | rismacchiato@central.co.th | 5–8 | Office | **Yes** |
-| 8 | Viennese | risviennese@central.co.th | 6 | Office | No |
-| 9 | Decaffinato | risdecaffeinato@central.co.th | 6 | Office | No |
-| 10 | Latte | rislatte@central.co.th | 6 | Office | No |
-| 11 | Mocha | rismocha@central.co.th | 6 | Office | No |
-| 12 | Affogato | risaffogato@central.co.th | 6 | Office | No |
+| # | Name | Email | Seats | Zone | Approval | Tablet |
+|---|---|---|---|---|---|---|
+| 1 | Espresso | risespresso@central.co.th | 8–12 | Lobby | No | Pending |
+| 2 | Doppio | risdoppio@central.co.th | 6–8 | Lobby | No | Pending |
+| 3 | Cappuccino | riscappuccino@central.co.th | 6 | Lobby | No | Pending |
+| 4 | Americano | risamericano@central.co.th | 6 | Lobby | No | Pending |
+| 5 | Lungo | rislungo@central.co.th | 4 | Lobby | No | Pending |
+| 6 | Ristretto | risristretto@central.co.th | 4 | Lobby | No | Pending |
+| 7 | Macchiato | rismacchiato@central.co.th | 5–8 | Office | **Yes** | ✅ Live |
+| 8 | Viennese | risviennese@central.co.th | 6 | Office | No | ✅ Live |
+| 9 | Decaffinato | risdecaffeinato@central.co.th | 6 | Office | No | ✅ Live |
+| 10 | Latte | rislatte@central.co.th | 6 | Office | No | ✅ Live |
+| 11 | Mocha | rismocha@central.co.th | 6 | Office | No | ✅ Live |
+| 12 | Affogato | risaffogato@central.co.th | 6 | Office | No | ✅ Live |
 
 ---
 
 ## Calendar Logic
 
-- **All-day events** — included in `cur` (room IS booked). Excluded from `nxt` (no "coming soon"). Excluded from meeting list (shown at card level)
+- **All-day events** — included in `cur` (room IS booked). Excluded from `nxt`. Excluded from meeting list.
 - **`showAs:'free'`** — kept (room calendars return free via delegated access)
-- **`showAs:'tentative'`** — For non-approval rooms, treated as confirmed (Exchange auto-accept lag). For approval rooms only: shown as PENDING
+- **`showAs:'tentative'`** — non-approval rooms: treated as confirmed. Approval rooms only: shown as PENDING.
 - **`isCancelled`** — filtered out entirely
-
-**Booking:** `POST /users/{roomEmail}/events` with room as `type:'resource'` attendee. Requester added as `type:'required'` → receives invitation email. Exchange auto-accepts/declines on availability. Macchiato triggers approval email to room owner.
+- **Instant Booking** — when `organizerEmail === activeRoom.email` (room booked directly on room calendar or via tablet booking button), labeled "Instant Booking". Excluded from weekly no-show report.
 
 ---
 
 ## ES5 / Chromium 30 Constraints
 
-All code in `index.html` and `ris-shared.js` must be ES5 only:
+All code in `index.html` and `ris-shared.js` must be ES5:
 
 - **No:** `const`/`let`, arrow functions, template literals, `async`/`await`, optional chaining, `Set`/`Map`, `for...of`, `NodeList.forEach`, `.closest()`
 - **No:** `fetch()` — use XHR for all network calls
 - **No CSS:** `var(--custom)`, `inset:`, CSS Grid
 - **Touch scrolling:** `-webkit-overflow-scrolling: touch`
-- **Canvas:** Round floats to 4 dp before `addColorStop()` — Chromium 30 rejects high-precision floats
+- **Button text stacking:** use `<br>` inside buttons — `display:block` on `<span>` inside `<button>` does not work on Chromium 30
 
 Pre-flight before every deploy:
 ```
 grep -c "=>\|const \|let \|async \|\`" index.html ris-shared.js
 # Must be 0
 grep -c "fetch(" index.html ris-shared.js
-# Must be 0 (sendMail is the only exception — unreachable in WebView/tabletKey mode)
+# Must be 0
 ```
 
 ---
@@ -301,23 +351,43 @@ grep -c "fetch(" index.html ris-shared.js
 ### index.html / ris-shared.js
 1. Edit files
 2. Bump `APP_VERSION.patch` and `APP_VERSION.date` in `index.html`
-3. If `ris-shared.js` changed, bump `?v=` on `<script src="ris-shared.js?v=14">` in `index.html`
-4. Run ES5 pre-flight check
-5. Push to `main` — GitHub Pages deploys automatically
-6. Tablets auto-update within 5 minutes
+3. Update `index-version.json` to match
+4. If `ris-shared.js` changed, bump `?v=` cache-bust on its `<script>` tag in `index.html`
+5. Run ES5 pre-flight check
+6. `git push` → GitHub Pages deploys automatically → tablets auto-update within 5 min
 
 ### cloudflare-worker.js
 1. Edit `cloudflare-worker.js`
-2. Cloudflare dashboard → Workers → `ris-display` → Edit → paste → Deploy
+2. `git push` → **GitHub Actions auto-deploys to Cloudflare** (no manual paste needed)
+3. Monitor Actions tab for deploy status
 
 ### Boot Launcher APK
 1. Edit files under `boot-launcher/`
 2. Bump `versionCode` + `versionName` in `boot-launcher/app/build.gradle`
-3. Push to `main` → GitHub Actions builds APK and commits `ris-boot-launcher.apk` to repo root automatically
-4. Download `ris-boot-launcher.apk` directly from repo root (or Actions → Artifacts as fallback)
-5. Install on tablet: sideload via File Manager or `adb install -r ris-boot-launcher.apk`
+3. Update `apk-version.json` to match
+4. `git push` → GitHub Actions builds APK and commits `ris-boot-launcher.apk` to repo root
+5. Download `ris-boot-launcher.apk` from repo root
+6. Sideload on each tablet via File Manager or `adb install -r ris-boot-launcher.apk`
 
 APK signing password: `a0000`
+
+---
+
+## Troubleshooting
+
+### Tablet not restarting at 06:00
+The alarm chain is self-scheduling — each alarm reschedules itself when it fires. If the chain breaks (e.g., tablet was off during alarm time), open the app manually on the tablet. `KioskWebViewActivity.onCreate()` calls `ScheduleReceiver.schedule()` which re-registers all three alarms.
+
+**Confirm via ADMIN panel:** check `alarm_log` for that room — `boot_detected` should appear at ~07:30 (after wake alarm fires). Missing `boot_detected` at 07:30 means the restart at 06:00 did not complete.
+
+### Heartbeat shows offline but tablet is running
+Worker marks tablet offline if KV record is >70 min old. With the conditional write optimisation, records are written ~once/hour. If the tablet status/version hasn't changed and it's been <55 min since last write, the record keeps the previous timestamp. If the tablet genuinely stopped sending heartbeats, record expires after 2 hours (TTL).
+
+### "APK ?" badge on dashboard
+Shown when `cfg.apkVersion` is empty. Happens if WebView reloaded without the APK URL params (`?apkVersion=...`). Resolves automatically at the next daily 06:00 restart when the APK re-injects the param.
+
+### Duplicate heartbeat commands
+Commands are delivered via both heartbeat response (every 20 min) and command poll (every 2 min). A 30-second dedup window in `executeCommand()` prevents the same command running twice.
 
 ---
 
@@ -326,12 +396,13 @@ APK signing password: `a0000`
 **GitHub (`Pom7220/Display-Room`):**
 - Transfer repo to corporate GitHub org: Settings → Danger Zone → Transfer Ownership
 - GitHub Pages and Actions follow automatically
-- Revoke personal fine-grained token; generate new one under corporate account
+- Update 2 GitHub Secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (new corporate values)
+- Update KV namespace `id` in `wrangler.toml` (new corporate KV namespace)
 
-**Cloudflare (`ris-display` Worker):**
-- Add corporate admin to Cloudflare account, OR recreate Worker under corporate account
-- Worker code: paste `cloudflare-worker.js` from repo
-- Re-enter all 7 secrets manually (Cloudflare does not export secret values)
+**Cloudflare:**
+- Create new Worker + KV namespace under corporate account
+- Re-enter all 7 Worker Secrets manually (Cloudflare does not export secret values)
+- CI/CD will auto-deploy on next push once GitHub Secrets are updated
 
 **Azure AD:** Already under `central.co.th` tenant — no transfer needed.
 
@@ -346,21 +417,19 @@ APK signing password: `a0000`
 | 2026-06-08 | v3.6.1 | doReauth token expiry fix |
 | 2026-06-10 | v3.10.9 | Chrome 42 prompt detection |
 | 2026-06-11 | v3.10.14 | JWT loginHint decode, auto-fullscreen, session keepalive |
-| 2026-06-12 | v3.10.15 | All-day booking fix, msal-v1 v1.3 iframe renewal, dashboard v2.0, Cloudflare Worker, boot-launcher v1.2 |
+| 2026-06-12 | v3.10.15 | All-day booking fix, msal-v1 v1.3, dashboard v2.0, Cloudflare Worker, boot-launcher v1.2 |
 | 2026-07-01 | v3.10.55–59 | Button layout, tap-free reload, sessionStorage kiosk flag |
-| 2026-07-01 | v3.10.66 | WebView APK v5.0 — XHR conversion, tabletKey proxy, heartbeat monitoring, Worker ROPC client_secret fix |
-| 2026-07-02 | v3.10.67 | Canvas alpha rounding for Chromium 30 |
-| 2026-07-02 | v3.10.68–69 | Book Room button position fix |
-| 2026-07-02 | v3.10.70 | Reduced Worker polling — fetchCal 5min, pollCommand 2min |
-| 2026-07-02 | v3.10.82–83 | Upcoming list dedup from status card; touch response improvements |
-| 2026-07-02 | v3.10.85–86 | Name field removed from booking; email + title mandatory (red *); backdrop tap blocked |
-| 2026-07-02 | v3.10.87–88 | Empty upcoming state cleaned up; default PIN 9999; Change PIN in settings |
-| 2026-07-02 | v3.10.89 | Check In: no checkmark, countdown below button, conflict check on instant booking |
-| 2026-07-02 | v3.10.90–91 | Weather icon fix for LG Chromium 30 (HTML entities) |
-| 2026-07-02 | v3.10.92–93 | Instant booking starts at next free slot; More+ shows today remainder + from tomorrow |
-| 2026-07-02 | v3.10.94 | Version tag hidden; instant booking shows "Instant Booking" as organizer |
-| 2026-07-03 | v3.10.101 | Reliable instant booking organizer: patch in fetchCal via organizerEmail match |
-| 2026-07-03 | v3.10.102–103 | Auto-release: remove meeting after 10 min no check-in; fix infinite recursion |
-| 2026-07-05 | v3.10.104–105 | Early check-in (15 min before): red IN USE card with End + +30m; buttons functional |
-| 2026-07-05 | v3.10.107 | End stale-ref fix; instant booking organizer name immediate; |
-| 2026-07-05 | v3.10.108–110 | PENDING card for approval rooms; tentative-as-confirmed for non-approval; immediate re-render after auto-release |
+| 2026-07-01 | v3.10.66 | WebView APK v5.0 — XHR, tabletKey proxy, heartbeat, Worker ROPC fix |
+| 2026-07-02 | v3.10.67–93 | Canvas alpha rounding, booking UX, weather fix, upcoming list, More+ |
+| 2026-07-03 | v3.10.101–110 | Instant booking organizer, auto-release, early check-in, PENDING card |
+| 2026-07-05 | v3.10.108–110 | PENDING card for approval rooms; tentative-as-confirmed |
+| 2026-07-09 | APK v5.3x | Daily alarm chain: standby 20:30, wake 07:30, restart 06:00 via ScheduleReceiver |
+| 2026-07-10 | — | FortiGate SSL inspection fix: Cloudflare IP whitelist rule for office network |
+| 2026-07-13 | v3.10.140–143 | Weekly no-show email report with daily detail; Graph token caching (10 min cap) |
+| 2026-07-13 | APK v5.41 | Alarm event logging to Worker `/api/alarm`; UpdateChecker Conscrypt fix |
+| 2026-07-16 | APK v5.42 | Conscrypt in `logAlarmEvent()` — TLS 1.2 on cold process for Android 4.4 |
+| 2026-07-16 | v3.10.144 | End Early UX: ghost button, green released card, `ris_ended_early` localStorage |
+| 2026-07-16 | v3.10.145 | NO SHOW label black text for contrast on amber card |
+| 2026-07-16 | v3.10.146 | +30 button `<br>` fix for Chromium 30; End early button contrast improved |
+| 2026-07-16 | v3.10.147 | QR avg/day: elapsed calendar days denominator + 30-day rolling prune |
+| 2026-07-16 | v3.10.149 | Worker: conditional KV write (save quota); CI/CD: auto-deploy via wrangler-action |
