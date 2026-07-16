@@ -378,7 +378,7 @@ APK signing password: `a0000`
 ### Tablet not restarting at 06:00
 The alarm chain is self-scheduling — each alarm reschedules itself when it fires. If the chain breaks (e.g., tablet was off during alarm time), open the app manually on the tablet. `KioskWebViewActivity.onCreate()` calls `ScheduleReceiver.schedule()` which re-registers all three alarms.
 
-**Confirm via ADMIN panel:** check `alarm_log` for that room — `boot_detected` should appear at ~07:30 (after wake alarm fires). Missing `boot_detected` at 07:30 means the restart at 06:00 did not complete.
+**Confirm via ADMIN panel:** check the `alarm_log` for that room — a `wake` event should appear at ~07:30 (after the wake alarm fires). Missing `wake` at 07:30 means the restart at 06:00 did not complete. Note: `boot_detected` is a separate incident type logged by `index.html` on every page load — it is informational and auto-resolves; it is NOT the alarm log.
 
 ### Heartbeat shows offline but tablet is running
 Worker marks tablet offline if KV record is >70 min old. With the conditional write optimisation, records are written ~once/hour. If the tablet status/version hasn't changed and it's been <55 min since last write, the record keeps the previous timestamp. If the tablet genuinely stopped sending heartbeats, record expires after 2 hours (TTL).
