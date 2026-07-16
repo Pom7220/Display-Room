@@ -1,0 +1,10 @@
+name = "ris-display"
+main = "cloudflare-worker.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "RIS_KV"
+id = "cfa88e438ad9445087bf7fbcbe66dd21"
+
+[triggers]
+crons = ["0 13 * * *", "0 11 * * 6"]
