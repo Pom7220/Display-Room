@@ -225,7 +225,7 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;-webkit-animation:none;animation:none;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
 .abtn-end{touch-action:manipulation;background:#8a0a0a;color:#ffaaaa;border:2px solid #cc2222;}
-.abtn-end-early{touch-action:manipulation;background:transparent;color:#aa4444;border:1px solid #663333;font-size:15px;font-weight:600;min-width:auto;min-height:36px;padding:8px 20px;margin-top:6px;}
+.abtn-end-early{touch-action:manipulation;background:#3d0a0a;color:#ff9999;border:2px solid #cc3333;font-size:15px;font-weight:700;min-width:auto;min-height:36px;padding:8px 24px;margin-top:8px;-webkit-border-radius:50px;border-radius:50px;}
 .abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:0;-webkit-border-radius:50%;border-radius:50%;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;font-size:12px;font-weight:700;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;text-align:center;line-height:1.3;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;}
 .abtn-teams{background:#1a1a5a;color:#aaaaff;border:2px solid #3333aa;}
 .abtn-pend{background:#3a2200;color:#ffcc44;border:2px solid #886600;cursor:default;-webkit-box-flex:2;-webkit-flex:2;flex:2;}
@@ -806,7 +806,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 145,
+  patch: 146,
   date: '2026-07-16',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2447,7 +2447,7 @@ function updateCurrentCard(){
       if(!checkedIn){
         btns='<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>';
       } else if(!isAllDay(cur)){
-        btns='<button class="abtn abtn-extend" id="ext-btn"><span style="display:block;text-align:center">+30</span><span style="display:block;text-align:center">min</span></button>';
+        btns='<button class="abtn abtn-extend" id="ext-btn">+30<br>min</button>';
         btns+='<br><button class="abtn abtn-end-early" id="end-btn">End early</button>';
       }
     }
@@ -2478,7 +2478,7 @@ function updateCurrentCard(){
         '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
         '<div class="meet-time-lg" style="color:#ff6666">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
         (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
-      var earlyBtns='<button class="abtn abtn-extend" id="ext-btn"><span style="display:block;text-align:center">+30</span><span style="display:block;text-align:center">min</span></button>';
+      var earlyBtns='<button class="abtn abtn-extend" id="ext-btn">+30<br>min</button>';
       earlyBtns+='<br><button class="abtn abtn-end-early" id="end-btn">End early</button>';
       el('action-row-outer').innerHTML='<div class="action-row">'+earlyBtns+'</div>';
     } else if(earlyCheckin){
