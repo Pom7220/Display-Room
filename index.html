@@ -209,8 +209,12 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 .abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
-#noshow-left{position:absolute;top:0;left:0;bottom:0;width:20%;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-animation:noshow-blink 1.2s ease-in-out infinite;animation:noshow-blink 1.2s ease-in-out infinite;}
+#noshow-left{position:absolute;top:0;left:0;bottom:0;width:20%;background:#e07800;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-animation:noshow-blink 1.2s ease-in-out infinite;animation:noshow-blink 1.2s ease-in-out infinite;}
 #noshow-label{font-size:40px;font-weight:900;color:#000;text-align:center;line-height:1.15;text-transform:uppercase;letter-spacing:2px;}
+#noshow-strip-mm,#noshow-strip-ss{display:block;font-size:44px;font-weight:900;color:#000;text-align:center;line-height:1;-webkit-perspective:300px;perspective:300px;}
+#noshow-strip-mm.fall,#noshow-strip-ss.fall{-webkit-animation:digit-fall 0.4s ease-out;animation:digit-fall 0.4s ease-out;}
+#noshow-strip-colon{display:block;font-size:28px;font-weight:900;color:rgba(0,0,0,0.35);text-align:center;line-height:0.75;}
+#noshow-strip-label{display:block;font-size:9px;font-weight:700;color:rgba(0,0,0,0.5);text-align:center;text-transform:uppercase;letter-spacing:0.12em;margin-top:10px;}
 #noshow-msg{font-size:26px;font-weight:700;color:#fff;text-align:center;margin:10px 16px 8px;line-height:1.4;}
 #noshow-msg strong{color:#ff9500;}
 #noshow-mm,#noshow-ss{display:inline-block;color:#ff9500;-webkit-perspective:300px;perspective:300px;}
@@ -221,9 +225,10 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 @keyframes checkin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(68,238,136,0);}50%{box-shadow:0 0 18px 6px rgba(68,238,136,0.55);}}
 @-webkit-keyframes noshow-blink{0%,100%{opacity:1;border-color:rgba(255,149,0,0.45);}50%{opacity:0.25;border-color:rgba(255,149,0,0.1);}}
 @keyframes noshow-blink{0%,100%{opacity:1;border-color:rgba(255,149,0,0.45);}50%{opacity:0.25;border-color:rgba(255,149,0,0.1);}}
-.abtn-checkin{touch-action:manipulation;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
-.abtn-checkin.checked{background:#0a3a1a;color:#44ee88;border:2px solid #117733;-webkit-animation:none;animation:none;}
+.abtn-checkin{touch-action:manipulation;background:#1db954;color:#fff;border:2px solid #17a844;min-height:64px;font-size:22px;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
+.abtn-checkin.checked{background:#178a3e;color:#fff;border:2px solid #117733;-webkit-animation:none;animation:none;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
+#checkin-hint{font-size:14px;color:#9be5b8;text-align:center;margin-bottom:8px;}
 .abtn-end{touch-action:manipulation;background:#8a0a0a;color:#ffaaaa;border:2px solid #cc2222;}
 .abtn-end-early{touch-action:manipulation;background:#3d0a0a;color:#ff9999;border:2px solid #cc3333;font-size:15px;font-weight:700;min-width:auto;min-height:36px;padding:8px 24px;margin-top:8px;-webkit-border-radius:50px;border-radius:50px;}
 .abtn-extend{touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:64px;height:64px;min-width:64px;padding:15px 4px 0;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-border-radius:50%;border-radius:50%;background:#0d5c1e;color:#44ee88;border:2px solid #1c8c3e;font-size:12px;font-weight:700;text-align:center;line-height:1.3;}
@@ -806,8 +811,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 151,
-  date: '2026-07-16',
+  patch: 152,
+  date: '2026-07-17',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -871,6 +876,7 @@ var APP_VERSION = {
 // v3.10.58 2026-07-01 - sessionStorage ris_from_reload flag set before every reload; enterKiosk() skips tap overlay on programmatic reloads (browser mode, APK launch)
 // v3.10.59 2026-07-01 - Fix: read ris_reload_reason into _progReload global early (before boot-reason clears it); enterKiosk checks both _progReload + sessionStorage — covers older versions reloading into v59
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
+// v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 
 // ══════════════════════════════════════
 // STATE
@@ -2424,11 +2430,14 @@ function updateCurrentCard(){
       el('status-txt').textContent='No Check-In';
       var initTime=fmtMmSs(Math.max(0,secsLeft));
       var initMm=initTime.slice(0,2),initSs=initTime.slice(3);
-      var releaseMsg= secsLeft>0
-        ? '<div id="noshow-msg">Check&#8209;in <strong>NOW</strong>, otherwise released in <span id="noshow-mm">'+initMm+'</span>:<span id="noshow-ss">'+initSs+'</span></div>'
-        : '<div id="noshow-msg">No one checked in &mdash; <strong>booking held</strong></div>';
+      var releaseMsg=secsLeft>0
+        ?'<div id="checkin-hint">Tap below to confirm your attendance</div>'
+        :'<div id="noshow-msg">No one checked in &mdash; <strong>booking held</strong></div>';
+      var stripHtml=secsLeft>0
+        ?'<div id="noshow-left" style="-webkit-animation:none;animation:none"><div id="noshow-strip-mm">'+initMm+'</div><div id="noshow-strip-colon">:</div><div id="noshow-strip-ss">'+initSs+'</div><div id="noshow-strip-label">check in</div></div>'
+        :'<div id="noshow-left"><div id="noshow-label">NO<br>SHOW</div></div>';
       cont.innerHTML=
-        (secsLeft>0?'<div id="noshow-left"></div>':'<div id="noshow-left"><div id="noshow-label">NO<br>SHOW</div></div>')+
+        stripHtml+
         '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
         '<div class="meet-time-lg" style="color:#ff9500">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
         (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'');
@@ -2444,7 +2453,7 @@ function updateCurrentCard(){
           var s2=Math.round((cur.start.getTime()+releaseMin*60000-new Date())/1000);
           if(s2<=0){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;reportNoShow(cur);updateCurrentCard();return;}
           var t2=fmtMmSs(s2),mm2=t2.slice(0,2),ss2=t2.slice(3);
-          var tMm=el('noshow-mm'),tSs=el('noshow-ss');
+          var tMm=el('noshow-strip-mm'),tSs=el('noshow-strip-ss');
           if(tSs){tSs.classList.remove('fall');void tSs.offsetWidth;tSs.classList.add('fall');tSs.textContent=ss2;}
           if(tMm){if(mm2!==_prevMm){tMm.classList.remove('fall');void tMm.offsetWidth;tMm.classList.add('fall');_prevMm=mm2;}tMm.textContent=mm2;}
         },1000);
