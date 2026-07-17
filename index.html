@@ -209,13 +209,13 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .prog-fill{height:100%;-webkit-border-radius:3px;border-radius:3px;}
 .action-row{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;}
 .abtn{touch-action:manipulation;-ms-touch-action:manipulation;-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;min-width:140px;min-height:48px;padding:14px 28px;border:none;-webkit-border-radius:50px;border-radius:50px;font-size:20px;font-weight:700;cursor:pointer;text-align:center;display:inline-block;-webkit-box-sizing:border-box;box-sizing:border-box;}
-#noshow-left{position:absolute;top:0;left:0;bottom:0;width:20%;background:#e07800;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-animation:noshow-blink 1.2s ease-in-out infinite;animation:noshow-blink 1.2s ease-in-out infinite;}
+#noshow-left{position:absolute;top:0;left:0;bottom:0;width:20%;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-animation:noshow-blink 1.2s ease-in-out infinite;animation:noshow-blink 1.2s ease-in-out infinite;}
 #noshow-label{font-size:40px;font-weight:900;color:#000;text-align:center;line-height:1.15;text-transform:uppercase;letter-spacing:2px;}
 #noshow-strip-mm,#noshow-strip-ss{display:block;font-size:44px;font-weight:900;color:#000;text-align:center;line-height:1;-webkit-perspective:300px;perspective:300px;}
 #noshow-strip-mm.fall,#noshow-strip-ss.fall{-webkit-animation:digit-fall 0.4s ease-out;animation:digit-fall 0.4s ease-out;}
 #noshow-strip-colon{display:block;font-size:28px;font-weight:900;color:rgba(0,0,0,0.35);text-align:center;line-height:0.75;}
 #noshow-strip-label{display:block;font-size:9px;font-weight:700;color:rgba(0,0,0,0.5);text-align:center;text-transform:uppercase;letter-spacing:0.12em;margin-top:10px;}
-#noshow-msg{font-size:26px;font-weight:700;color:#fff;text-align:center;margin:10px 16px 8px;line-height:1.4;}
+#noshow-msg{font-size:31px;font-weight:700;color:#fff;text-align:center;margin:10px 16px 8px;line-height:1.4;}
 #noshow-msg strong{color:#ff9500;}
 #noshow-mm,#noshow-ss{display:inline-block;color:#ff9500;-webkit-perspective:300px;perspective:300px;}
 #noshow-mm.fall,#noshow-ss.fall{-webkit-animation:digit-fall 0.4s ease-out;animation:digit-fall 0.4s ease-out;}
@@ -811,7 +811,7 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 153,
+  patch: 154,
   date: '2026-07-17',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2432,13 +2432,10 @@ function updateCurrentCard(){
       var initTime=fmtMmSs(Math.max(0,secsLeft));
       var initMm=initTime.slice(0,2),initSs=initTime.slice(3);
       var releaseMsg=secsLeft>0
-        ?'<div id="checkin-hint">Tap below to confirm your attendance</div>'
+        ?'<div id="noshow-msg">Check&#8209;in <strong>NOW</strong>, otherwise released in <span id="noshow-mm">'+initMm+'</span>:<span id="noshow-ss">'+initSs+'</span></div>'
         :'<div id="noshow-msg">No one checked in &mdash; <strong>booking held</strong></div>';
-      var stripHtml=secsLeft>0
-        ?'<div id="noshow-left" style="-webkit-animation:none;animation:none"><div id="noshow-strip-mm">'+initMm+'</div><div id="noshow-strip-colon">:</div><div id="noshow-strip-ss">'+initSs+'</div><div id="noshow-strip-label">check in</div></div>'
-        :'<div id="noshow-left"><div id="noshow-label">NO<br>SHOW</div></div>';
       cont.innerHTML=
-        stripHtml+
+        (secsLeft>0?'<div id="noshow-left"></div>':'<div id="noshow-left"><div id="noshow-label">NO<br>SHOW</div></div>')+
         '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
         '<div class="meet-time-lg" style="color:#ff9500">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
         (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'</div>':'');
@@ -2454,7 +2451,7 @@ function updateCurrentCard(){
           var s2=Math.round((cur.start.getTime()+releaseMin*60000-new Date())/1000);
           if(s2<=0){clearInterval(_cardCountdownTimer);_cardCountdownTimer=null;reportNoShow(cur);updateCurrentCard();return;}
           var t2=fmtMmSs(s2),mm2=t2.slice(0,2),ss2=t2.slice(3);
-          var tMm=el('noshow-strip-mm'),tSs=el('noshow-strip-ss');
+          var tMm=el('noshow-mm'),tSs=el('noshow-ss');
           if(tSs){tSs.classList.remove('fall');void tSs.offsetWidth;tSs.classList.add('fall');tSs.textContent=ss2;}
           if(tMm){if(mm2!==_prevMm){tMm.classList.remove('fall');void tMm.offsetWidth;tMm.classList.add('fall');_prevMm=mm2;}tMm.textContent=mm2;}
         },1000);
