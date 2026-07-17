@@ -1058,16 +1058,23 @@ async function sendDailyHealthDigest(env, report) {
     roomData.sort(function(a, b) { return (a.roomname || '').localeCompare(b.roomname || ''); });
 
     // ── Collect today's + yesterday's incidents ──
-    var yesterdayBkk = new Date(bkkNow.getTime() - 86400000).toISOString().slice(0, 10);
     var indexRaw = await env.RIS_KV.get('incidents_index');
     var incIndex = indexRaw ? JSON.parse(indexRaw) : [];
+    var cutoff24h = new Date(now - 24 * 3600000).toISOString();
+    var expireCutoff48h = new Date(now - 48 * 3600000).toISOString();
     var recentIncidents = [];
-    for (var j = 0; j < Math.min(incIndex.length, 150); j++) {
+    for (var j = 0; j < Math.min(incIndex.length, 200); j++) {
       var inc = await env.RIS_KV.get(incIndex[j]);
-      if (inc) {
-        var rec = JSON.parse(inc);
-        var d = (rec.reportedAt || '').slice(0, 10);
-        if (d === todayBkk || d === yesterdayBkk) recentIncidents.push(rec);
+      if (!inc) continue;
+      var rec = JSON.parse(inc);
+      if (rec.reportedAt >= cutoff24h) {
+        recentIncidents.push(rec);
+      } else if (!rec.resolvedAt && rec.type === 'noshow' && rec.reportedAt < expireCutoff48h) {
+        rec.resolvedAt = new Date(now).toISOString();
+        rec.resolvedBy = 'system';
+        rec.resolution = 'auto-expired';
+        rec.durationMinutes = Math.round((now - new Date(rec.reportedAt).getTime()) / 60000);
+        await env.RIS_KV.put(incIndex[j], JSON.stringify(rec), { expirationTtl: 2592000 });
       }
     }
 
@@ -1147,7 +1154,13 @@ async function sendDailyHealthDigest(env, report) {
     // ── Crash boot incidents ──
     // Unexpected = boot_detected that does NOT land near a scheduled alarm time
     // Expected alarm UTC times: restart ~23:00 prev day, wake ~00:30, standby ~13:30
-    var expectedBootWindowsUTC = [restartTarget, wakeTarget, standbyTarget];
+    var twoDaysAgoUTC = new Date(now - 2 * 86400000).toISOString().slice(0, 10);
+    var expectedBootWindowsUTC = [
+      restartTarget, wakeTarget, standbyTarget,
+      twoDaysAgoUTC + 'T23:00:00Z',
+      yestUTC + 'T00:30:00Z',
+      yestUTC + 'T13:30:00Z'
+    ];
     recentIncidents.forEach(function(inc) {
       if (inc.type !== 'boot_detected') return;
       var incMs = new Date(inc.reportedAt).getTime();
@@ -1185,6 +1198,7 @@ async function sendDailyHealthDigest(env, report) {
     var onlineCount = roomData.filter(function(r) {
       return (now - new Date(r.timestamp).getTime()) / 60000 < 70;
     }).length;
+    anomalies = anomalies.filter(function(a, i, arr) { return arr.indexOf(a) === i; });
     var allOk = anomalies.length === 0;
     var subjectEmoji = allOk ? '✅' : '⚠️';
     var subject = '[RIS] Daily Health Digest ' + subjectEmoji + ' — ' + todayBkk
@@ -1239,7 +1253,7 @@ async function sendDailyHealthDigest(env, report) {
           alarmChain: {
             restart06h: findAlarm(r.alarmLog, 'restart', restartTarget),
             wake07h30: findAlarm(r.alarmLog, 'wake', wakeTarget),
-            standby20h30: findAlarm(r.alarmLog, 'standby', standbyTarget)
+            standby20h30: alarmExpected(standbyTarget) ? findAlarm(r.alarmLog, 'standby', standbyTarget) : 'pending'
           }
         };
       }),
