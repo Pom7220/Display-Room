@@ -1119,7 +1119,7 @@ async function sendDailyHealthDigest(env, report) {
       // Alarm chain gaps
       var alarmLog = r.alarmLog || [];
       var restartOk = !alarmExpected(restartTarget) || findAlarm(alarmLog, 'restart', restartTarget);
-      var wakeOk    = !alarmExpected(wakeTarget)    || findAlarm(alarmLog, 'wake',    wakeTarget);
+      var wakeOk    = !alarmExpected(wakeTarget)    || findAlarm(alarmLog, 'wake', wakeTarget) || findAlarm(alarmLog, 'wake_weekend', wakeTarget);
       var standbyOk = !alarmExpected(standbyTarget) || findAlarm(alarmLog, 'standby', standbyTarget);
       if (!restartOk) flags.push('⚠️ missing 06:00 restart');
       if (!wakeOk)    flags.push('⚠️ missing 07:30 wake');
@@ -1138,7 +1138,7 @@ async function sendDailyHealthDigest(env, report) {
       var flagStr = flags.length ? ' — ' + flags.join(', ') : '';
       roomRows += '<tr>'
         + '<td style="padding:4px 10px 4px 0;font-weight:600">' + statusIcon + ' ' + r.roomname + '</td>'
-        + '<td style="padding:4px 10px;color:#555;font-size:12px">' + (r.version || '?') + ' / APK ' + (r.apkVersion || '?') + '</td>'
+        + '<td style="padding:4px 10px;color:#555;font-size:12px">' + ((r.version && r.version.charAt(0) === 'v') ? r.version : '? (standby)') + ' / APK ' + (r.apkVersion || (r.version && r.version.charAt(0) !== 'v' ? r.version : '?')) + '</td>'
         + '<td style="padding:4px 10px;color:#555;font-size:12px">' + Math.round(ageMins) + 'm ago</td>'
         + '<td style="padding:4px 0;font-size:12px;color:' + (flags.length ? '#cc3333' : '#339933') + '">'
           + (flags.length ? flags.join(' ') : '✓ OK') + '</td>'
@@ -1243,8 +1243,8 @@ async function sendDailyHealthDigest(env, report) {
           room: r.roomname,
           online: ageMins < 70,
           lastSeenMinutesAgo: ageMins,
-          version: r.version,
-          apkVersion: r.apkVersion,
+          version: (r.version && r.version.charAt(0) === 'v') ? r.version : (r.apkVersion ? '? (weekend/standby)' : r.version),
+          apkVersion: r.apkVersion || (r.version && r.version.charAt(0) !== 'v' ? r.version : ''),
           uptime: r.uptime,
           meetingCount: r.meetingCount,
           alarmLogToday: (r.alarmLog || []).filter(function(e) {
@@ -1252,7 +1252,7 @@ async function sendDailyHealthDigest(env, report) {
           }),
           alarmChain: {
             restart06h: findAlarm(r.alarmLog, 'restart', restartTarget),
-            wake07h30: findAlarm(r.alarmLog, 'wake', wakeTarget),
+            wake07h30: findAlarm(r.alarmLog, 'wake', wakeTarget) || findAlarm(r.alarmLog, 'wake_weekend', wakeTarget),
             standby20h30: alarmExpected(standbyTarget) ? findAlarm(r.alarmLog, 'standby', standbyTarget) : 'pending'
           }
         };
