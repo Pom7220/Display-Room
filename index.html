@@ -811,8 +811,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 154,
-  date: '2026-07-17',
+  patch: 155,
+  date: '2026-07-19',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -2021,6 +2021,11 @@ function startAutoRelaunch(){
   var _launchTime=Date.now();
   var GRACE_MS=45000;
 
+  // Debounce: prevent rapid phantom-touch events from cascading into multiple reloads
+  // Failing digitizer can fire visibilitychange/focus dozens of times per minute
+  var _lastHandleReturn=0;
+  var DEBOUNCE_MS=60000;
+
   // Save activity timestamp every 30 seconds while app is active
   var _lastActive=Date.now();
   setInterval(function(){
@@ -2040,6 +2045,13 @@ function startAutoRelaunch(){
       dbg('Relaunch suppressed — within grace period');
       return;
     }
+    // Debounce: ignore if handleReturn fired within last 60s (phantom-touch protection)
+    var now=Date.now();
+    if(now-_lastHandleReturn<DEBOUNCE_MS){
+      dbg('Relaunch debounced — last call '+Math.round((now-_lastHandleReturn)/1000)+'s ago');
+      return;
+    }
+    _lastHandleReturn=now;
     var a=el('app');
     var appVisible=a&&a.style.display!=='none'&&!a.classList.contains('hidden');
     if(!appVisible)return;
