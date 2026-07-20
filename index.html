@@ -493,8 +493,8 @@ function checkForNewVersion(){
   }catch(e){}
 }
 // Check 30s after load (let everything settle first), then every 5 minutes
-setTimeout(checkForNewVersion,30000);
-setInterval(checkForNewVersion, 5 * 60 * 1000);
+setTimeout(checkForNewVersion,120000);       // 2 min after start — was 30s
+setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 </script>
 </head>
 <body>
@@ -811,8 +811,8 @@ setInterval(checkForNewVersion, 5 * 60 * 1000);
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 155,
-  date: '2026-07-19',
+  patch: 156,
+  date: '2026-07-20',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -1658,7 +1658,7 @@ function launch(){
   el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   renderRoomChips();
   startClock();fetchCal();fetchWeather();
-  setInterval(fetchCal,120000);
+  setInterval(fetchCal,300000);   // 5 min — was 2 min
   setInterval(fetchWeather,1800000);
   startBurnIn();
   // Generate corner QR on load so it's visible without tapping
@@ -1686,16 +1686,16 @@ function startMonitoring(){
   if(!cfg.roomemail)return;
   // log moved below after _hbMins is defined
 
-  // Initial heartbeat after 30 seconds (let app settle)
-  setTimeout(sendHeartbeat,30000);
-  // Heartbeat interval: configurable via cfg.heartbeatMins (default 20)
-  var _hbMins=(cfg.heartbeatMins&&cfg.heartbeatMins>=5&&cfg.heartbeatMins<=60)?cfg.heartbeatMins:20;
+  // Stagger startup: heartbeat at 45s, commands at 90s — never fire together
+  setTimeout(sendHeartbeat,45000);
+  // Heartbeat interval: configurable via cfg.heartbeatMins (default 30)
+  var _hbMins=(cfg.heartbeatMins&&cfg.heartbeatMins>=5&&cfg.heartbeatMins<=60)?cfg.heartbeatMins:30;
   setInterval(sendHeartbeat,_hbMins*60*1000);
-  dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 30s');
+  dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 7m');
 
-  // Poll for commands every 2 minutes
-  setTimeout(pollCommand,30000);
-  setInterval(pollCommand,120000);
+  // Poll for commands every 7 minutes (staggered — won't align with fetchCal at 5m)
+  setTimeout(pollCommand,90000);
+  setInterval(pollCommand,420000);
 }
 
 function getMonitorStatus(){
