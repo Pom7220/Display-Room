@@ -1037,12 +1037,12 @@ async function sendWeeklyEmail(env, data) {
 // ═══════════════════════════════════════
 // All 6 deployed tablets. Used to surface offline rooms that have no KV heartbeat.
 var KNOWN_ROOMS = [
-  { email: 'affogato@central.co.th',    name: 'Affogato' },
-  { email: 'macchiato@central.co.th',   name: 'Macchiato' },
-  { email: 'mocha@central.co.th',       name: 'Mocha' },
-  { email: 'viennese@central.co.th',    name: 'Viennese' },
-  { email: 'decaffinato@central.co.th', name: 'Decaffinato' },
-  { email: 'latte@central.co.th',       name: 'Latte' },
+  { email: 'risaffogato@central.co.th',    name: 'Affogato' },
+  { email: 'rismacchiato@central.co.th',   name: 'Macchiato' },
+  { email: 'rismocha@central.co.th',       name: 'Mocha' },
+  { email: 'risviennese@central.co.th',    name: 'Viennese' },
+  { email: 'risdecaffinato@central.co.th', name: 'Decaffinato' },
+  { email: 'rislatte@central.co.th',       name: 'Latte' },
 ];
 
 // ═══════════════════════════════════════
@@ -1164,7 +1164,7 @@ async function sendDailyHealthDigest(env, report) {
       roomRows += '<tr>'
         + '<td style="padding:4px 10px 4px 0;font-weight:600">' + statusIcon + ' ' + r.roomname + '</td>'
         + '<td style="padding:4px 10px;color:#555;font-size:12px">' + ((r.version && r.version.charAt(0) === 'v') ? r.version : '? (standby)') + ' / APK ' + (r.apkVersion || (r.version && r.version.charAt(0) !== 'v' ? r.version : '?')) + '</td>'
-        + '<td style="padding:4px 10px;color:#555;font-size:12px">' + Math.round(ageMins) + 'm ago</td>'
+        + '<td style="padding:4px 10px;color:#555;font-size:12px">' + (r.timestamp ? Math.round(ageMins) + 'm ago' : 'no heartbeat') + '</td>'
         + '<td style="padding:4px 0;font-size:12px;color:' + (flags.length ? '#cc3333' : '#339933') + '">'
           + (flags.length ? flags.join(' ') : '✓ OK') + '</td>'
         + '</tr>';
@@ -1208,7 +1208,7 @@ async function sendDailyHealthDigest(env, report) {
 
     // ── Open incidents — only non-auto-resolvable ones ──
     var openIncidents = recentIncidents.filter(function(i) {
-      return !i.resolvedAt && !i.autoResolvable;
+      return !i.resolvedAt && !i.autoResolvable && i.type !== 'noshow';
     });
     openIncidents.forEach(function(inc) {
       var detail = '';
