@@ -1061,35 +1061,34 @@ function renderVersionRollout(rooms, latestWebVersion) {
   const roomMap = {};
   (rooms || []).forEach(function(r) { roomMap[r.room] = r; });
 
-  let html = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
-  html += '<span style="font-size:10px;color:var(--muted);margin-right:4px">Target: <strong style="color:var(--fg)">' + latestWebVersion + '</strong></span>';
+  const LOBBY_EMAILS  = RIS_ROOMS.slice(0, 6).map(function(r) { return r.email; });
+  function buildRow(rooms6) {
+    var row = '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:4px">';
+    rooms6.forEach(function(ris) {
+      const r = roomMap[ris.email];
+      const isOffline = !r || !r.isOnline;
+      const isSleep = r && r.isOnline && r.status === 'sleep';
+      const roomVer = r && r.version ? r.version.split(' ')[0] : null;
+      const isCurrent = roomVer === latestWebVersion;
 
-  RIS_ROOMS.forEach(function(ris) {
-    const r = roomMap[ris.email];
-    const isOffline = !r || !r.isOnline;
-    const isSleep = r && r.isOnline && r.status === 'sleep';
-    // r.version from heartbeat is like "v3.10.155 (2026-07-19)" — strip the date part
-    const roomVer = r && r.version ? r.version.split(' ')[0] : null;
-    const isCurrent = roomVer === latestWebVersion;
+      var bg, textColor, icon;
+      if (isOffline)      { bg = 'rgba(255,255,255,0.06)'; textColor = 'var(--muted)'; icon = '—'; }
+      else if (isSleep)   { bg = 'rgba(255,255,255,0.06)'; textColor = 'var(--muted)'; icon = '🌙'; }
+      else if (isCurrent) { bg = 'rgba(0,214,143,0.15)';   textColor = 'var(--green)'; icon = '✓'; }
+      else                { bg = 'rgba(255,51,51,0.15)';    textColor = 'var(--red)';   icon = roomVer || '?'; }
 
-    var bg, textColor, icon;
-    if (isOffline) {
-      bg = 'rgba(255,255,255,0.06)'; textColor = 'var(--muted)'; icon = '—';
-    } else if (isSleep) {
-      bg = 'rgba(255,255,255,0.06)'; textColor = 'var(--muted)'; icon = '🌙';
-    } else if (isCurrent) {
-      bg = 'rgba(0,214,143,0.15)'; textColor = 'var(--green)'; icon = '✓';
-    } else {
-      bg = 'rgba(255,51,51,0.15)'; textColor = 'var(--red)'; icon = roomVer || '?';
-    }
+      row += '<div style="background:' + bg + ';border-radius:5px;padding:3px 2px;text-align:center">' +
+        '<div style="font-size:11px;font-weight:700;color:' + textColor + '">' + icon + '</div>' +
+        '<div style="font-size:8px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ris.name + '</div>' +
+        '</div>';
+    });
+    row += '</div>';
+    return row;
+  }
 
-    html += '<div style="background:' + bg + ';border-radius:6px;padding:5px 10px;text-align:center;min-width:80px">' +
-      '<div style="font-size:13px;font-weight:700;color:' + textColor + '">' + icon + '</div>' +
-      '<div style="font-size:9px;color:var(--muted);margin-top:2px">' + ris.name + '</div>' +
-      '</div>';
-  });
-
-  html += '</div>';
+  var html = '<div style="font-size:10px;color:var(--muted);margin-bottom:6px">Target: <strong style="color:var(--fg)">' + latestWebVersion + '</strong></div>';
+  html += buildRow(RIS_ROOMS.slice(0, 6));
+  html += buildRow(RIS_ROOMS.slice(6, 12));
   el.innerHTML = html;
 }
 
