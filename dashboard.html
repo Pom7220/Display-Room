@@ -343,14 +343,11 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 
   <div id="adm-smart-actions" style="margin-bottom:12px"></div>
 
-  <div class="adm-section">Lobby — rooms 1–6</div>
+  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center"><span>Lobby — rooms 1–6</span><span id="adm-web-version-target" style="font-size:9px;font-weight:400;color:var(--muted)"></span></div>
   <div class="adm-grid" id="adm-room-grid-lobby"><div class="adm-empty">Loading…</div></div>
 
   <div class="adm-section">In-office — rooms 7–12</div>
   <div class="adm-grid" id="adm-room-grid-office"><div class="adm-empty">Loading…</div></div>
-
-  <div class="adm-section">Version rollout</div>
-  <div id="adm-version-rollout" style="margin-bottom:16px"><div class="adm-empty">Loading…</div></div>
 
   <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Recent incidents <button style="padding:3px 10px;background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="resolveAllIncidents()">✓ Resolve all</button></div>
   <div class="adm-incidents" id="adm-incident-list">
@@ -1035,10 +1032,9 @@ async function refreshAdmin() {
     const latestWebVersion = webVerData ? webVerData.version : null;
 
     _lastAnalyzedRooms = statusData.rooms || [];
-    renderAdminRooms(statusData.rooms || [], latestApkVersion);
+    renderAdminRooms(statusData.rooms || [], latestApkVersion, latestWebVersion);
     renderSmartActions(statusData.rooms || []);
     renderAdminStats(statusData.rooms || [], latestApkVersion);
-    renderVersionRollout(statusData.rooms || [], latestWebVersion);
     renderAdminIncidents(incData.incidents || []);
     fetchReports();
 
@@ -1052,45 +1048,6 @@ async function refreshAdmin() {
   }
 }
 
-function renderVersionRollout(rooms, latestWebVersion) {
-  const el = document.getElementById('adm-version-rollout');
-  if (!el) return;
-  if (!latestWebVersion) { el.innerHTML = '<div class="adm-empty">Could not fetch latest version</div>'; return; }
-
-  // Extract patch number for comparison (e.g. "v3.10.155" → "v3.10.155")
-  const roomMap = {};
-  (rooms || []).forEach(function(r) { roomMap[r.room] = r; });
-
-  const LOBBY_EMAILS  = RIS_ROOMS.slice(0, 6).map(function(r) { return r.email; });
-  function buildRow(rooms6) {
-    var row = '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:4px">';
-    rooms6.forEach(function(ris) {
-      const r = roomMap[ris.email];
-      const isOffline = !r || !r.isOnline;
-      const isSleep = r && r.isOnline && r.status === 'sleep';
-      const roomVer = r && r.version ? r.version.split(' ')[0] : null;
-      const isCurrent = roomVer === latestWebVersion;
-
-      var bg, textColor, icon;
-      if (isOffline)      { bg = 'rgba(255,255,255,0.06)'; textColor = 'var(--muted)'; icon = '—'; }
-      else if (isSleep)   { bg = 'rgba(255,255,255,0.06)'; textColor = 'var(--muted)'; icon = '🌙'; }
-      else if (isCurrent) { bg = 'rgba(0,214,143,0.15)';   textColor = 'var(--green)'; icon = '✓'; }
-      else                { bg = 'rgba(255,51,51,0.15)';    textColor = 'var(--red)';   icon = roomVer || '?'; }
-
-      row += '<div style="background:' + bg + ';border-radius:5px;padding:3px 2px;text-align:center">' +
-        '<div style="font-size:11px;font-weight:700;color:' + textColor + '">' + icon + '</div>' +
-        '<div style="font-size:8px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ris.name + '</div>' +
-        '</div>';
-    });
-    row += '</div>';
-    return row;
-  }
-
-  var html = '<div style="font-size:10px;color:var(--muted);margin-bottom:6px">Target: <strong style="color:var(--fg)">' + latestWebVersion + '</strong></div>';
-  html += buildRow(RIS_ROOMS.slice(0, 6));
-  html += buildRow(RIS_ROOMS.slice(6, 12));
-  el.innerHTML = html;
-}
 
 function renderAdminStats(rooms, latestVersion) {
   const online   = rooms.filter(r => r.isOnline && r.status !== 'sleep').length;
@@ -1120,7 +1077,9 @@ function renderAdminStats(rooms, latestVersion) {
   }
 }
 
-function renderAdminRooms(rooms, latestVersion) {
+function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
+  var targetEl = document.getElementById('adm-web-version-target');
+  if (targetEl) targetEl.textContent = latestWebVersion ? 'target ' + latestWebVersion : '';
   const lobbyGrid = document.getElementById('adm-room-grid-lobby');
   const officeGrid = document.getElementById('adm-room-grid-office');
   if (!lobbyGrid || !officeGrid) return;
@@ -1168,9 +1127,16 @@ function renderAdminRooms(rooms, latestVersion) {
     }
 
     const apkOutdated = latestVersion && r && (!r.apkVersion || r.apkVersion !== latestVersion);
+    const roomWebVer = r && r.version ? r.version.split(' ')[0] : null;
+    const webCurrent = latestWebVersion && roomWebVer && roomWebVer === latestWebVersion;
+    const webOutdated = latestWebVersion && isOnline && !isSleep && roomWebVer && roomWebVer !== latestWebVersion;
     const versionBadge = (apkOutdated
       ? '<span style="color:var(--amber);font-weight:700">⚠️ APK ' + (r.apkVersion || '?') + '</span> '
-      : '') + versionText;
+      : '') + (webOutdated
+      ? '<span style="color:var(--red);font-weight:700">' + (roomWebVer || '?') + '</span>'
+      : webCurrent
+      ? '<span style="color:var(--green)">' + versionText + '</span>'
+      : versionText);
 
     var card = '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
