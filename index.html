@@ -811,7 +811,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 157,
+  patch: 158,
   date: '2026-07-20',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2013,29 +2013,32 @@ function resolveIncident(incidentKey,resolution){
 }
 
 function startMiddayReload(){
-  // Reload page at 12:30 BKK daily to flush Chrome 30 memory accumulation.
-  // If a meeting is active at that moment, skip entirely for today — no retry.
-  setInterval(function(){
-    var bkk=new Date(Date.now()+7*3600000);
-    var h=bkk.getUTCHours(),m=bkk.getUTCMinutes();
-    if(h!==12||m<30||m>=35)return; // only fire in 12:30–12:35 BKK window
+  // Single setTimeout fires exactly at 12:30 BKK to flush Chrome memory.
+  // If meeting active at that moment, skip for the day — no retry.
+  // App restarts fresh every morning at 07:30 BKK, so one shot is enough.
+  var bkk=new Date(Date.now()+7*3600000);
+  var today=bkk.toISOString().slice(0,10);
+  var key='ris_midday_reload_'+today;
+  try{ if(localStorage.getItem(key))return; }catch(e){} // already fired today
 
-    var today=bkk.toISOString().slice(0,10);
-    var key='ris_midday_reload_'+today;
-    try{ if(localStorage.getItem(key))return; }catch(e){}
+  var target=new Date(today+'T05:30:00Z'); // 12:30 BKK = 05:30 UTC
+  var msUntil=target.getTime()-Date.now();
+  if(msUntil<0)return; // already past 12:30 BKK today (e.g. manual reboot after noon)
 
+  dbg('Midday reload scheduled in '+Math.round(msUntil/60000)+'m');
+  setTimeout(function(){
+    var bkk2=new Date(Date.now()+7*3600000);
+    var key2='ris_midday_reload_'+bkk2.toISOString().slice(0,10);
     if(getCur()){
-      // Meeting in progress — skip for today
       dbg('Midday reload skipped — meeting active');
-      try{ localStorage.setItem(key,'skipped'); }catch(e){}
+      try{ localStorage.setItem(key2,'skipped'); }catch(e){}
       return;
     }
-
     dbg('Midday reload — flushing memory');
-    try{ localStorage.setItem(key,'done'); }catch(e){}
+    try{ localStorage.setItem(key2,'done'); }catch(e){}
     try{ sessionStorage.setItem('ris_from_reload','1'); }catch(e){}
     location.reload();
-  },60000); // check every minute
+  },msUntil);
 }
 
 function startAutoRelaunch(){
