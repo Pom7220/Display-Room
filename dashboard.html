@@ -1178,6 +1178,7 @@ function renderAdminIncidents(incidents) {
   var bkk = new Date(Date.now() + 7*60*60*1000);
   const today = bkk.toISOString().slice(0, 10);
   incidents.forEach(function(inc) {
+    if (inc.type === 'noshow') return; // noshow tracked in weekly report only
     const day = (inc.reportedAt || '').slice(0, 10);
     if (!byDay[day]) byDay[day] = [];
     byDay[day].push(inc);
