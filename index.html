@@ -811,7 +811,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 156,
+  patch: 157,
   date: '2026-07-20',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1673,6 +1673,7 @@ function launch(){
   // Enter fullscreen kiosk mode
   enterKiosk();
   startAutoRelaunch();
+  startMiddayReload();
   startTokenRefreshTimer();
   startMonitoring();
 
@@ -2009,6 +2010,32 @@ function resolveIncident(incidentKey,resolution){
     xhr.setRequestHeader('Content-Type','application/json');
     xhr.send(JSON.stringify(data));
   }catch(e){}
+}
+
+function startMiddayReload(){
+  // Reload page at 12:30 BKK daily to flush Chrome 30 memory accumulation.
+  // If a meeting is active at that moment, skip entirely for today — no retry.
+  setInterval(function(){
+    var bkk=new Date(Date.now()+7*3600000);
+    var h=bkk.getUTCHours(),m=bkk.getUTCMinutes();
+    if(h!==12||m<30||m>=35)return; // only fire in 12:30–12:35 BKK window
+
+    var today=bkk.toISOString().slice(0,10);
+    var key='ris_midday_reload_'+today;
+    try{ if(localStorage.getItem(key))return; }catch(e){}
+
+    if(getCur()){
+      // Meeting in progress — skip for today
+      dbg('Midday reload skipped — meeting active');
+      try{ localStorage.setItem(key,'skipped'); }catch(e){}
+      return;
+    }
+
+    dbg('Midday reload — flushing memory');
+    try{ localStorage.setItem(key,'done'); }catch(e){}
+    try{ sessionStorage.setItem('ris_from_reload','1'); }catch(e){}
+    location.reload();
+  },60000); // check every minute
 }
 
 function startAutoRelaunch(){
