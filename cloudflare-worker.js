@@ -1033,6 +1033,19 @@ async function sendWeeklyEmail(env, data) {
 }
 
 // ═══════════════════════════════════════
+// KNOWN ROOM REGISTRY
+// ═══════════════════════════════════════
+// All 6 deployed tablets. Used to surface offline rooms that have no KV heartbeat.
+var KNOWN_ROOMS = [
+  { email: 'affogato@central.co.th',    name: 'Affogato' },
+  { email: 'macchiato@central.co.th',   name: 'Macchiato' },
+  { email: 'mocha@central.co.th',       name: 'Mocha' },
+  { email: 'viennese@central.co.th',    name: 'Viennese' },
+  { email: 'decaffinato@central.co.th', name: 'Decaffinato' },
+  { email: 'latte@central.co.th',       name: 'Latte' },
+];
+
+// ═══════════════════════════════════════
 // DAILY HEALTH DIGEST EMAIL
 // ═══════════════════════════════════════
 
@@ -1055,6 +1068,16 @@ async function sendDailyHealthDigest(env, report) {
       rec.alarmLog = alarmRaw ? JSON.parse(alarmRaw) : [];
       roomData.push(rec);
     }
+    roomData.sort(function(a, b) { return (a.roomname || '').localeCompare(b.roomname || ''); });
+
+    // ── Inject offline stubs for any known room missing from KV (expired heartbeat) ──
+    var seenRooms = {};
+    roomData.forEach(function(r) { seenRooms[r.room] = true; });
+    KNOWN_ROOMS.forEach(function(kr) {
+      if (!seenRooms[kr.email]) {
+        roomData.push({ room: kr.email, roomname: kr.name, timestamp: null, version: null, apkVersion: null, alarmLog: [], _noHeartbeat: true });
+      }
+    });
     roomData.sort(function(a, b) { return (a.roomname || '').localeCompare(b.roomname || ''); });
 
     // ── Collect today's + yesterday's incidents ──
@@ -1107,7 +1130,7 @@ async function sendDailyHealthDigest(env, report) {
     var crashBoots = [];
 
     roomData.forEach(function(r) {
-      var ageMins = (now - new Date(r.timestamp).getTime()) / 60000;
+      var ageMins = r.timestamp ? (now - new Date(r.timestamp).getTime()) / 60000 : Infinity;
       var online = ageMins < 70;
       var statusIcon = online ? '✅' : '❌';
       var flags = [];
@@ -1127,8 +1150,10 @@ async function sendDailyHealthDigest(env, report) {
 
       // Offline
       if (!online) {
-        flags.push('❌ offline ' + Math.round(ageMins) + 'min');
-        anomalies.push(r.roomname + ': offline ' + Math.round(ageMins) + ' min (last seen ' + new Date(r.timestamp).toISOString() + ')');
+        var offlineDesc = r.timestamp ? Math.round(ageMins) + 'min' : 'no heartbeat ever';
+        var lastSeenDesc = r.timestamp ? ' (last seen ' + new Date(r.timestamp).toISOString() + ')' : ' (never seen — heartbeat expired or never sent)';
+        flags.push('❌ offline ' + offlineDesc);
+        anomalies.push(r.roomname + ': offline ' + offlineDesc + lastSeenDesc);
       }
 
       if (flags.length) {
@@ -1191,12 +1216,13 @@ async function sendDailyHealthDigest(env, report) {
       anomalies.push('Open: [' + inc.type + '] ' + (inc.roomname || inc.room || '') + (detail ? ' — ' + detail.slice(0, 60) : ''));
     });
 
-    // ── KV write estimate ──
-    var kvWritesPerDay = roomData.length * 24 + roomData.length * 3 + 5; // heartbeat ~1/hr + 3 alarms + overhead
+    // ── KV write estimate (exclude offline stubs — they generate no KV writes) ──
+    var activeRoomCount = roomData.filter(function(r) { return !r._noHeartbeat; }).length;
+    var kvWritesPerDay = activeRoomCount * 24 + activeRoomCount * 3 + 5; // heartbeat ~1/hr + 3 alarms + overhead
 
     // ── Summary line ──
     var onlineCount = roomData.filter(function(r) {
-      return (now - new Date(r.timestamp).getTime()) / 60000 < 70;
+      return r.timestamp && (now - new Date(r.timestamp).getTime()) / 60000 < 70;
     }).length;
     anomalies = anomalies.filter(function(a, i, arr) { return arr.indexOf(a) === i; });
     var allOk = anomalies.length === 0;
@@ -1238,10 +1264,10 @@ async function sendDailyHealthDigest(env, report) {
       reportDate: todayBkk,
       generatedAtUTC: new Date(now).toISOString(),
       tablets: roomData.map(function(r) {
-        var ageMins = Math.round((now - new Date(r.timestamp).getTime()) / 60000);
+        var ageMins = r.timestamp ? Math.round((now - new Date(r.timestamp).getTime()) / 60000) : null;
         return {
           room: r.roomname,
-          online: ageMins < 70,
+          online: ageMins !== null && ageMins < 70,
           lastSeenMinutesAgo: ageMins,
           version: (r.version && r.version.charAt(0) === 'v') ? r.version : (r.apkVersion ? '? (weekend/standby)' : r.version),
           apkVersion: r.apkVersion || (r.version && r.version.charAt(0) !== 'v' ? r.version : ''),
