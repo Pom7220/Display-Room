@@ -230,19 +230,21 @@ async function handleHeartbeat(request, env) {
     ]);
 
     var prev = existingRaw ? JSON.parse(existingRaw) : null;
-    var newStatus  = data.status  || 'unknown';
-    var newVersion = data.version || '';
-    var newApk     = data.apkVersion || '';
-    var newRefresh = !!data.hasRefreshToken;
+    var newStatus      = data.status  || 'unknown';
+    var newVersion     = data.version || '';
+    var newApk         = data.apkVersion || '';
+    var newRefresh     = !!data.hasRefreshToken;
+    var newMiddayReload = data.middayReload || null;
 
     // Only write if something health-critical changed, or >55 min since last write.
     // This keeps heartbeat KV writes to ~1/hour per room instead of 3/hour.
     var msSinceLast = prev ? Date.now() - new Date(prev.timestamp).getTime() : Infinity;
     var criticalChange = !prev
-      || prev.status         !== newStatus
-      || prev.version        !== newVersion
-      || prev.apkVersion     !== newApk
-      || prev.hasRefreshToken !== newRefresh;
+      || prev.status          !== newStatus
+      || prev.version         !== newVersion
+      || prev.apkVersion      !== newApk
+      || prev.hasRefreshToken !== newRefresh
+      || (newMiddayReload && newMiddayReload !== 'pending' && prev.middayReload !== newMiddayReload);
     var staleEnough = msSinceLast > 55 * 60 * 1000;
 
     if (criticalChange || staleEnough) {
@@ -260,6 +262,7 @@ async function handleHeartbeat(request, env) {
         log: (data.log || []).slice(-10),
         qrAvgPerDay: data.qrAvgPerDay || 0,
         qrPeakDay: data.qrPeakDay || 0,
+        middayReload: newMiddayReload,
         timestamp: new Date().toISOString(),
         ip: request.headers.get('CF-Connecting-IP') || ''
       };
@@ -1160,11 +1163,17 @@ async function sendDailyHealthDigest(env, report) {
         anomalies.push(r.roomname + ': ' + flags.join(', '));
       }
 
+      var middayIcon = '';
+      if (r.middayReload === 'done')    middayIcon = '♻️ reloaded';
+      else if (r.middayReload === 'skipped') middayIcon = '⏭️ skipped';
+      else                              middayIcon = '— ';
+
       var flagStr = flags.length ? ' — ' + flags.join(', ') : '';
       roomRows += '<tr>'
         + '<td style="padding:4px 10px 4px 0;font-weight:600">' + statusIcon + ' ' + r.roomname + '</td>'
         + '<td style="padding:4px 10px;color:#555;font-size:12px">' + ((r.version && r.version.charAt(0) === 'v') ? r.version : '? (standby)') + ' / APK ' + (r.apkVersion || (r.version && r.version.charAt(0) !== 'v' ? r.version : '?')) + '</td>'
         + '<td style="padding:4px 10px;color:#555;font-size:12px">' + (r.timestamp ? Math.round(ageMins) + 'm ago' : 'no heartbeat') + '</td>'
+        + '<td style="padding:4px 10px;color:#555;font-size:12px">' + middayIcon + '</td>'
         + '<td style="padding:4px 0;font-size:12px;color:' + (flags.length ? '#cc3333' : '#339933') + '">'
           + (flags.length ? flags.join(' ') : '✓ OK') + '</td>'
         + '</tr>';
