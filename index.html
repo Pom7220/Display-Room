@@ -811,7 +811,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 160,
+  patch: 161,
   date: '2026-07-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2412,9 +2412,17 @@ function updateCurrentCard(){
         '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
         '<div class="meet-time-lg" style="color:#64b5f6">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
         (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'<\/div>':'');
-      el('action-row-outer').innerHTML=
-        '<div style="text-align:center;font-size:18px;font-weight:700;color:#44ee88;margin:10px 0">'+
+      var releasedActionHtml='<div style="text-align:center;font-size:18px;font-weight:700;color:#44ee88;margin:10px 0">'+
         '&#10003;&nbsp;Room released early &middot; Available now</div>';
+      // If next meeting is within 15 min, offer early check-in even from released state
+      var nxtForRelease=getNext();
+      var nxtRelEarly=nxtForRelease&&(nxtForRelease.start-new Date())/60000<=15;
+      if(nxtRelEarly&&!checkedIn){
+        releasedActionHtml+='<div class="action-row"><button class="abtn abtn-checkin" id="checkin-btn">Check In</button></div>';
+      } else if(nxtRelEarly&&checkedIn){
+        releasedActionHtml+='<div class="action-row"><button class="abtn abtn-extend" id="ext-btn">+30<br>min</button><br><button class="abtn abtn-end-early" id="end-btn">End early</button></div>';
+      }
+      el('action-row-outer').innerHTML=releasedActionHtml;
       el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
       return;
     } else {
@@ -2679,7 +2687,7 @@ function renderMeetList(){
     var badge=ip?'<span class="mitem-badge pend">PENDING</span>'
       :isNow?'<span class="mitem-badge now">NOW</span>'
       :hasTeams&&i===0&&!isPast?'<span class="mitem-badge teams">TEAMS</span>'
-      :i===0&&!isPast?'<span class="mitem-badge next">NEXT</span>':'';
+      :'';
     return '<div class="'+cls+'">'+badge+
       '<div class="mitem-time-col"><div class="mitem-t">'+ft(m.start)+'</div><div class="mitem-d">'+fd(m.start,m.end)+'</div></div>'+
       '<div class="mitem-info"><div class="mitem-title">'+esc(m.title)+'</div><div class="mitem-org">'+esc(ip?m.organizer+' \u2013 pending':(localStorage.getItem('rib_'+localISO(m.start))||m.organizer))+'</div></div>'+
