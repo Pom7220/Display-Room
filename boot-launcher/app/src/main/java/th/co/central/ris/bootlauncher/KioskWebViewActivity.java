@@ -164,6 +164,20 @@ public class KioskWebViewActivity extends Activity {
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 handler.proceed();
             }
+
+            // Network/load error recovery — retry after 5 s so the kiosk self-heals
+            // from FortiGate redirects, transient DNS failures, or SSL interception
+            // that slipped past onReceivedSslError. The delay prevents tight retry loops.
+            @SuppressWarnings("deprecation")
+            @Override
+            public void onReceivedError(WebView view, int errorCode,
+                                        String description, String failingUrl) {
+                new Handler().postDelayed(new Runnable() {
+                    @Override public void run() {
+                        if (webView != null) loadDisplay();
+                    }
+                }, 5000);
+            }
         });
     }
 

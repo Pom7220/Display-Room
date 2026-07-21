@@ -811,8 +811,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 158,
-  date: '2026-07-20',
+  patch: 159,
+  date: '2026-07-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -2116,10 +2116,7 @@ function startAutoRelaunch(){
       return;
     }
     if(e&&e.persisted){
-      dbg('Pageshow from bfcache — reloading fresh');
-      try{sessionStorage.setItem('ris_from_reload','1');}catch(e){}
-      location.reload();
-      return;
+      dbg('Pageshow from bfcache — routing through handleReturn (debounced)');
     }
     setTimeout(handleReturn,800);
   });
