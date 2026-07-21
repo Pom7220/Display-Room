@@ -811,7 +811,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 161,
+  patch: 162,
   date: '2026-07-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1696,7 +1696,7 @@ function startMonitoring(){
 
   // Poll for commands every 7 minutes (staggered — won't align with fetchCal at 5m)
   setTimeout(pollCommand,90000);
-  setInterval(pollCommand,420000);
+  setInterval(pollCommand,60000); // 60s — fast enough to reflect dashboard bookings within ~1 min
 }
 
 function getMonitorStatus(){
@@ -1954,6 +1954,10 @@ function executeCommand(cmd){
         sendHeartbeat();
       }catch(e){dbg('set_tablet_key failed: '+e.message);}
     }
+  }
+  else if(action==='fetchcal'){
+    dbg('Remote fetchcal — refreshing calendar immediately');
+    fetchCal();
   }
   else{
     dbg('Unknown command: '+action);

@@ -835,6 +835,13 @@ function buildDashTimeSlots(){
   });
 }
 
+function adminBook(email) {
+  var room = RIS_ROOMS.find(function(r) { return r.email === email; });
+  if (!room) return;
+  selectedRoom = room;
+  openBookModal();
+}
+
 function openBookModal(){
   if(!selectedRoom)return;
   // Phase 4: no MSAL check needed — booking goes via Worker proxy
@@ -933,7 +940,17 @@ async function confirmBooking(){
     el('mconfirm-lbl').textContent=selectedRoom.approval?'Send approval request':'Confirm booking';
     const rd=await r.json();
     if(!r.ok||rd.error){toast('Booking failed: '+(rd.error||r.status),'error');}
-    else{closeBookModal();toast('✓ Booked! Invitation sent to '+email,'success');setTimeout(fetchAllRooms,3000);}
+    else{
+      closeBookModal();
+      toast('✓ Booked! Invitation sent to '+email,'success');
+      // Push fetchcal to the tablet so it shows the new booking within ~60s
+      fetch(MONITOR_URL+'command',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Admin-Key':adminKey},
+        body:JSON.stringify({room:selectedRoom.email,command:'fetchcal',sentBy:'dashboard'})
+      }).catch(function(){});
+      setTimeout(fetchAllRooms,3000);
+    }
   }catch(err){btn.disabled=false;el('mconfirm-lbl').textContent='Confirm booking';toast('Error: '+err.message,'error');}
 }
 
@@ -1169,6 +1186,7 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
     if (r && r.log && r.log.length > 0) {
       card += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋</div>';
     }
+    card += '<div class="adm-act" onclick="adminBook(\'' + ris.email + '\')" title="Book this room">📅</div>';
     card += '</div></div>';
 
     if (ris.zone === 'lobby') lobbyHtml += card;
