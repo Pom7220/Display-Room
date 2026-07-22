@@ -1045,7 +1045,7 @@ var KNOWN_ROOMS = [
   { email: 'rismacchiato@central.co.th',   name: 'Macchiato' },
   { email: 'rismocha@central.co.th',       name: 'Mocha' },
   { email: 'risviennese@central.co.th',    name: 'Viennese' },
-  { email: 'risdecaffinato@central.co.th', name: 'Decaffinato' },
+  { email: 'risdecaffeinato@central.co.th', name: 'Decaffinato' },
   { email: 'rislatte@central.co.th',       name: 'Latte' },
 ];
 
@@ -1074,8 +1074,7 @@ async function sendDailyHealthDigest(env, report) {
     }
     roomData.sort(function(a, b) { return (a.roomname || '').localeCompare(b.roomname || ''); });
 
-    // Deduplicate by roomname — stale KV entries with wrong key format (e.g. room:Decaffinato
-    // instead of room:risdecaffinato@central.co.th) cause ghost rows; keep the freshest entry.
+    // Deduplicate by roomname — guards against future email-typo mismatches producing ghost rows.
     var _byName = {};
     roomData.forEach(function(r) {
       var nm = r.roomname || r.room || '';
