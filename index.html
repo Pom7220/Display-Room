@@ -811,7 +811,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 164,
+  patch: 165,
   date: '2026-07-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1787,7 +1787,12 @@ function getMonitorStatus(){
         var key='ris_midday_reload_'+bkk.toISOString().slice(0,10);
         return localStorage.getItem(key)||'pending';
       }catch(e){return 'unknown';}
-    }())
+    }()),
+    pollStats: {
+      count: _pollCount,
+      slowCount: _slowPollCount,
+      lastSlowMs: _lastSlowPollMs
+    }
   };
 }
 
@@ -1822,22 +1827,31 @@ function sendHeartbeat(){
   }
 }
 
+var _pollCount=0,_slowPollCount=0,_lastSlowPollMs=0;
 function pollCommand(){
   if(!cfg.roomemail)return;
   try{
+    var t0=Date.now();
     var xhr=new XMLHttpRequest();
     xhr.open('GET',_monitorUrl+'command?room='+encodeURIComponent(cfg.roomemail),true);
     xhr.onreadystatechange=function(){
-      if(xhr.readyState===4&&xhr.status===200){
-        try{
-          var resp=JSON.parse(xhr.responseText);
-          if(resp.command&&resp.command.command){
-            dbg('CMD received via poll: '+resp.command.command);
-            executeCommand(resp.command);
-          } else {
-            dbg('Poll OK — no pending command');
-          }
-        }catch(e){}
+      if(xhr.readyState===4){
+        _pollCount++;
+        var elapsed=Date.now()-t0;
+        if(elapsed>2000){
+          _slowPollCount++;
+          _lastSlowPollMs=elapsed;
+          dbg('SLOW pollCommand: '+elapsed+'ms (total slow: '+_slowPollCount+')');
+        }
+        if(xhr.status===200){
+          try{
+            var resp=JSON.parse(xhr.responseText);
+            if(resp.command&&resp.command.command){
+              dbg('CMD received via poll: '+resp.command.command);
+              executeCommand(resp.command);
+            }
+          }catch(e){}
+        }
       }
     };
     xhr.send();

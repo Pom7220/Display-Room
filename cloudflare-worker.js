@@ -263,6 +263,7 @@ async function handleHeartbeat(request, env) {
         qrAvgPerDay: data.qrAvgPerDay || 0,
         qrPeakDay: data.qrPeakDay || 0,
         middayReload: newMiddayReload,
+        pollStats: data.pollStats || null,
         timestamp: new Date().toISOString(),
         ip: request.headers.get('CF-Connecting-IP') || ''
       };
@@ -1150,6 +1151,11 @@ async function sendDailyHealthDigest(env, report) {
       if (!restartOk) flags.push('⚠️ missing 06:00 restart');
       if (!wakeOk)    flags.push('⚠️ missing 07:30 wake');
       if (!standbyOk) flags.push('⚠️ missing 20:30 standby');
+
+      // Slow poll warnings (>2s response = Chrome memory pressure)
+      if (r.pollStats && r.pollStats.slowCount > 0) {
+        flags.push('⚠️ ' + r.pollStats.slowCount + ' slow poll' + (r.pollStats.slowCount > 1 ? 's' : '') + ' (last ' + r.pollStats.lastSlowMs + 'ms)');
+      }
 
       // Offline
       if (!online) {
