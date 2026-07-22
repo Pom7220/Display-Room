@@ -1074,6 +1074,17 @@ async function sendDailyHealthDigest(env, report) {
     }
     roomData.sort(function(a, b) { return (a.roomname || '').localeCompare(b.roomname || ''); });
 
+    // Deduplicate by roomname — stale KV entries with wrong key format (e.g. room:Decaffinato
+    // instead of room:risdecaffinato@central.co.th) cause ghost rows; keep the freshest entry.
+    var _byName = {};
+    roomData.forEach(function(r) {
+      var nm = r.roomname || r.room || '';
+      if (!_byName[nm] || (r.timestamp && (!_byName[nm].timestamp || r.timestamp > _byName[nm].timestamp))) {
+        _byName[nm] = r;
+      }
+    });
+    roomData = Object.keys(_byName).map(function(k) { return _byName[k]; });
+
     // ── Inject offline stubs for any known room missing from KV (expired heartbeat) ──
     var seenRooms = {};
     roomData.forEach(function(r) { seenRooms[r.room] = true; });
@@ -1126,6 +1137,27 @@ async function sendDailyHealthDigest(env, report) {
       });
     }
 
+    // Pre-index unexpected reboots per room for alarm-gap correlation and crash-boot grouping
+    var twoDaysAgoUTC = new Date(now - 2 * 86400000).toISOString().slice(0, 10);
+    var expectedBootWindowsUTC = [
+      restartTarget, wakeTarget, standbyTarget,
+      twoDaysAgoUTC + 'T23:00:00Z',
+      yestUTC + 'T00:30:00Z',
+      yestUTC + 'T13:30:00Z'
+    ];
+    var _rebootsByRoom = {};
+    recentIncidents.forEach(function(inc) {
+      if (inc.type !== 'boot_detected') return;
+      var incMs = new Date(inc.reportedAt).getTime();
+      var nearScheduled = expectedBootWindowsUTC.some(function(t) {
+        return Math.abs(incMs - new Date(t).getTime()) < ALARM_WINDOW_MS;
+      });
+      if (nearScheduled) return;
+      var key = inc.room || '';
+      if (!_rebootsByRoom[key]) _rebootsByRoom[key] = [];
+      _rebootsByRoom[key].push(inc.reportedAt);
+    });
+
     // ── Per-room analysis ──
     var allVersions = [];
     var allApkVersions = [];
@@ -1148,9 +1180,27 @@ async function sendDailyHealthDigest(env, report) {
       var restartOk = !alarmExpected(restartTarget) || findAlarm(alarmLog, 'restart', restartTarget);
       var wakeOk    = !alarmExpected(wakeTarget)    || findAlarm(alarmLog, 'wake', wakeTarget) || findAlarm(alarmLog, 'wake_weekend', wakeTarget);
       var standbyOk = !alarmExpected(standbyTarget) || findAlarm(alarmLog, 'standby', standbyTarget);
-      if (!restartOk) flags.push('⚠️ missing 06:00 restart');
-      if (!wakeOk)    flags.push('⚠️ missing 07:30 wake');
-      if (!standbyOk) flags.push('⚠️ missing 20:30 standby');
+      // Alarm-gap check: if a reboot happened after the alarm target, it explains the gap (ℹ️ not ⚠️)
+      var roomReboots = _rebootsByRoom[r.room] || [];
+      function rebootAfter(targetIso) {
+        var tMs = new Date(targetIso).getTime();
+        var hits = roomReboots.filter(function(ts) { return new Date(ts).getTime() > tMs; });
+        if (!hits.length) return null;
+        hits.sort();
+        return new Date(new Date(hits[0]).getTime() + 7 * 3600000).toISOString().slice(11, 16);
+      }
+      if (!restartOk) {
+        var rb = rebootAfter(restartTarget);
+        flags.push(rb ? 'ℹ️ 06:00 restart (reboot at ' + rb + ' BKK)' : '⚠️ missing 06:00 restart');
+      }
+      if (!wakeOk) {
+        var rb2 = rebootAfter(wakeTarget);
+        flags.push(rb2 ? 'ℹ️ 07:30 wake (reboot at ' + rb2 + ' BKK)' : '⚠️ missing 07:30 wake');
+      }
+      if (!standbyOk) {
+        var rb3 = rebootAfter(standbyTarget);
+        flags.push(rb3 ? 'ℹ️ 20:30 standby (reboot at ' + rb3 + ' BKK)' : '⚠️ missing 20:30 standby');
+      }
 
       // Slow poll warnings (>2s response = Chrome memory pressure)
       if (r.pollStats && r.pollStats.slowCount > 0) {
@@ -1165,8 +1215,10 @@ async function sendDailyHealthDigest(env, report) {
         anomalies.push(r.roomname + ': offline ' + offlineDesc + lastSeenDesc);
       }
 
-      if (flags.length) {
-        anomalies.push(r.roomname + ': ' + flags.join(', '));
+      // Only ⚠️/❌ flags go to anomaly count; ℹ️ (reboot-explained gaps) are informational only
+      var warnFlags = flags.filter(function(f) { return f.indexOf('ℹ️') !== 0; });
+      if (warnFlags.length) {
+        anomalies.push(r.roomname + ': ' + warnFlags.join(', '));
       }
 
       var middayIcon = '';
@@ -1180,7 +1232,7 @@ async function sendDailyHealthDigest(env, report) {
         + '<td style="padding:4px 10px;color:#555;font-size:12px">' + ((r.version && r.version.charAt(0) === 'v') ? r.version : '? (standby)') + ' / APK ' + (r.apkVersion || (r.version && r.version.charAt(0) !== 'v' ? r.version : '?')) + '</td>'
         + '<td style="padding:4px 10px;color:#555;font-size:12px">' + (r.timestamp ? Math.round(ageMins) + 'm ago' : 'no heartbeat') + '</td>'
         + '<td style="padding:4px 10px;color:#555;font-size:12px">' + middayIcon + '</td>'
-        + '<td style="padding:4px 0;font-size:12px;color:' + (flags.length ? '#cc3333' : '#339933') + '">'
+        + '<td style="padding:4px 0;font-size:12px;color:' + (warnFlags.length ? '#cc3333' : (flags.length ? '#888' : '#339933')) + '">'
           + (flags.length ? flags.join(' ') : '✓ OK') + '</td>'
         + '</tr>';
     });
@@ -1191,34 +1243,57 @@ async function sendDailyHealthDigest(env, report) {
     if (uniqueVersions.length > 1) anomalies.push('Version mismatch across tablets: ' + uniqueVersions.join(', '));
     if (uniqueApk.length > 1) anomalies.push('APK version mismatch: ' + uniqueApk.join(', '));
 
-    // ── Crash boot incidents ──
-    // Unexpected = boot_detected that does NOT land near a scheduled alarm time
-    // Expected alarm UTC times: restart ~23:00 prev day, wake ~00:30, standby ~13:30
-    var twoDaysAgoUTC = new Date(now - 2 * 86400000).toISOString().slice(0, 10);
-    var expectedBootWindowsUTC = [
-      restartTarget, wakeTarget, standbyTarget,
-      twoDaysAgoUTC + 'T23:00:00Z',
-      yestUTC + 'T00:30:00Z',
-      yestUTC + 'T13:30:00Z'
-    ];
+    // ── Crash boot incidents — group events within 5 min into clusters ──
+    // (expectedBootWindowsUTC and _rebootsByRoom already built above)
+    var _allCrashBoots = [];
     recentIncidents.forEach(function(inc) {
       if (inc.type !== 'boot_detected') return;
       var incMs = new Date(inc.reportedAt).getTime();
       var nearScheduled = expectedBootWindowsUTC.some(function(t) {
         return Math.abs(incMs - new Date(t).getTime()) < ALARM_WINDOW_MS;
       });
-      if (nearScheduled) return; // normal alarm-triggered boot — skip
-      // Check for stale-flag wording in detail (inc.detail, not inc.description)
-      var isStale = inc.detail && inc.detail.indexOf('stale') !== -1;
-      crashBoots.push({
+      if (nearScheduled) return;
+      _allCrashBoots.push({
         room: inc.roomname || inc.room || '?',
         email: inc.room || '',
         ts: inc.reportedAt,
+        tsMs: incMs,
         desc: inc.detail || 'boot detected'
       });
-      anomalies.push((isStale ? 'Crash reboot' : 'Unexpected reboot') + ': '
-        + (inc.roomname || inc.room) + ' at '
-        + new Date(inc.reportedAt).toISOString().replace('T', ' ').slice(0, 16) + ' UTC');
+    });
+    _allCrashBoots.sort(function(a, b) { return a.tsMs - b.tsMs; });
+
+    // Cluster: events within 5 min of each other → one summary row
+    var _clusters = [];
+    _allCrashBoots.forEach(function(boot) {
+      var last = _clusters[_clusters.length - 1];
+      if (last && boot.tsMs - last.endMs < 5 * 60000) {
+        last.boots.push(boot);
+        last.endMs = boot.tsMs;
+      } else {
+        _clusters.push({ boots: [boot], endMs: boot.tsMs });
+      }
+    });
+
+    _clusters.forEach(function(cl) {
+      var rooms = cl.boots.map(function(b) { return b.room; });
+      var uniqueRooms = rooms.filter(function(v, i, a) { return a.indexOf(v) === i; });
+      var firstTs = cl.boots[0].ts;
+      var bkkTime = new Date(new Date(firstTs).getTime() + 7 * 3600000).toISOString().slice(11, 16);
+      if (uniqueRooms.length === 1) {
+        anomalies.push('Unexpected reboot: ' + uniqueRooms[0] + ' at '
+          + new Date(firstTs).toISOString().replace('T', ' ').slice(0, 16) + ' UTC');
+        crashBoots.push(cl.boots[0]);
+      } else {
+        anomalies.push('Mass reboot at ' + bkkTime + ' BKK — ' + uniqueRooms.length
+          + ' tablets: ' + uniqueRooms.join(', '));
+        crashBoots.push({
+          room: uniqueRooms.join(', '),
+          email: '',
+          ts: firstTs,
+          desc: 'Mass reboot — ' + cl.boots.length + ' event(s) across ' + uniqueRooms.length + ' tablets'
+        });
+      }
     });
 
     // ── Open incidents — only non-auto-resolvable ones ──
