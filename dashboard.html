@@ -1162,6 +1162,23 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
       '<div class="adm-room-meta">' + [tokenText, modeText, versionBadge, uptimeText].filter(Boolean).join(' · ') + '</div>' +
       (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
 
+    // Alarm chain row — today's events in BKK time, oldest→newest
+    var _todayBkk = new Date(Date.now() + 7*3600000).toISOString().slice(0, 10);
+    var _alarmIcons = { restart: '🔄', wake: '☀️', wake_weekend: '⏭️', standby: '🌙' };
+    var _todayAlarms = (r && r.alarmLog ? r.alarmLog : [])
+      .filter(function(e) {
+        return e.ts && new Date(new Date(e.ts).getTime() + 7*3600000).toISOString().startsWith(_todayBkk);
+      })
+      .reverse();
+    if (_todayAlarms.length) {
+      var _chips = _todayAlarms.map(function(e) {
+        var icon = _alarmIcons[e.event] || '•';
+        var t = new Date(new Date(e.ts).getTime() + 7*3600000).toISOString().slice(11, 16);
+        return '<span style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;margin-right:3px;white-space:nowrap">' + icon + ' ' + t + '</span>';
+      }).join('');
+      card += '<div style="font-size:9px;color:var(--muted);margin:3px 0 4px;line-height:1.8">' + _chips + '</div>';
+    }
+
     if (r && r.log && r.log.length > 0) {
       var filteredLog = r.log.filter(function(l) {
         return l.indexOf('Cal:') === -1 && l.indexOf('showAs') === -1;
