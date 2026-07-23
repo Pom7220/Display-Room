@@ -1186,7 +1186,7 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
     if (r && r.log && r.log.length > 0) {
       card += '<div class="adm-act" onclick="toggleLog(\'' + logId + '\')">📋</div>';
     }
-    card += '<div class="adm-act" onclick="adminBook(\'' + ris.email + '\')" title="Book this room">📅</div>';
+
     card += '</div></div>';
 
     if (ris.zone === 'lobby') lobbyHtml += card;
