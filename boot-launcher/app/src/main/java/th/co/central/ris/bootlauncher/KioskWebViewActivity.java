@@ -50,6 +50,19 @@ public class KioskWebViewActivity extends Activity {
     private WebView webView;
     private boolean enforceOneApp = false;
 
+    // ── Watchdog — two layers ──────────────────────────────────────────────────
+    // Layer 1 (load): armed on loadDisplay(), disarmed on onPageFinished.
+    //   If page never finishes loading within 5 min, force reload.
+    // Layer 2 (runtime): JS calls Android.ping() every 3 min.
+    //   If APK gets no ping for 10 min (WebView OOM-crashed), force reload.
+    private final Handler _wdHandler = new Handler();
+    private Runnable _loadWatchdog = null;
+    private Runnable _pingWatchdog = null;
+    private volatile long _lastPingMs = 0;
+    private static final long LOAD_WATCHDOG_MS  =  5 * 60 * 1000; // 5 min
+    private static final long PING_TIMEOUT_MS   = 10 * 60 * 1000; // 10 min
+    private static final long PING_CHECK_MS     =  5 * 60 * 1000; // 5 min
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -103,7 +116,39 @@ public class KioskWebViewActivity extends Activity {
             url.append("&apkversion=").append(Uri.encode(apkVersion));
         } catch (Exception e) { /* skip if unavailable */ }
 
+        armLoadWatchdog();
         webView.loadUrl(url.toString());
+    }
+
+    private void armLoadWatchdog() {
+        _lastPingMs = System.currentTimeMillis(); // also resets runtime watchdog
+        if (_loadWatchdog != null) _wdHandler.removeCallbacks(_loadWatchdog);
+        _loadWatchdog = new Runnable() {
+            @Override public void run() {
+                if (webView != null) loadDisplay();
+            }
+        };
+        _wdHandler.postDelayed(_loadWatchdog, LOAD_WATCHDOG_MS);
+    }
+
+    private void disarmLoadWatchdog() {
+        if (_loadWatchdog != null) { _wdHandler.removeCallbacks(_loadWatchdog); _loadWatchdog = null; }
+    }
+
+    private void startPingWatchdog() {
+        _lastPingMs = System.currentTimeMillis();
+        if (_pingWatchdog != null) _wdHandler.removeCallbacks(_pingWatchdog);
+        _pingWatchdog = new Runnable() {
+            @Override public void run() {
+                if (webView == null) return;
+                if (System.currentTimeMillis() - _lastPingMs > PING_TIMEOUT_MS) {
+                    loadDisplay(); // JS stopped pinging — WebView likely frozen
+                } else {
+                    _wdHandler.postDelayed(this, PING_CHECK_MS);
+                }
+            }
+        };
+        _wdHandler.postDelayed(_pingWatchdog, PING_CHECK_MS);
     }
 
     // Safety net: catches any non-Worker navigation (FortiGate redirect, stray MSAL, etc.).
@@ -163,6 +208,12 @@ public class KioskWebViewActivity extends Activity {
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 handler.proceed();
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                disarmLoadWatchdog();
+                startPingWatchdog();
             }
 
             // Network/load error recovery — retry after 5 s so the kiosk self-heals
@@ -262,6 +313,11 @@ public class KioskWebViewActivity extends Activity {
 
         // Called after web-side PIN verification — just finishes the activity
         @JavascriptInterface
+        public void ping() {
+            _lastPingMs = System.currentTimeMillis();
+        }
+
+        @JavascriptInterface
         public void exitKiosk() {
             enforceOneApp = false;
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -276,6 +332,7 @@ public class KioskWebViewActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
+        _lastPingMs = System.currentTimeMillis(); // prevent false watchdog trigger after standby
         hideSystemUI();
     }
 
@@ -287,6 +344,8 @@ public class KioskWebViewActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (_loadWatchdog != null) _wdHandler.removeCallbacks(_loadWatchdog);
+        if (_pingWatchdog != null) _wdHandler.removeCallbacks(_pingWatchdog);
         if (webView != null) { webView.destroy(); webView = null; }
         super.onDestroy();
     }
