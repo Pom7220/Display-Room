@@ -228,6 +228,12 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .abtn-checkin{touch-action:manipulation;background:#1db954;color:#fff;border:2px solid #17a844;min-height:64px;font-size:22px;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
 .abtn-checkin.checked{background:#178a3e;color:#fff;border:2px solid #117733;-webkit-animation:none;animation:none;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
+@-webkit-keyframes ci-fadein{0%{opacity:0;-webkit-transform:scale(.92);}100%{opacity:1;-webkit-transform:scale(1);}}
+@keyframes ci-fadein{0%{opacity:0;transform:scale(.92);}100%{opacity:1;transform:scale(1);}}
+#checkin-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.88);display:-webkit-box;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-animation:ci-fadein .25s ease-out;animation:ci-fadein .25s ease-out;pointer-events:none;}
+#checkin-overlay .ci-check{font-size:96px;line-height:1;color:#1db954;margin-bottom:24px;}
+#checkin-overlay .ci-msg{font-size:36px;font-weight:800;color:#ffffff;letter-spacing:.02em;margin-bottom:8px;}
+#checkin-overlay .ci-sub{font-size:18px;color:#9be5b8;font-weight:500;}
 #checkin-hint{font-size:14px;color:#9be5b8;text-align:center;margin-bottom:8px;}
 .abtn-end{touch-action:manipulation;background:#8a0a0a;color:#ffaaaa;border:2px solid #cc2222;}
 .abtn-end-early{touch-action:manipulation;background:#3d0a0a;color:#ff9999;border:2px solid #cc3333;font-size:15px;font-weight:700;min-width:auto;min-height:36px;padding:8px 24px;margin-top:8px;-webkit-border-radius:50px;border-radius:50px;}
@@ -811,7 +817,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 172,
+  patch: 173,
   date: '2026-07-24',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1696,7 +1702,7 @@ function startMonitoring(){
 
   // Poll for commands every 7 minutes (staggered — won't align with fetchCal at 5m)
   setTimeout(pollCommand,90000);
-  setInterval(pollCommand,30000); // 30s — ~15s avg wait; person walks to room in 30-60s so booking shows on arrival
+  setInterval(pollCommand,90000); // 90s — ~45s avg wait; still within walk-to-room window; reduces KV reads 3×
 }
 
 function getMonitorStatus(){
@@ -2790,9 +2796,12 @@ function renderMoreDays(){el('more-days').style.display='none';}
 function doCheckin(){
   var btn=el('checkin-btn');if(!btn)return;
   btn.disabled=true;
-  var sc=document.createElement('div');sc.className='scan-ln';btn.appendChild(sc);
-  sleep(1200).then(function(){
-    sc.remove();
+  var ov=document.createElement('div');ov.id='checkin-overlay';
+  var name=activeRoom&&activeRoom.name?activeRoom.name:'';
+  ov.innerHTML='<div class="ci-check">&#10003;</div><div class="ci-msg">Welcome!</div>'+(name?'<div class="ci-sub">'+esc(name)+' is ready for you</div>':'');
+  document.body.appendChild(ov);
+  sleep(1800).then(function(){
+    if(ov.parentNode)ov.parentNode.removeChild(ov);
     checkedIn=true;updateCurrentCard();toast('Checked in','success');
     try{
       var _noshowRaw=localStorage.getItem('ris_noshow_incident');
