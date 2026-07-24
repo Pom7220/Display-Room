@@ -59,9 +59,11 @@ public class KioskWebViewActivity extends Activity {
     private Runnable _loadWatchdog = null;
     private Runnable _pingWatchdog = null;
     private volatile long _lastPingMs = 0;
-    private static final long LOAD_WATCHDOG_MS  =  5 * 60 * 1000; // 5 min
-    private static final long PING_TIMEOUT_MS   = 10 * 60 * 1000; // 10 min
-    private static final long PING_CHECK_MS     =  5 * 60 * 1000; // 5 min
+    private static final long LOAD_WATCHDOG_MS    =  5 * 60 * 1000; // 5 min
+    private static final long PING_TIMEOUT_MS    = 10 * 60 * 1000; // 10 min
+    private static final long PING_CHECK_MS      =  5 * 60 * 1000; // 5 min
+    private static final long WATCHDOG_COOLDOWN_MS = 20 * 60 * 1000; // min gap between watchdog reloads
+    private volatile long _lastWatchdogReloadMs = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -142,7 +144,14 @@ public class KioskWebViewActivity extends Activity {
             @Override public void run() {
                 if (webView == null) return;
                 if (System.currentTimeMillis() - _lastPingMs > PING_TIMEOUT_MS) {
-                    loadDisplay(); // JS stopped pinging — WebView likely frozen
+                    long now = System.currentTimeMillis();
+                    if (now - _lastWatchdogReloadMs < WATCHDOG_COOLDOWN_MS) {
+                        // Reloaded recently — pings still absent; wait before trying again
+                        _wdHandler.postDelayed(this, PING_CHECK_MS);
+                    } else {
+                        _lastWatchdogReloadMs = now;
+                        loadDisplay(); // JS stopped pinging — WebView likely frozen
+                    }
                 } else {
                     _wdHandler.postDelayed(this, PING_CHECK_MS);
                 }
@@ -332,7 +341,9 @@ public class KioskWebViewActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
-        _lastPingMs = System.currentTimeMillis(); // prevent false watchdog trigger after standby
+        _lastPingMs = System.currentTimeMillis();
+        _lastWatchdogReloadMs = 0; // reset cooldown — fresh start after standby
+        startPingWatchdog(); // restart watchdog suspended in onPause
         hideSystemUI();
     }
 
@@ -340,6 +351,9 @@ public class KioskWebViewActivity extends Activity {
     protected void onPause() {
         super.onPause();
         if (webView != null) webView.onPause();
+        // Suspend watchdogs during standby — JS timers pause, so pings stop; prevent overnight reload loop
+        if (_loadWatchdog != null) _wdHandler.removeCallbacks(_loadWatchdog);
+        if (_pingWatchdog != null) _wdHandler.removeCallbacks(_pingWatchdog);
     }
 
     @Override
