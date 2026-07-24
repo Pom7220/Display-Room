@@ -811,7 +811,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 171,
+  patch: 172,
   date: '2026-07-24',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2589,8 +2589,9 @@ function updateCurrentCard(){
       el('status-txt').textContent='Available - meeting at '+ft(nxt.start);
       var checkinBtn='<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>';
       var pendNotice=hasPending?'<div class="pend-notice">&#9203; You have a pending approval request</div>':'';
+      var nxtIsPending=nxt.isPending&&activeRoom&&activeRoom.approval;
       cont.innerHTML=
-        '<div class="meet-tag soon">&#128993; UPCOMING</div>'+
+        '<div class="meet-tag soon">&#128993; UPCOMING'+(nxtIsPending?' &nbsp;<span style="font-size:11px;vertical-align:middle;background:#7a4400;padding:1px 6px;border-radius:4px">PENDING APPROVAL</span>':'')+'</div>'+
         '<div class="meet-title-lg">'+esc(nxt.title)+'</div>'+
         '<div class="meet-time-lg" style="color:#ffaa44">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
         (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
