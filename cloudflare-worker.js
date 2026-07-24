@@ -1138,11 +1138,13 @@ async function sendDailyHealthDigest(env, report) {
 
     // Pre-index unexpected reboots per room for alarm-gap correlation and crash-boot grouping
     var twoDaysAgoUTC = new Date(now - 2 * 86400000).toISOString().slice(0, 10);
+    var middayTarget  = todayUTC + 'T05:30:00Z'; // 12:30 BKK today
     var expectedBootWindowsUTC = [
-      restartTarget, wakeTarget, standbyTarget,
+      restartTarget, wakeTarget, standbyTarget, middayTarget,
       twoDaysAgoUTC + 'T23:00:00Z',
       yestUTC + 'T00:30:00Z',
-      yestUTC + 'T13:30:00Z'
+      yestUTC + 'T13:30:00Z',
+      yestUTC + 'T05:30:00Z'
     ];
     var _rebootsByRoom = {};
     recentIncidents.forEach(function(inc) {

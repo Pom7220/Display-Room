@@ -811,8 +811,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 170,
-  date: '2026-07-23',
+  patch: 171,
+  date: '2026-07-24',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -1697,11 +1697,6 @@ function startMonitoring(){
   // Poll for commands every 7 minutes (staggered — won't align with fetchCal at 5m)
   setTimeout(pollCommand,90000);
   setInterval(pollCommand,30000); // 30s — ~15s avg wait; person walks to room in 30-60s so booking shows on arrival
-
-  // APK watchdog ping — keep alive signal every 3 min; APK reloads if silent for 10 min
-  if(window.Android&&typeof window.Android.ping==='function'){
-    setInterval(function(){try{window.Android.ping();}catch(e){}},3*60*1000);
-  }
 }
 
 function getMonitorStatus(){
