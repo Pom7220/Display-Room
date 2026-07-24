@@ -45,6 +45,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .tslot-d{padding:7px 12px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
 .tslot-d.active{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);color:var(--blue-l);}
 .tslot-d:active{opacity:.8;}
+.tslot-d.tslot-blocked{opacity:.35;cursor:not-allowed;text-decoration:line-through;}
 .tchip{padding:7px 14px;background:var(--panel2);border:2px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:var(--font);}
 .tchip.active{background:rgba(41,121,255,.15);border-color:rgba(41,121,255,.4);color:var(--blue-l);}
 .tchip:active{opacity:.8;}
@@ -268,7 +269,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.4 (2026-07-08)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.5 (2026-07-24)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -731,7 +732,8 @@ function updateDetailCard(){
     btn.className='dc-btn dc-btn-busy';
     btn.textContent=d?.cur?`Occupied until ${ft(d.cur.end)}`:'Currently occupied';
     btn.onclick=null;
-  }else if(sp.status==='pending'){
+  }else if(sp.status==='pending'&&d&&d.pendingCur&&d.pendingCur.start<=now){
+    // Pending booking is active RIGHT NOW — block
     btn.className='dc-btn dc-btn-busy';
     btn.textContent='Pending approval — not bookable';
     btn.onclick=null;
@@ -804,7 +806,8 @@ function buildDashTimeSlots(){
   // Default start: skip past any existing meetings (same logic as index.html)
   var candidate=nextQuarterD(new Date());
   var existing=((roomData[selectedRoom&&selectedRoom.email]||{}).meetings)||[];
-  var sorted=existing.filter(function(m){return !m.isPending&&m.end>candidate;})
+  // Include pending meetings in skip logic — a pending slot is still claimed
+  var sorted=existing.filter(function(m){return m.end>candidate;})
                      .sort(function(a,b){return a.start-b.start;});
   for(var si=0;si<sorted.length;si++){if(sorted[si].start<=candidate)candidate=sorted[si].end;}
   candidate=nextQuarterD(candidate);
@@ -815,18 +818,23 @@ function buildDashTimeSlots(){
   if(nowBtn)nowBtn.textContent='Now ('+ft(candidate)+')';
 
   // Build 8 x 30-min custom slots (hidden until Custom tapped)
+  // Grey out any slot that overlaps an existing meeting (confirmed or pending)
   var container=el('dash-tslots');
   if(!container)return;
+  var allMeetings=existing.filter(function(m){return m.end>candidate;});
   var html='';
   for(var i=0;i<8;i++){
     var t=new Date(candidate.getTime()+i*30*60000);
-    html+='<div class="tslot-d" data-ms="'+t.getTime()+'">'+ft(t)+'</div>';
+    var tEnd=new Date(t.getTime()+selDurMin*60000);
+    var blocked=allMeetings.some(function(m){return t<m.end&&tEnd>m.start;});
+    html+='<div class="tslot-d'+(blocked?' tslot-blocked':'')+'" data-ms="'+t.getTime()+'" data-blocked="'+(blocked?'1':'0')+'">'+ft(t)+'</div>';
   }
   container.innerHTML=html;
   container.style.display='none';
 
   container.querySelectorAll('.tslot-d').forEach(function(chip){
     chip.addEventListener('click',function(){
+      if(chip.getAttribute('data-blocked')==='1')return;
       container.querySelectorAll('.tslot-d').forEach(function(c){c.classList.remove('active');});
       chip.classList.add('active');
       bookStart=new Date(parseInt(chip.getAttribute('data-ms')));
