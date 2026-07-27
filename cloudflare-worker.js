@@ -1379,7 +1379,7 @@ async function sendDailyHealthDigest(env, report) {
       kvWriteEstimate: kvWritesPerDay + '/day (' + roomData.length + ' tablets)'
     };
 
-    var claudePrompt = 'You are analyzing RIS Room Display — a meeting room kiosk system for 12 rooms at Central Silom Tower, Bangkok. Tablets run Android 4.4.2 with APK that has 3 scheduled alarms daily: restart at 06:00 BKK, wake at 07:30 BKK, standby at 20:30 BKK. The alarm chain is self-scheduling and breaks on cold restart.\n\n'
+    var claudePrompt = 'You are analyzing RIS Room Display — a meeting room kiosk system for 12 rooms at Central Silom Tower, Bangkok. 5 tablets (Affogato, Decaffinato, Macchiato, Mocha, Viennese) run Android 4.4.2 (LG); 1 tablet (Latte) runs Android 10 (Lenovo). APK has 3 scheduled alarms daily: restart at 06:00 BKK, wake at 07:30 BKK, standby at 20:30 BKK. The alarm chain is self-scheduling and breaks on cold restart.\n\n'
       + 'Here is today\'s health snapshot:\n\n'
       + JSON.stringify(claudeData, null, 2) + '\n\n'
       + 'Please:\n'
