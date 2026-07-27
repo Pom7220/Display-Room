@@ -288,12 +288,24 @@ public class KioskWebViewActivity extends Activity {
     }
 
     @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // Android 10+: background activity start restrictions block relaunch from onStop().
+        // onUserLeaveHint fires before onPause while still foreground — startActivity() allowed here.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && enforceOneApp && !isFinishing()) {
+            Intent relaunch = new Intent(this, KioskWebViewActivity.class);
+            relaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            startActivity(relaunch);
+        }
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
-        // Enforce One App: delay relaunch slightly so SystemUI can finish its
-        // own home/recents transition — launching immediately from onStop()
-        // races with the system animation and crashes com.android.systemui.
-        if (enforceOneApp && !isFinishing()) {
+        // Android 4.4 (API 19): enforce kiosk via onStop with a short delay so SystemUI
+        // can finish its home/recents transition before we relaunch (avoids SystemUI crash).
+        // Android 10+ uses onUserLeaveHint instead — background start restriction blocks this path.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && enforceOneApp && !isFinishing()) {
             new Handler().postDelayed(new Runnable() {
                 @Override public void run() {
                     if (enforceOneApp && !isFinishing()) {
