@@ -817,8 +817,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 173,
-  date: '2026-07-24',
+  patch: 174,
+  date: '2026-07-27',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -884,6 +884,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.174 2026-07-27 - Fix: add missing Android.ping() interval (every 3min) in startMonitoring — APK watchdog was never receiving pings from JS, causing 10-min reload loop all day; add window.onerror safety ping; add lastAndroidPingMins to heartbeat status for debugging
 
 // ══════════════════════════════════════
 // STATE
@@ -1689,6 +1690,8 @@ function launch(){
 // ══════════════════════════════════════
 // REMOTE MONITORING — heartbeat, commands, incidents
 // ══════════════════════════════════════
+var _lastAndroidPingMs = 0;
+
 function startMonitoring(){
   if(!cfg.roomemail)return;
   // log moved below after _hbMins is defined
@@ -1698,11 +1701,24 @@ function startMonitoring(){
   // Heartbeat interval: configurable via cfg.heartbeatMins (default 30)
   var _hbMins=(cfg.heartbeatMins&&cfg.heartbeatMins>=5&&cfg.heartbeatMins<=60)?cfg.heartbeatMins:30;
   setInterval(sendHeartbeat,_hbMins*60*1000);
-  dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 7m');
+  dbg('Monitoring started — heartbeat every '+_hbMins+'m, commands every 90s');
 
-  // Poll for commands every 7 minutes (staggered — won't align with fetchCal at 5m)
+  // Poll for commands every 90 seconds
   setTimeout(pollCommand,90000);
   setInterval(pollCommand,90000); // 90s — ~45s avg wait; still within walk-to-room window; reduces KV reads 3×
+
+  // APK watchdog ping — JS calls Android.ping() every 3min to prove it is alive.
+  // Without this, the APK watchdog fires 10min after every page load (since _lastPingMs
+  // is only reset on onPageFinished). With this, the watchdog only fires if JS truly dies.
+  if(typeof Android!=='undefined'){
+    try{Android.ping();_lastAndroidPingMs=Date.now();}catch(e){dbg('APK ping err: '+e);}
+    setInterval(function(){
+      try{Android.ping();_lastAndroidPingMs=Date.now();}catch(e){dbg('APK ping err: '+e);}
+    },3*60*1000); // 3 min — APK timeout is 10 min, so 3 pings of headroom
+    dbg('APK watchdog ping armed — every 3m');
+  } else {
+    dbg('APK watchdog ping skipped — no Android interface (browser mode)');
+  }
 }
 
 function getMonitorStatus(){
@@ -1798,7 +1814,8 @@ function getMonitorStatus(){
       count: _pollCount,
       slowCount: _slowPollCount,
       lastSlowMs: _lastSlowPollMs
-    }
+    },
+    lastAndroidPingMins: _lastAndroidPingMs ? Math.round((Date.now()-_lastAndroidPingMs)/60000) : -1
   };
 }
 
@@ -3669,6 +3686,14 @@ try{
     });
   }
 }catch(e){}
+
+// Safety net: uncaught JS errors ping the APK so a JS crash doesn't silently
+// starve the watchdog and cause a phantom reload 10 min later.
+window.onerror=function(msg,src,line,col,err){
+  dbg('JS ERR: '+msg+' ('+src+':'+line+')');
+  try{if(typeof Android!=='undefined'){Android.ping();_lastAndroidPingMs=Date.now();}}catch(e){}
+  return false;
+};
 
 if(cfg.roomemail&&cfg.roomname&&cfg.tabletKey){
   // Phase 4: Worker proxy flow — no MSAL needed
