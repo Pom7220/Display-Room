@@ -817,7 +817,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 175,
+  patch: 176,
   date: '2026-07-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -884,6 +884,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.176 2026-07-28 - Fix: boot_detected resolve delayed 30s so network is stable before XHR fires — eliminates open incidents at 07:30 wake
 // v3.10.175 2026-07-28 - Fix: midday reload (12:30 BKK) now sets ris_reload_reason=midday_reload in localStorage before location.reload(); boot detector handles midday_reload reason and auto-resolves — eliminates false boot_detected open incidents at 12:30 daily
 // v3.10.174 2026-07-27 - Fix: add missing Android.ping() interval (every 3min) in startMonitoring — APK watchdog was never receiving pings from JS, causing 10-min reload loop all day; add window.onerror safety ping; add lastAndroidPingMins to heartbeat status for debugging
 
@@ -3686,9 +3687,10 @@ try{
     }
   } else {
     // No flag at all — genuine device reboot, APK auto-launch after power-on.
-    // Auto-resolve — this is the normal nightly shutdown/morning reboot cycle.
+    // Delay resolve by 30s: network may not be stable at exact wake time (07:30)
+    // so an immediate resolve XHR often fails, leaving the incident permanently open.
     reportIncident('boot_detected','Device boot/reboot detected',true,function(key){
-      resolveIncident(key,'Boot confirmed — informational');
+      setTimeout(function(){resolveIncident(key,'Boot confirmed — informational');},30000);
     });
   }
 }catch(e){}
