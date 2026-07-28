@@ -817,8 +817,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 174,
-  date: '2026-07-27',
+  patch: 175,
+  date: '2026-07-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -884,6 +884,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.175 2026-07-28 - Fix: midday reload (12:30 BKK) now sets ris_reload_reason=midday_reload in localStorage before location.reload(); boot detector handles midday_reload reason and auto-resolves — eliminates false boot_detected open incidents at 12:30 daily
 // v3.10.174 2026-07-27 - Fix: add missing Android.ping() interval (every 3min) in startMonitoring — APK watchdog was never receiving pings from JS, causing 10-min reload loop all day; add window.onerror safety ping; add lastAndroidPingMins to heartbeat status for debugging
 
 // ══════════════════════════════════════
@@ -2085,6 +2086,7 @@ function startMiddayReload(){
     dbg('Midday reload — flushing memory');
     try{ localStorage.setItem(key2,'done'); }catch(e){}
     try{ sessionStorage.setItem('ris_from_reload','1'); }catch(e){}
+    try{ localStorage.setItem('ris_reload_reason',JSON.stringify({reason:'midday_reload',at:Date.now()})); }catch(e){}
     location.reload();
   },msUntil);
 }
@@ -3665,6 +3667,10 @@ try{
       } else if(rr.reason==='admin_reload'){
         reportIncident('admin_reload','Admin-triggered reload command',true,function(key){
           resolveIncident(key,'Admin-requested — informational only');
+        });
+      } else if(rr.reason==='midday_reload'){
+        reportIncident('midday_reload','Scheduled 12:30 memory flush reload',true,function(key){
+          resolveIncident(key,'Midday reload — informational only');
         });
       }
     } else {
