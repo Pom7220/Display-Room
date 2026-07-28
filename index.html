@@ -817,7 +817,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 176,
+  patch: 177,
   date: '2026-07-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -884,6 +884,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.177 2026-07-28 - Redesign: expected boots (06:00/07:30 BKK) are not incidents — only unexpected_reboot at other times stays OPEN; midday_reload no longer an incident; Worker adds missed-wake cron at 01:00 UTC (08:00 BKK)
 // v3.10.176 2026-07-28 - Fix: boot_detected resolve delayed 30s so network is stable before XHR fires — eliminates open incidents at 07:30 wake
 // v3.10.175 2026-07-28 - Fix: midday reload (12:30 BKK) now sets ris_reload_reason=midday_reload in localStorage before location.reload(); boot detector handles midday_reload reason and auto-resolves — eliminates false boot_detected open incidents at 12:30 daily
 // v3.10.174 2026-07-27 - Fix: add missing Android.ping() interval (every 3min) in startMonitoring — APK watchdog was never receiving pings from JS, causing 10-min reload loop all day; add window.onerror safety ping; add lastAndroidPingMins to heartbeat status for debugging
@@ -3670,28 +3671,27 @@ try{
           resolveIncident(key,'Admin-requested — informational only');
         });
       } else if(rr.reason==='midday_reload'){
-        reportIncident('midday_reload','Scheduled 12:30 memory flush reload',true,function(key){
-          resolveIncident(key,'Midday reload — informational only');
-        });
+        dbg('Midday reload (12:30 BKK) — expected, no incident');
       }
     } else {
-      // Stale flag (>2min old) — something interrupted the normal flow
-      // between setting it and this load actually happening. Treat as
-      // an unexplained boot rather than trusting a possibly-stale tag.
-      // Leave OPEN — this one IS worth a human glance, since the cause
-      // is genuinely unclear.
-      reportIncident('boot_detected',
-        'Device boot/reboot detected (stale flag '+Math.round(ageMs/1000)+'s old)',true,function(key){
-          resolveIncident(key,'Boot confirmed — informational');
-        });
+      // Stale flag (>2min old) — boot took longer than expected. Apply same window logic.
+      var _ns=new Date();var _ms=_ns.getUTCHours()*60+_ns.getUTCMinutes();
+      if(Math.abs(_ms-1380)<=20||Math.abs(_ms-30)<=20){
+        dbg('Boot (stale flag '+Math.round(ageMs/1000)+'s) within scheduled window — no incident');
+      }else{
+        reportIncident('unexpected_reboot','Unexpected reboot (stale flag '+Math.round(ageMs/1000)+'s old)',false);
+      }
     }
   } else {
-    // No flag at all — genuine device reboot, APK auto-launch after power-on.
-    // Delay resolve by 30s: network may not be stable at exact wake time (07:30)
-    // so an immediate resolve XHR often fails, leaving the incident permanently open.
-    reportIncident('boot_detected','Device boot/reboot detected',true,function(key){
-      setTimeout(function(){resolveIncident(key,'Boot confirmed — informational');},30000);
-    });
+    // No flag — genuine device reboot.
+    // 06:00 BKK = 23:00 UTC (min 1380) and 07:30 BKK = 00:30 UTC (min 30) are scheduled — log only.
+    // Any other time → unexpected_reboot, stays OPEN for admin review.
+    var _nb=new Date();var _mb=_nb.getUTCHours()*60+_nb.getUTCMinutes();
+    if(Math.abs(_mb-1380)<=15||Math.abs(_mb-30)<=15){
+      dbg('Boot within scheduled window (UTC min='+_mb+') — expected, no incident');
+    }else{
+      reportIncident('unexpected_reboot','Unexpected device reboot at '+_nb.toISOString(),false);
+    }
   }
 }catch(e){}
 

@@ -20,15 +20,22 @@
  */
 
 export default {
-  // Cron trigger — runs daily at 20:00 UTC+7 (13:00 UTC)
+  // Cron triggers:
+  //   0 1  * * * (daily 01:00 UTC = 08:00 BKK) — missed-wake check (tablets should be up 30min after 07:30 alarm)
+  //   0 11 * * 6 (Friday 11:00 UTC = 18:00 BKK) — weekly noshow report
+  //   0 13 * * * (daily 13:00 UTC = 20:00 BKK) — daily health digest
   async scheduled(event, env) {
     if (!env.RIS_KV) return;
 
-    // Weekly report cron: 0 11 * * 6 (Friday 11:00 UTC = 18:00 BKK)
-    // Daily report cron:  0 13 * * * (daily 13:00 UTC = 20:00 BKK)
+    var nowUtcHour = new Date(Date.now()).getUTCHours();
+    if (nowUtcHour === 1) {
+      // 08:00 BKK — check for tablets that failed to wake at 07:30
+      await checkMissedWakes(env);
+      return;
+    }
+
     var nowBkkDay = new Date(Date.now() + 7 * 3600000).getUTCDay(); // 5 = Friday
     var isFriday = nowBkkDay === 5;
-
     var report = await generateDailyReport(env);
     await sendDailyHealthDigest(env, report);
     if (isFriday) {
@@ -1050,6 +1057,48 @@ var KNOWN_ROOMS = [
 ];
 
 // ═══════════════════════════════════════
+// MISSED-WAKE DETECTION (runs at 08:00 BKK = 01:00 UTC)
+// ═══════════════════════════════════════
+// Tablets should wake at 07:30 BKK via APK alarm. At 08:00 BKK (30 min later),
+// any tablet with no heartbeat in the last 90 min failed to wake — file an incident.
+async function checkMissedWakes(env) {
+  var now = Date.now();
+  var cutoffMs = 90 * 60 * 1000;
+  for (var i = 0; i < KNOWN_ROOMS.length; i++) {
+    var kr = KNOWN_ROOMS[i];
+    var raw = await env.RIS_KV.get('room:' + kr.email, 'json');
+    var lastSeen = (raw && raw.timestamp) ? new Date(raw.timestamp).getTime() : 0;
+    if (!lastSeen || now - lastSeen > cutoffMs) {
+      var minsAgo = lastSeen ? Math.round((now - lastSeen) / 60000) : null;
+      var detail = minsAgo ? kr.name + ' did not wake at 07:30 BKK — last heartbeat ' + minsAgo + ' min ago' : kr.name + ' has never sent a heartbeat';
+      // Create incident directly in KV (same schema as POST /api/incident)
+      var incId = 'inc_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
+      var incident = {
+        id: incId,
+        room: kr.email,
+        roomname: kr.name,
+        type: 'tablet_missed_wake',
+        detail: detail,
+        reportedAt: new Date(now).toISOString(),
+        reportedBy: 'worker_cron',
+        resolvedAt: null,
+        resolvedBy: null,
+        resolution: null,
+        durationMinutes: null,
+        autoResolvable: false
+      };
+      var incKey = 'incident:' + new Date(now).toISOString().slice(0, 10) + ':' + incId;
+      await env.RIS_KV.put(incKey, JSON.stringify(incident), { expirationTtl: 2592000 });
+      var idxRaw = await env.RIS_KV.get('incidents_index');
+      var idx = idxRaw ? JSON.parse(idxRaw) : [];
+      idx.unshift(incKey);
+      if (idx.length > 200) idx = idx.slice(0, 200);
+      await env.RIS_KV.put('incidents_index', JSON.stringify(idx));
+    }
+  }
+}
+
+// ═══════════════════════════════════════
 // DAILY HEALTH DIGEST EMAIL
 // ═══════════════════════════════════════
 
@@ -1148,12 +1197,7 @@ async function sendDailyHealthDigest(env, report) {
     ];
     var _rebootsByRoom = {};
     recentIncidents.forEach(function(inc) {
-      if (inc.type !== 'boot_detected') return;
-      var incMs = new Date(inc.reportedAt).getTime();
-      var nearScheduled = expectedBootWindowsUTC.some(function(t) {
-        return Math.abs(incMs - new Date(t).getTime()) < ALARM_WINDOW_MS;
-      });
-      if (nearScheduled) return;
+      if (inc.type !== 'unexpected_reboot') return;
       var key = inc.room || '';
       if (!_rebootsByRoom[key]) _rebootsByRoom[key] = [];
       _rebootsByRoom[key].push(inc.reportedAt);
@@ -1244,16 +1288,11 @@ async function sendDailyHealthDigest(env, report) {
     if (uniqueVersions.length > 1) anomalies.push('Version mismatch across tablets: ' + uniqueVersions.join(', '));
     if (uniqueApk.length > 1) anomalies.push('APK version mismatch: ' + uniqueApk.join(', '));
 
-    // ── Crash boot incidents — group events within 5 min into clusters ──
-    // (expectedBootWindowsUTC and _rebootsByRoom already built above)
+    // ── Unexpected reboot incidents — group events within 5 min into clusters ──
     var _allCrashBoots = [];
     recentIncidents.forEach(function(inc) {
-      if (inc.type !== 'boot_detected') return;
+      if (inc.type !== 'unexpected_reboot') return;
       var incMs = new Date(inc.reportedAt).getTime();
-      var nearScheduled = expectedBootWindowsUTC.some(function(t) {
-        return Math.abs(incMs - new Date(t).getTime()) < ALARM_WINDOW_MS;
-      });
-      if (nearScheduled) return;
       _allCrashBoots.push({
         room: inc.roomname || inc.room || '?',
         email: inc.room || '',
