@@ -817,8 +817,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 177,
-  date: '2026-07-28',
+  patch: 178,
+  date: '2026-07-31',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -884,6 +884,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.178 2026-07-31 - Standby diagnostics: pageHidden in heartbeat; visibilitychange after 19:00 BKK posts standby_resumed alarm event to diagnose StandbyActivity failures
 // v3.10.177 2026-07-28 - Redesign: expected boots (06:00/07:30 BKK) are not incidents — only unexpected_reboot at other times stays OPEN; midday_reload no longer an incident; Worker adds missed-wake cron at 01:00 UTC (08:00 BKK)
 // v3.10.176 2026-07-28 - Fix: boot_detected resolve delayed 30s so network is stable before XHR fires — eliminates open incidents at 07:30 wake
 // v3.10.175 2026-07-28 - Fix: midday reload (12:30 BKK) now sets ris_reload_reason=midday_reload in localStorage before location.reload(); boot detector handles midday_reload reason and auto-resolves — eliminates false boot_detected open incidents at 12:30 daily
@@ -1818,7 +1819,8 @@ function getMonitorStatus(){
       slowCount: _slowPollCount,
       lastSlowMs: _lastSlowPollMs
     },
-    lastAndroidPingMins: _lastAndroidPingMs ? Math.round((Date.now()-_lastAndroidPingMs)/60000) : -1
+    lastAndroidPingMins: _lastAndroidPingMs ? Math.round((Date.now()-_lastAndroidPingMs)/60000) : -1,
+    pageHidden: document.hidden
   };
 }
 
@@ -2153,9 +2155,21 @@ function startAutoRelaunch(){
     setTimeout(handleReturn,800);
   });
 
-  // visibilitychange — fires when returning from home button
+  // visibilitychange — fires when returning from home button or when StandbyActivity closes
   document.addEventListener('visibilitychange',function(){
     if(!document.hidden){
+      // If it's past 19:00 BKK (12:00 UTC), page becoming visible again likely means
+      // StandbyActivity launched then closed — log it so we can diagnose standby failures.
+      var _vh=new Date();
+      if(_vh.getUTCHours()>=12&&cfg.roomemail){
+        dbg('standby_resumed: page became visible at '+_vh.toISOString());
+        try{
+          var _ax=new XMLHttpRequest();
+          _ax.open('POST','/api/alarm',true);
+          _ax.setRequestHeader('Content-Type','application/json');
+          _ax.send(JSON.stringify({room:cfg.roomemail,roomname:cfg.roomname||'',event:'standby_resumed',apkVersion:cfg.apkVersion||''}));
+        }catch(e){dbg('alarm log err: '+e.message);}
+      }
       setTimeout(handleReturn,800);
     }
   });
