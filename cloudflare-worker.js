@@ -23,7 +23,7 @@ export default {
   // Cron triggers:
   //   0 1  * * * (daily 01:00 UTC = 08:00 BKK) — missed-wake check (tablets should be up 30min after 07:30 alarm)
   //   0 11 * * 6 (Friday 11:00 UTC = 18:00 BKK) — weekly noshow report
-  //   0 13 * * * (daily 13:00 UTC = 20:00 BKK) — daily health digest
+  //   0 14 * * * (daily 14:00 UTC = 21:00 BKK) — daily health digest
   async scheduled(event, env) {
     if (!env.RIS_KV) return;
 
@@ -34,7 +34,7 @@ export default {
       return;
     }
 
-    var nowBkkDay = new Date(Date.now() + 7 * 3600000).getUTCDay(); // 5 = Friday
+    var nowBkkDay = new Date(Date.now() + 7 * 3600000).getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
     var isFriday = nowBkkDay === 5;
     var report = await generateDailyReport(env);
     await sendDailyHealthDigest(env, report);
@@ -1062,6 +1062,10 @@ var KNOWN_ROOMS = [
 // Tablets should wake at 07:30 BKK via APK alarm. At 08:00 BKK (30 min later),
 // any tablet with no heartbeat in the last 90 min failed to wake — file an incident.
 async function checkMissedWakes(env) {
+  // Skip on weekends — LG tablets stay in standby (wake_weekend = skip by design)
+  var bkkDay = new Date(Date.now() + 7 * 3600000).getUTCDay(); // 0=Sun, 6=Sat
+  if (bkkDay === 0 || bkkDay === 6) return;
+
   var now = Date.now();
   var cutoffMs = 90 * 60 * 1000;
   for (var i = 0; i < KNOWN_ROOMS.length; i++) {
