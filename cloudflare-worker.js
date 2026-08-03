@@ -547,6 +547,12 @@ async function handleIncidentReport(request, env) {
     // Store incident (TTL 30 days)
     await env.RIS_KV.put(incidentKey, JSON.stringify(incident), { expirationTtl: 2592000 });
 
+    // For standby_failure incidents, write a durable pointer for heartbeat auto-resolve.
+    // Uses a separate key so it survives the 2h room-record TTL.
+    if (data.type === 'standby_failure' && data.room) {
+      await env.RIS_KV.put('standby_open:' + data.room, incidentKey, { expirationTtl: 172800 });
+    }
+
     // Update index (last 200 incidents)
     var indexRaw = await env.RIS_KV.get('incidents_index');
     var index = indexRaw ? JSON.parse(indexRaw) : [];
