@@ -355,6 +355,132 @@ public class KioskWebViewActivity extends Activity {
         _lastWatchdogReloadMs = 0; // reset cooldown — fresh start after standby
         startPingWatchdog(); // restart watchdog suspended in onPause
         hideSystemUI();
+        // If we're inside the standby window (20:30–06:00 BKK), StandbyActivity should be
+        // covering us. Reaching onResume() here means it crashed or never launched.
+        // Retry up to 3 times with a 5-min cooldown; file a standby_failure incident when exhausted.
+        if (isInStandbyWindow()) {
+            int count      = getStandbyRetryCount();
+            long lastMs    = getStandbyRetryLastMs();
+            long nowMs     = System.currentTimeMillis();
+            long COOLDOWN  = 5L * 60L * 1000L;
+            if (count < 3 && (nowMs - lastMs) > COOLDOWN) {
+                incrementStandbyRetryCount();
+                logStandbyRetry(getStandbyRetryCount());
+                ScheduleReceiver.launchStandby(this);
+            } else if (count >= 3 && !standbyIncidentFiled()) {
+                markStandbyIncidentFiled();
+                fileStandbyFailureIncident(count);
+            }
+        }
+    }
+
+    // ── Standby retry helpers ─────────────────────────────────────────────────
+
+    private String todayBkk() {
+        java.text.SimpleDateFormat sdf =
+            new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        return sdf.format(new java.util.Date());
+    }
+
+    private boolean isInStandbyWindow() {
+        java.util.Calendar bkk = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        int h = bkk.get(java.util.Calendar.HOUR_OF_DAY);
+        int m = bkk.get(java.util.Calendar.MINUTE);
+        return (h > 20 || (h == 20 && m >= 30) || h < 6);
+    }
+
+    private android.content.SharedPreferences standbyRetryPrefs() {
+        return getSharedPreferences("standby_retry", MODE_PRIVATE);
+    }
+
+    private int getStandbyRetryCount() {
+        return standbyRetryPrefs().getInt("count_" + todayBkk(), 0);
+    }
+
+    private long getStandbyRetryLastMs() {
+        return standbyRetryPrefs().getLong("last_ms", 0L);
+    }
+
+    private boolean standbyIncidentFiled() {
+        return standbyRetryPrefs().getBoolean("filed_" + todayBkk(), false);
+    }
+
+    private void incrementStandbyRetryCount() {
+        standbyRetryPrefs().edit()
+            .putInt("count_" + todayBkk(), getStandbyRetryCount() + 1)
+            .putLong("last_ms", System.currentTimeMillis())
+            .apply();
+    }
+
+    private void markStandbyIncidentFiled() {
+        standbyRetryPrefs().edit()
+            .putBoolean("filed_" + todayBkk(), true)
+            .apply();
+    }
+
+    /** Fire-and-forget HTTP POST on a background thread. Never throws. */
+    private void postJsonFire(final String url, final String json) {
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    java.net.URL u = new java.net.URL(url);
+                    java.net.HttpURLConnection c =
+                        (java.net.HttpURLConnection) u.openConnection();
+                    c.setRequestMethod("POST");
+                    c.setRequestProperty("Content-Type", "application/json");
+                    c.setDoOutput(true);
+                    c.setConnectTimeout(10000);
+                    c.setReadTimeout(10000);
+                    byte[] bytes = json.getBytes("UTF-8");
+                    c.setFixedLengthStreamingMode(bytes.length);
+                    c.getOutputStream().write(bytes);
+                    c.getInputStream().close();
+                    c.disconnect();
+                } catch (Exception ignored) {}
+            }
+        }).start();
+    }
+
+    private void logStandbyRetry(int attemptNumber) {
+        android.content.SharedPreferences p =
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String room     = p.getString("room_email", "");
+        String roomname = p.getString("room_name", "");
+        String apkVer;
+        try {
+            apkVer = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) { apkVer = ""; }
+        String payload = "{\"room\":\"" + room + "\","
+            + "\"roomname\":\"" + roomname + "\","
+            + "\"event\":\"standby_retry\","
+            + "\"apkVersion\":\"" + apkVer + "\"}";
+        postJsonFire(BASE_URL + "api/alarm", payload);
+    }
+
+    private void fileStandbyFailureIncident(int retryCount) {
+        android.content.SharedPreferences p =
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String room     = p.getString("room_email", "");
+        String roomname = p.getString("room_name", "");
+        String apkVer;
+        try {
+            apkVer = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) { apkVer = ""; }
+        java.text.SimpleDateFormat fmt =
+            new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
+        fmt.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        String nowBkk = fmt.format(new java.util.Date());
+        String detail = "Standby retried " + retryCount + "/3, gave up at "
+            + nowBkk + " BKK. Tablet staying online until 06:00 restart.";
+        String payload = "{\"room\":\"" + room + "\","
+            + "\"roomname\":\"" + roomname + "\","
+            + "\"type\":\"standby_failure\","
+            + "\"detail\":\"" + detail + "\","
+            + "\"apkVersion\":\"" + apkVer + "\","
+            + "\"reportedBy\":\"apk\"}";
+        postJsonFire(BASE_URL + "api/incident", payload);
     }
 
     @Override
