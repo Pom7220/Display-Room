@@ -1440,7 +1440,7 @@ async function sendDailyHealthDigest(env, report) {
 
     var html = '<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:680px;padding:24px">'
       + '<h2 style="color:#1a1a2e">RIS Room Display — Daily Health Digest</h2>'
-      + '<p style="color:#555;font-size:13px">' + todayBkk + ' &nbsp;·&nbsp; Generated 20:00 BKK &nbsp;·&nbsp; '
+      + '<p style="color:#555;font-size:13px">' + todayBkk + ' &nbsp;·&nbsp; Generated 21:00 BKK &nbsp;·&nbsp; '
       + onlineCount + '/' + roomData.length + ' tablets online</p>'
       + '<hr style="border:none;border-top:1px solid #eee;margin:16px 0">'
       + anomalyHtml
