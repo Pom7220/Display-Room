@@ -818,7 +818,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 179,
+  patch: 180,
   date: '2026-08-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1096,9 +1096,17 @@ function startBurnIn(){
 
   for(var i=0;i<6;i++){sparks.push(new Spark());}
 
-  function draw(){
+  function resizeCanvas(){
     W=window.innerWidth;H=window.innerHeight;
     canvas.width=W;canvas.height=H;
+  }
+  resizeCanvas();
+  window.addEventListener('resize',resizeCanvas);
+
+  function draw(){
+    // Use clearRect — never reassign canvas.width/height mid-animation.
+    // Reassigning forces a full compositor re-allocation on every frame,
+    // causing layer glitches on Chrome 30 (Android 4.4.2).
     ctx.clearRect(0,0,W,H);
     for(var i=0;i<sparks.length;i++){
       var s=sparks[i];
@@ -1127,7 +1135,7 @@ function startBurnIn(){
     wg.addColorStop(1,'rgba(255,255,255,0)');
     ctx.fillStyle=wg;
     ctx.fillRect(0,0,W,H);
-    setTimeout(function(){requestAnimationFrame(draw);},33); // ~30fps
+    setTimeout(draw,250); // ~4fps — burn-in protection needs no more; reduces GPU pressure
   }
 
   setTimeout(function(){
