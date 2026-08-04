@@ -818,7 +818,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 180,
+  patch: 181,
   date: '2026-08-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1072,78 +1072,11 @@ function fetchWeather(){
 // ══════════════════════════════════════
 // BURN-IN
 // ══════════════════════════════════════
+// Canvas overlay removed — Chrome 30 (Android 4.4.2) renders the canvas element
+// as an opaque black rectangle regardless of alpha, causing visible screen glitches.
+// Burn-in risk is negligible: StandbyActivity blanks the screen every night at 20:30.
 var driftX=0,driftY=0;
-function startBurnIn(){
-  var canvas=document.createElement('canvas');
-  canvas.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;opacity:0;';
-  document.body.appendChild(canvas);
-  var ctx=canvas.getContext('2d');
-  var sparks=[];
-  var W=window.innerWidth,H=window.innerHeight;
-
-  function Spark(){
-    this.reset=function(){
-      this.x=Math.random()*W;
-      this.y=Math.random()*H;
-      this.r=Math.random()*80+40;
-      this.life=0;
-      this.maxLife=60+Math.random()*80;
-      this.speed=0.012+Math.random()*0.008;
-    };
-    this.reset();
-    this.life=Math.random()*this.maxLife; // stagger start
-  }
-
-  for(var i=0;i<6;i++){sparks.push(new Spark());}
-
-  function resizeCanvas(){
-    W=window.innerWidth;H=window.innerHeight;
-    canvas.width=W;canvas.height=H;
-  }
-  resizeCanvas();
-  window.addEventListener('resize',resizeCanvas);
-
-  function draw(){
-    // Use clearRect — never reassign canvas.width/height mid-animation.
-    // Reassigning forces a full compositor re-allocation on every frame,
-    // causing layer glitches on Chrome 30 (Android 4.4.2).
-    ctx.clearRect(0,0,W,H);
-    for(var i=0;i<sparks.length;i++){
-      var s=sparks[i];
-      s.life+=1;
-      if(s.life>s.maxLife){s.reset();continue;}
-      var progress=s.life/s.maxLife;
-      // Grow then fade — like a gentle glow pulse
-      var alpha=progress<0.4?(progress/0.4)*0.018:(1-((progress-0.4)/0.6))*0.018;
-      var radius=s.r*(0.3+progress*0.7);
-      var grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,radius);
-      var a0=parseFloat(alpha.toFixed(4));
-      var a1=parseFloat((alpha*0.5).toFixed(4));
-      grd.addColorStop(0,'rgba(255,255,255,'+a0+')');
-      grd.addColorStop(0.4,'rgba(200,220,255,'+a1+')');
-      grd.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=grd;
-      ctx.beginPath();
-      ctx.arc(s.x,s.y,radius,0,Math.PI*2);
-      ctx.fill();
-    }
-    // Slow wave sweep — horizontal shimmer
-    var waveX=((Date.now()/8000)%1)*W;
-    var wg=ctx.createLinearGradient(waveX-120,0,waveX+120,0);
-    wg.addColorStop(0,'rgba(255,255,255,0)');
-    wg.addColorStop(0.5,'rgba(255,255,255,0.007)');
-    wg.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=wg;
-    ctx.fillRect(0,0,W,H);
-    setTimeout(draw,250); // ~4fps — burn-in protection needs no more; reduces GPU pressure
-  }
-
-  setTimeout(function(){
-    canvas.style.transition='opacity 4s';
-    canvas.style.opacity='1';
-    draw();
-  },5000);
-}
+function startBurnIn(){}
 
 // ══════════════════════════════════════
 // CONFIG
