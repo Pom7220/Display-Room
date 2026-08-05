@@ -818,7 +818,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 181,
+  patch: 182,
   date: '2026-08-04',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -2098,18 +2098,33 @@ function startAutoRelaunch(){
   });
 
   // visibilitychange — fires when returning from home button or when StandbyActivity closes
+  var _pageHiddenAt=0;
   document.addEventListener('visibilitychange',function(){
-    if(!document.hidden){
-      // If it's past 19:00 BKK (12:00 UTC), page becoming visible again likely means
-      // StandbyActivity launched then closed — log it so we can diagnose standby failures.
+    if(document.hidden){
+      _pageHiddenAt=Date.now();
+    } else {
       var _vh=new Date();
-      if(_vh.getUTCHours()>=12&&cfg.roomemail){
-        dbg('standby_resumed: page became visible at '+_vh.toISOString());
+      var _utcH=_vh.getUTCHours();
+      var _hiddenMs=_pageHiddenAt>0?Date.now()-_pageHiddenAt:0;
+      _pageHiddenAt=0;
+
+      if(_utcH>=12&&cfg.roomemail){
+        // After 19:00 BKK — likely StandbyActivity launched then closed
+        dbg('standby_resumed: page visible at '+_vh.toISOString());
         try{
           var _ax=new XMLHttpRequest();
           _ax.open('POST','/api/alarm',true);
           _ax.setRequestHeader('Content-Type','application/json');
           _ax.send(JSON.stringify({room:cfg.roomemail,roomname:cfg.roomname||'',event:'standby_resumed',apkVersion:cfg.apkVersion||''}));
+        }catch(e){dbg('alarm log err: '+e.message);}
+      } else if(_utcH>=1&&_utcH<12&&_hiddenMs>120000&&cfg.roomemail){
+        // Business hours (08:00–19:00 BKK) and hidden for >2 min — app was exited to home screen
+        dbg('app_resumed_from_bg: hidden '+Math.round(_hiddenMs/60000)+'m at '+_vh.toISOString());
+        try{
+          var _bx=new XMLHttpRequest();
+          _bx.open('POST','/api/alarm',true);
+          _bx.setRequestHeader('Content-Type','application/json');
+          _bx.send(JSON.stringify({room:cfg.roomemail,roomname:cfg.roomname||'',event:'app_resumed_from_bg',apkVersion:cfg.apkVersion||''}));
         }catch(e){dbg('alarm log err: '+e.message);}
       }
       setTimeout(handleReturn,800);
