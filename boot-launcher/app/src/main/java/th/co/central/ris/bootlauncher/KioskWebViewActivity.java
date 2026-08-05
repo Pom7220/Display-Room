@@ -355,6 +355,19 @@ public class KioskWebViewActivity extends Activity {
         _lastWatchdogReloadMs = 0; // reset cooldown — fresh start after standby
         startPingWatchdog(); // restart watchdog suspended in onPause
         hideSystemUI();
+        // Check if app was backgrounded unexpectedly during business hours.
+        // onPause() sets "bg_at" whenever the app is paused outside the standby window.
+        // If we resume here with that flag set and >2min elapsed, the app exited to home screen.
+        // Cap at 3h so we don't fire on normal overnight cycles (standby→restart→wake is ~11h).
+        android.content.SharedPreferences _rp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        long _bgAt = _rp.getLong("bg_at", 0L);
+        if (_bgAt > 0L) {
+            _rp.edit().remove("bg_at").apply();
+            long _elapsed = System.currentTimeMillis() - _bgAt;
+            if (!isInStandbyWindow() && _elapsed > 120000L && _elapsed < 10800000L) {
+                logAppResumedFromBg(_elapsed);
+            }
+        }
         // If we're inside the standby window (20:30–06:00 BKK), StandbyActivity should be
         // covering us. Reaching onResume() here means it crashed or never launched.
         // Retry up to 3 times with a 5-min cooldown; file a standby_failure incident when exhausted.
@@ -443,6 +456,23 @@ public class KioskWebViewActivity extends Activity {
         }).start();
     }
 
+    private void logAppResumedFromBg(long hiddenMs) {
+        android.content.SharedPreferences p =
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String room     = p.getString("room_email", "");
+        String roomname = p.getString("room_name", "");
+        String apkVer;
+        try {
+            apkVer = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) { apkVer = ""; }
+        String payload = "{\"room\":\"" + room + "\","
+            + "\"roomname\":\"" + roomname + "\","
+            + "\"event\":\"app_resumed_from_bg\","
+            + "\"hiddenMinutes\":" + (hiddenMs / 60000) + ","
+            + "\"apkVersion\":\"" + apkVer + "\"}";
+        postJsonFire(BASE_URL + "api/alarm", payload);
+    }
+
     private void logStandbyRetry(int attemptNumber) {
         android.content.SharedPreferences p =
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -490,6 +520,13 @@ public class KioskWebViewActivity extends Activity {
         // Suspend watchdogs during standby — JS timers pause, so pings stop; prevent overnight reload loop
         if (_loadWatchdog != null) _wdHandler.removeCallbacks(_loadWatchdog);
         if (_pingWatchdog != null) _wdHandler.removeCallbacks(_pingWatchdog);
+        // Record pause time when NOT in standby window so onResume() can detect exit-to-home.
+        // Don't set the flag during standby (20:30–06:00) — that's the normal overnight pause.
+        if (!isInStandbyWindow()) {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                .putLong("bg_at", System.currentTimeMillis())
+                .apply();
+        }
     }
 
     @Override
