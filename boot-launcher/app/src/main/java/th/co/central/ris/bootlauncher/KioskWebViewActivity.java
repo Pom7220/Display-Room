@@ -47,6 +47,10 @@ public class KioskWebViewActivity extends Activity {
     private static final String TABLET_KEY = "RIS-TABLET-KEY2026";
     private static final String PREFS_NAME = "ris_kiosk_prefs";
 
+    // Set true while this activity is in the foreground — read by ScheduleReceiver on the same process
+    // to skip health-check startActivity() when the app is already visible.
+    static volatile boolean sIsVisible = false;
+
     private WebView webView;
     private volatile boolean enforceOneApp = false;
 
@@ -291,8 +295,6 @@ public class KioskWebViewActivity extends Activity {
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         if (!enforceOneApp || isFinishing()) return;
-        // Suppress relaunch when health check's REORDER_TO_FRONT triggers this spuriously on Android 4.4.
-        if (getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean("health_check_pending", false)) return;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Android 10+: launch synchronously while still foreground — background start
             // restriction silently drops startActivity() from onStop().
@@ -317,7 +319,6 @@ public class KioskWebViewActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent); // keep getIntent() current for health-check detection in onResume()
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().remove("health_check_pending").apply();
     }
 
     @Override
@@ -367,8 +368,8 @@ public class KioskWebViewActivity extends Activity {
         // Health-check recovery: ScheduleReceiver fires every 10 min during business hours
         // and relaunches this activity with health_check=true if it was not foreground.
         // onNewIntent() keeps getIntent() current so this extra is always from the latest launch.
+        sIsVisible = true;
         android.content.SharedPreferences _rp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        _rp.edit().remove("health_check_pending").apply(); // always clear — set by ScheduleReceiver before startActivity
         if (getIntent() != null && getIntent().getBooleanExtra("health_check", false)) {
             getIntent().removeExtra("health_check");
             if (!isInStandbyWindow()) {
@@ -534,6 +535,7 @@ public class KioskWebViewActivity extends Activity {
         if (_pingWatchdog != null) _wdHandler.removeCallbacks(_pingWatchdog);
         // Record pause time when NOT in standby window so onResume() can detect exit-to-home.
         // Don't set the flag during standby (20:30–06:00) — that's the normal overnight pause.
+        sIsVisible = false;
         if (!isInStandbyWindow()) {
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
                 .putLong("bg_at", System.currentTimeMillis())

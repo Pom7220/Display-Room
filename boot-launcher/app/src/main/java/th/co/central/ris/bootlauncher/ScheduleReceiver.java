@@ -89,11 +89,10 @@ public class ScheduleReceiver extends BroadcastReceiver {
     }
 
     private static void launchKioskHealthCheck(Context context) {
+        // Skip if app is already in the foreground — startActivity(REORDER_TO_FRONT) on Android 4.4
+        // spuriously triggers onUserLeaveHint() and causes enforce_one_app to restart the activity.
+        if (KioskWebViewActivity.sIsVisible) return;
         try {
-            // Set flag before startActivity so onUserLeaveHint() on Android 4.4 can
-            // suppress the enforce_one_app relaunch — REORDER_TO_FRONT triggers it spuriously.
-            context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE)
-                .edit().putBoolean("health_check_pending", true).apply();
             Intent i = new Intent(context, KioskWebViewActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             i.putExtra("health_check", true);
