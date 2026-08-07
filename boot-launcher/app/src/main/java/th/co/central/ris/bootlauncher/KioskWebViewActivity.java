@@ -291,6 +291,8 @@ public class KioskWebViewActivity extends Activity {
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         if (!enforceOneApp || isFinishing()) return;
+        // Suppress relaunch when health check's REORDER_TO_FRONT triggers this spuriously on Android 4.4.
+        if (getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean("health_check_pending", false)) return;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Android 10+: launch synchronously while still foreground — background start
             // restriction silently drops startActivity() from onStop().
@@ -315,6 +317,7 @@ public class KioskWebViewActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent); // keep getIntent() current for health-check detection in onResume()
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().remove("health_check_pending").apply();
     }
 
     @Override
@@ -365,6 +368,7 @@ public class KioskWebViewActivity extends Activity {
         // and relaunches this activity with health_check=true if it was not foreground.
         // onNewIntent() keeps getIntent() current so this extra is always from the latest launch.
         android.content.SharedPreferences _rp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        _rp.edit().remove("health_check_pending").apply(); // always clear — set by ScheduleReceiver before startActivity
         if (getIntent() != null && getIntent().getBooleanExtra("health_check", false)) {
             getIntent().removeExtra("health_check");
             if (!isInStandbyWindow()) {
