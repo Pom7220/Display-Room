@@ -1264,7 +1264,7 @@ function renderAdminIncidents(incidents) {
         ? '<span class="adm-inc-dur open">OPEN</span>' +
           '<button style="margin-left:4px;padding:2px 6px;background:rgba(0,214,143,.15);color:var(--green);' +
           'border:1px solid rgba(0,214,143,.3);border-radius:4px;font-size:10px;cursor:pointer" ' +
-          'onclick="resolveIncidentRemote(\'' + (inc.id||'') + '\',\'' + incKey + '\')">✓</button>'
+          'onclick="resolveIncidentRemote(\'' + (inc.id||'') + '\',\'' + incKey + '\',\'' + (inc.room||'') + '\',\'' + (inc.type||'') + '\')">Resolve</button>'
         : '';
 
       html += '<div class="adm-inc">' +
@@ -1280,13 +1280,14 @@ function renderAdminIncidents(incidents) {
   list.innerHTML = html;
 }
 
-async function resolveIncidentRemote(incId, incKey) {
+async function resolveIncidentRemote(incId, incKey, incRoom, incType) {
   try {
     const resp = await fetch(MONITOR_URL + 'incident', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
       body: JSON.stringify({
-        room: 'admin',
+        room: incRoom,
+        type: incType,
         action: 'resolve',
         incidentKey: incKey,
         resolvedBy: 'admin-dashboard',
@@ -1349,8 +1350,6 @@ function renderSmartActions(rooms) {
   });
 
   let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
-    '<button class="adm-refresh-btn" style="background:#7b1fa2" onclick="bulkCommand(\'auto_tap\',\'needsFullscreen\')">👆 Auto-tap all</button>' +
-    '<button class="adm-refresh-btn" onclick="bulkCommand(\'force_fullscreen\',\'needsFullscreen\')">⛶ Fullscreen all</button>' +
     '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'all\')">↻ Reload all</button>' +
     '</div>';
 
@@ -1366,7 +1365,7 @@ function renderSmartActions(rooms) {
       '<span style="color:var(--red);font-weight:700">⚫ OFFLINE >1HR</span> — ' +
       issues.offlineLong.map(function(r) { return r.name; }).join(', ') + '</div>';
   }
-  if (!issues.needsFullscreen.length && !issues.offlineLong.length && rooms.length > 0) {
+  if (!issues.offlineLong.length && rooms.length > 0) {
     html += '<div style="background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);border-radius:8px;padding:8px 12px;font-size:12px">' +
       '<span style="color:var(--green);font-weight:700">✓ ALL HEALTHY</span></div>';
   }
