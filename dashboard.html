@@ -1133,8 +1133,7 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
        r.status === 'needs_tap' ? '👆 Waiting for tap' :
        'Online — ' + r.status);
     const tokenText = ''; // removed: proxy auth — no token status needed
-    const modeText = !r ? '' :
-      (r.launchMode === 'pwa' ? '📱 PWA' : r.launchMode === 'fullscreen' ? '⛶ FS' : '🌐 Browser');
+    const modeText = '';
     const versionText = r && r.version ? r.version : '';
     const uptimeText = r ? '⏱ ' + r.uptime + 'm' : '';
     const logId = 'log-' + ris.name.toLowerCase().replace(/[^a-z]/g, '');
