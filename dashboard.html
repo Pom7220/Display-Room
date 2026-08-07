@@ -1322,6 +1322,7 @@ async function resolveAllIncidents() {
         headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
         body: JSON.stringify({
           room: inc.room,
+          type: inc.type,
           action: 'resolve',
           incidentKey: key,
           resolvedBy: 'admin-dashboard',
