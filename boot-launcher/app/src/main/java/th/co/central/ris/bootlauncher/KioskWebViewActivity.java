@@ -312,6 +312,12 @@ public class KioskWebViewActivity extends Activity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent); // keep getIntent() current for health-check detection in onResume()
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
     }
@@ -355,18 +361,20 @@ public class KioskWebViewActivity extends Activity {
         _lastWatchdogReloadMs = 0; // reset cooldown — fresh start after standby
         startPingWatchdog(); // restart watchdog suspended in onPause
         hideSystemUI();
-        // Check if app was backgrounded unexpectedly during business hours.
-        // onPause() sets "bg_at" whenever the app is paused outside the standby window.
-        // If we resume here with that flag set and >2min elapsed, the app exited to home screen.
-        // Cap at 3h so we don't fire on normal overnight cycles (standby→restart→wake is ~11h).
+        // Health-check recovery: ScheduleReceiver fires every 10 min during business hours
+        // and relaunches this activity with health_check=true if it was not foreground.
+        // onNewIntent() keeps getIntent() current so this extra is always from the latest launch.
         android.content.SharedPreferences _rp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        long _bgAt = _rp.getLong("bg_at", 0L);
-        if (_bgAt > 0L) {
-            _rp.edit().remove("bg_at").apply();
-            long _elapsed = System.currentTimeMillis() - _bgAt;
-            if (!isInStandbyWindow() && _elapsed > 120000L && _elapsed < 10800000L) {
-                logAppResumedFromBg(_elapsed);
+        if (getIntent() != null && getIntent().getBooleanExtra("health_check", false)) {
+            getIntent().removeExtra("health_check");
+            if (!isInStandbyWindow()) {
+                long _bgAt = _rp.getLong("bg_at", 0L);
+                long _hiddenMs = _bgAt > 0L ? System.currentTimeMillis() - _bgAt : 0L;
+                _rp.edit().remove("bg_at").apply();
+                logHealthCheckRecovered(_hiddenMs);
             }
+        } else {
+            _rp.edit().remove("bg_at").apply();
         }
         // If we're inside the standby window (20:30–06:00 BKK), StandbyActivity should be
         // covering us. Reaching onResume() here means it crashed or never launched.
@@ -456,7 +464,7 @@ public class KioskWebViewActivity extends Activity {
         }).start();
     }
 
-    private void logAppResumedFromBg(long hiddenMs) {
+    private void logHealthCheckRecovered(long hiddenMs) {
         android.content.SharedPreferences p =
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String room     = p.getString("room_email", "");
@@ -467,7 +475,7 @@ public class KioskWebViewActivity extends Activity {
         } catch (Exception e) { apkVer = ""; }
         String payload = "{\"room\":\"" + room + "\","
             + "\"roomname\":\"" + roomname + "\","
-            + "\"event\":\"app_resumed_from_bg\","
+            + "\"event\":\"app_health_check_recovered\","
             + "\"hiddenMinutes\":" + (hiddenMs / 60000) + ","
             + "\"apkVersion\":\"" + apkVer + "\"}";
         postJsonFire(BASE_URL + "api/alarm", payload);

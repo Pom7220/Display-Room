@@ -14,9 +14,10 @@ import org.conscrypt.Conscrypt;
 
 public class ScheduleReceiver extends BroadcastReceiver {
 
-    public static final String ACTION_STANDBY = "th.co.central.ris.bootlauncher.ACTION_STANDBY";
-    public static final String ACTION_WAKE    = "th.co.central.ris.bootlauncher.ACTION_WAKE";
-    public static final String ACTION_RESTART = "th.co.central.ris.bootlauncher.ACTION_RESTART";
+    public static final String ACTION_STANDBY      = "th.co.central.ris.bootlauncher.ACTION_STANDBY";
+    public static final String ACTION_WAKE         = "th.co.central.ris.bootlauncher.ACTION_WAKE";
+    public static final String ACTION_RESTART      = "th.co.central.ris.bootlauncher.ACTION_RESTART";
+    public static final String ACTION_HEALTH_CHECK = "th.co.central.ris.bootlauncher.ACTION_HEALTH_CHECK";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -43,6 +44,12 @@ public class ScheduleReceiver extends BroadcastReceiver {
             logAlarmEvent(context, "restart");
             launchStandby(context);
             setExactAlarm(context, ACTION_RESTART, 3, 6, 0);
+
+        } else if (ACTION_HEALTH_CHECK.equals(action)) {
+            if (isBusinessHours()) {
+                launchKioskHealthCheck(context);
+            }
+            scheduleHealthCheck(context); // always reschedule — business-hours gate is in onReceive
         }
     }
 
@@ -54,6 +61,40 @@ public class ScheduleReceiver extends BroadcastReceiver {
         setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
         setExactAlarm(context, ACTION_WAKE,    2,  7, 30);
         setExactAlarm(context, ACTION_RESTART, 3,  6,  0);
+        scheduleHealthCheck(context);
+    }
+
+    static void scheduleHealthCheck(Context context) {
+        android.app.AlarmManager am = (android.app.AlarmManager)
+            context.getSystemService(android.content.Context.ALARM_SERVICE);
+        if (am == null) return;
+        int flags = android.os.Build.VERSION.SDK_INT >= 23
+            ? android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
+            : android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+        android.app.PendingIntent pi = android.app.PendingIntent.getBroadcast(context, 4,
+            new android.content.Intent(ACTION_HEALTH_CHECK).setClass(context, ScheduleReceiver.class), flags);
+        long triggerAt = System.currentTimeMillis() + 10 * 60 * 1000L;
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
+        } else {
+            am.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
+        }
+    }
+
+    private static boolean isBusinessHours() {
+        java.util.Calendar bkk = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        int h = bkk.get(java.util.Calendar.HOUR_OF_DAY);
+        return h >= 8 && h < 20;
+    }
+
+    private static void launchKioskHealthCheck(Context context) {
+        try {
+            Intent i = new Intent(context, KioskWebViewActivity.class);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            i.putExtra("health_check", true);
+            context.startActivity(i);
+        } catch (Exception ignored) {}
     }
 
     private static void setExactAlarm(Context context, String action, int requestCode,
