@@ -1181,9 +1181,9 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
       var _chips = _todayAlarms.map(function(e) {
         var icon = _alarmIcons[e.event] || '•';
         var t = new Date(new Date(e.ts).getTime() + 7*3600000).toISOString().slice(11, 16);
-        return '<span style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;margin-right:3px;white-space:nowrap">' + icon + ' ' + t + '</span>';
+        return '<span style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;white-space:nowrap">' + icon + ' ' + t + '</span>';
       }).join('');
-      card += '<div style="font-size:9px;color:var(--muted);margin:3px 0 4px;line-height:1.8">' + _chips + '</div>';
+      card += '<div style="font-size:9px;color:var(--muted);margin:3px 0 4px;display:flex;flex-wrap:wrap;gap:2px 3px">' + _chips + '</div>';
     }
 
     if (r && r.log && r.log.length > 0) {
