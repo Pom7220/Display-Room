@@ -664,7 +664,7 @@ function renderZone(cid,rooms){
     div.className='rt'+(isSel?' sel':'');
     div.innerHTML=`
       ${isSel?'<div class="sel-arrow"></div>':''}
-      <div class="rt-name">${room.name}${(function(){var t=tabletStatus[room.email];if(!t||!t.isOnline)return'<span style="color:#ff3333;font-size:8px;vertical-align:middle;margin-left:3px">&#9679;</span>';if(t.status==='sleep')return'<span style="font-size:10px;vertical-align:middle;margin-left:3px">🌙</span>';return'<span style="color:#00d68f;font-size:8px;vertical-align:middle;margin-left:3px">&#9679;</span>';})()}</div>
+      <div class="rt-name">${room.name}${(function(){var t=tabletStatus[room.email];if(!t||!t.isOnline)return'<span title="No heartbeat" style="color:#ff5555;font-size:10px;vertical-align:middle;margin-left:3px">⚠</span>';if(t.status==='sleep')return'<span title="Standby" style="font-size:10px;vertical-align:middle;margin-left:3px">🌙</span>';return'';})()}</div>
       <div class="rt-info"><span class="rt-dot" style="background:${sp.dot}"></span>${sp.info}</div>
       <div class="rt-bar" style="background:${sp.dot}"></div>`;
     div.addEventListener('click',()=>selectRoom(room));
