@@ -2789,8 +2789,15 @@ function doCheckin(){
   var btn=el('checkin-btn');if(!btn)return;
   btn.disabled=true;
   var ov=document.createElement('div');ov.id='checkin-overlay';
-  var name=activeRoom&&activeRoom.name?activeRoom.name:'';
-  ov.innerHTML='<div class="ci-card"><div class="ci-check">&#10003;</div><div class="ci-msg">Welcome!</div>'+(name?'<div class="ci-sub">'+esc(name)+' is ready for you</div>':'')+'</div>';
+  var cur=getCur();
+  var organizer=cur&&cur.organizer&&cur.organizer!=='Instant Booking'?cur.organizer:'';
+  var firstName=organizer?organizer.split(' ')[0]:'';
+  var roomName=activeRoom&&activeRoom.name?activeRoom.name:'';
+  var welcomeMsg=firstName
+    ?'Welcome, <span style="color:#1db954;font-style:italic;text-shadow:0 0 20px rgba(29,185,84,.6)">'+esc(firstName)+'</span>!'
+    :'Welcome!';
+  var subMsg=roomName?roomName+' is ready for you':'Ready for you';
+  ov.innerHTML='<div class="ci-card"><div class="ci-check">&#10003;</div><div class="ci-msg">'+welcomeMsg+'</div><div class="ci-sub">'+subMsg+'</div></div>';
   document.body.appendChild(ov);
   sleep(1800).then(function(){
     if(ov.parentNode)ov.parentNode.removeChild(ov);
@@ -2818,6 +2825,19 @@ function doCheckin(){
 }
 function endMeetingEarly(){
   var cur=getCur();if(!cur&&checkedIn)cur=getNext();if(!cur)return;
+  var organizer=cur&&cur.organizer&&cur.organizer!=='Instant Booking'?cur.organizer:'';
+  var firstName=organizer?organizer.split(' ')[0]:'';
+  var ov=document.createElement('div');ov.id='checkin-overlay';
+  var thankMsg=firstName
+    ?'Thanks, <span style="color:#64b5f6;font-style:italic;text-shadow:0 0 20px rgba(100,181,246,.6)">'+esc(firstName)+'</span>!'
+    :'Thank You!';
+  ov.innerHTML='<div class="ci-card" style="border-color:rgba(100,181,246,.45);box-shadow:0 0 60px rgba(100,181,246,.25),0 8px 40px rgba(0,0,0,.6)">'
+    +'<div class="ci-check" style="color:#64b5f6">&#9675;</div>'
+    +'<div class="ci-msg">'+thankMsg+'</div>'
+    +'<div class="ci-sub" style="color:#90caf9">Room released &middot; See you next time</div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  sleep(1800).then(function(){if(ov.parentNode)ov.parentNode.removeChild(ov);});
   setEndedEarly(cur.id,activeRoom.email);
   checkedIn=false;
   try{localStorage.removeItem('roomdisplay_checkedin');}catch(e){}
