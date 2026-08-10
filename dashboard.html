@@ -387,7 +387,7 @@ var _lastAnalyzedRooms = [];
 var adminKey = localStorage.getItem('ris_admin_key') || '';
 
 let msalInst=null, account=null, _token=null, _tokenExp=0, _redirectInProgress=false;
-let roomData={}, selectedRoom=null, selDurMin=60, bookStart=null;
+let roomData={}, tabletStatus={}, selectedRoom=null, selDurMin=60, bookStart=null;
 
 const el=id=>document.getElementById(id);
 const show=id=>el(id)?.classList.remove('hidden');
@@ -578,10 +578,17 @@ async function fetchAllRooms(){
   el('ref-txt').textContent='Refreshing…';
   var refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
-  // Dashboard pulls directly from MS Graph via MSAL — independent of tablet key
   const tok = await getToken();
-  const results = await Promise.all(ROOMS.map(r => fetchRoom(r, tok)));
+  const [results, statusResp] = await Promise.all([
+    Promise.all(ROOMS.map(r => fetchRoom(r, tok))),
+    fetch(MONITOR_URL + 'status').catch(() => null)
+  ]);
   ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
+  if (statusResp && statusResp.ok) {
+    const sd = await statusResp.json();
+    tabletStatus = {};
+    (sd.rooms || []).forEach(function(t) { tabletStatus[t.room] = t; });
+  }
   const now=new Date();
   el('ref-txt').textContent=`Updated ${ft(now)}`;
   if(refBtn)refBtn.textContent='↻ Refresh';
@@ -657,7 +664,7 @@ function renderZone(cid,rooms){
     div.className='rt'+(isSel?' sel':'');
     div.innerHTML=`
       ${isSel?'<div class="sel-arrow"></div>':''}
-      <div class="rt-name">${room.name}</div>
+      <div class="rt-name">${room.name}${(function(){var t=tabletStatus[room.email];if(!t||!t.isOnline)return'<span style="color:#ff3333;font-size:8px;vertical-align:middle;margin-left:3px">&#9679;</span>';if(t.status==='sleep')return'<span style="font-size:10px;vertical-align:middle;margin-left:3px">🌙</span>';return'<span style="color:#00d68f;font-size:8px;vertical-align:middle;margin-left:3px">&#9679;</span>';})()}</div>
       <div class="rt-info"><span class="rt-dot" style="background:${sp.dot}"></span>${sp.info}</div>
       <div class="rt-bar" style="background:${sp.dot}"></div>`;
     div.addEventListener('click',()=>selectRoom(room));
