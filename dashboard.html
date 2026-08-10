@@ -1164,7 +1164,13 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
 
     var card = '<div class="adm-room">' +
       '<div class="adm-room-dot" style="background:' + dotColor + '"></div>' +
-      '<div class="adm-room-name">' + ris.name + '</div>' +
+      '<div class="adm-room-name">' + ris.name +
+        (!r || !isOnline
+          ? ' <span style="color:#ff3333;font-size:9px;vertical-align:middle">&#9679;</span>'
+          : isSleep
+          ? ' <span style="font-size:11px;vertical-align:middle">🌙</span>'
+          : ' <span style="color:#00d68f;font-size:9px;vertical-align:middle">&#9679;</span>') +
+      '</div>' +
       '<div class="adm-room-status" style="color:' + dotColor + '">' + statusText + '</div>' +
       '<div class="adm-room-meta">' + [tokenText, modeText, versionBadge, uptimeText].filter(Boolean).join(' · ') + '</div>' +
       (lastLogLine ? '<div style="font-size:9px;color:var(--hint);margin:2px 0 4px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + lastLogLine + '</div>' : '');
