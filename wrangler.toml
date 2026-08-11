@@ -8,3 +8,7 @@ id = "cfa88e438ad9445087bf7fbcbe66dd21"
 
 [triggers]
 crons = ["0 1 * * *", "0 14 * * *"]
+
+[observability.logs]
+enabled = true
+invocation_logs = true

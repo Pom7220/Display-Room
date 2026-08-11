@@ -26,6 +26,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
 
         if (ACTION_STANDBY.equals(action)) {
             logAlarmEvent(context, "standby");
+            sendSleepHeartbeat(context);
             launchStandby(context);
             setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
 
@@ -42,6 +43,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
 
         } else if (ACTION_RESTART.equals(action)) {
             logAlarmEvent(context, "restart");
+            sendSleepHeartbeat(context);
             launchStandby(context);
             setExactAlarm(context, ACTION_RESTART, 3, 6, 0);
 
@@ -164,6 +166,37 @@ public class ScheduleReceiver extends BroadcastReceiver {
                         MediaType.parse("application/json"), json);
                     Request req = new Request.Builder()
                         .url("https://ris-display.ris-display.workers.dev/api/alarm")
+                        .post(body)
+                        .build();
+                    client.newCall(req).execute().close();
+                } catch (Exception ignored) {}
+            }
+        }).start();
+    }
+
+    private static void sendSleepHeartbeat(final Context context) {
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
+                    SharedPreferences prefs = context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE);
+                    String room = prefs.getString("room_email", "");
+                    if (room.isEmpty()) return;
+                    String roomName = prefs.getString("room_name", "");
+                    String apkVer = "";
+                    try {
+                        apkVer = context.getPackageManager()
+                            .getPackageInfo(context.getPackageName(), 0).versionName;
+                    } catch (Exception ignored) {}
+                    String json = "{\"room\":\"" + room
+                        + "\",\"roomname\":\"" + roomName
+                        + "\",\"status\":\"sleep\""
+                        + ",\"apkVersion\":\"" + apkVer + "\""
+                        + ",\"uptime\":0}";
+                    OkHttpClient client = new OkHttpClient();
+                    RequestBody body = RequestBody.create(MediaType.parse("application/json"), json);
+                    Request req = new Request.Builder()
+                        .url("https://ris-display.ris-display.workers.dev/api/heartbeat")
                         .post(body)
                         .build();
                     client.newCall(req).execute().close();
