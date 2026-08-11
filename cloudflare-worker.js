@@ -1324,7 +1324,10 @@ async function sendDailyHealthDigest(env, report) {
     // ── Version consistency ──
     var uniqueVersions = allVersions.filter(function(v, i, a) { return a.indexOf(v) === i; });
     var uniqueApk = allApkVersions.filter(function(v, i, a) { return a.indexOf(v) === i; });
-    if (uniqueVersions.length > 1) anomalies.push('Version mismatch across tablets: ' + uniqueVersions.join(', '));
+    // Only flag web-app version mismatch when APK versions also differ.
+    // When APKs all match, a version difference just means one tablet is in WebView mode
+    // (reporting web app version) while others are in standby (reporting APK version).
+    if (uniqueVersions.length > 1 && uniqueApk.length > 1) anomalies.push('Version mismatch across tablets: ' + uniqueVersions.join(', '));
     if (uniqueApk.length > 1) anomalies.push('APK version mismatch: ' + uniqueApk.join(', '));
 
     // ── Unexpected reboot incidents — group events within 5 min into clusters ──
@@ -1489,9 +1492,9 @@ async function sendDailyHealthDigest(env, report) {
       + '</tr>'
       + roomRows
       + '</table>'
-      + (uniqueVersions.length > 1
+      + (uniqueApk.length > 1
           ? '<p style="color:#cc3333;font-size:12px;margin-top:8px">⚠️ Version mismatch: ' + uniqueVersions.join(', ') + '</p>'
-          : '<p style="color:#888;font-size:12px;margin-top:8px">All tablets: ' + (uniqueVersions[0] || '?') + ' / APK ' + (uniqueApk[0] || '?') + '</p>')
+          : '<p style="color:#888;font-size:12px;margin-top:8px">All tablets: ' + (uniqueApk[0] || '?') + ' / APK ' + (uniqueApk[0] || '?') + '</p>')
       + crashHtml
       + '<hr style="border:none;border-top:1px solid #eee;margin:24px 0">'
       + claudeHtml
