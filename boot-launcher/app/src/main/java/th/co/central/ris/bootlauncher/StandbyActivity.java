@@ -143,7 +143,7 @@ public class StandbyActivity extends Activity {
                     body.put("roomname",   roomname);
                     body.put("status",     "sleep");
                     body.put("launchMode", "standby");
-                    body.put("version",    ver);
+                    body.put("apkVersion", ver);
                     body.put("uptime",     0);
 
                     RequestBody rb = RequestBody.create(
