@@ -1334,6 +1334,7 @@ async function sendDailyHealthDigest(env, report) {
     var _allCrashBoots = [];
     recentIncidents.forEach(function(inc) {
       if (inc.type !== 'unexpected_reboot') return;
+      if (inc.resolvedAt) return;
       var incMs = new Date(inc.reportedAt).getTime();
       _allCrashBoots.push({
         room: inc.roomname || inc.room || '?',
