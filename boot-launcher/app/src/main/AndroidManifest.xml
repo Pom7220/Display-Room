@@ -63,6 +63,8 @@
                 <action android:name="th.co.central.ris.bootlauncher.ACTION_STANDBY" />
                 <action android:name="th.co.central.ris.bootlauncher.ACTION_WAKE" />
                 <action android:name="th.co.central.ris.bootlauncher.ACTION_RESTART" />
+                <action android:name="th.co.central.ris.bootlauncher.ACTION_TEST_SLEEP" />
+                <action android:name="th.co.central.ris.bootlauncher.ACTION_TEST_WAKE" />
             </intent-filter>
         </receiver>
 

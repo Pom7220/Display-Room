@@ -1943,6 +1943,17 @@ function executeCommand(cmd){
     dbg('Remote fetchcal — refreshing calendar immediately');
     fetchCal();
   }
+  else if(action==='enable_test_sleep'){
+    dbg('Test sleep command received — scheduling 08:40 sleep / 08:55 wake');
+    try{
+      if(window.Android&&window.Android.enableTestSleep){
+        window.Android.enableTestSleep();
+        dbg('enableTestSleep() called on Android interface');
+      } else {
+        dbg('Android interface not available — test sleep not scheduled');
+      }
+    }catch(e){dbg('enableTestSleep error: '+e.message);}
+  }
   else{
     dbg('Unknown command: '+action);
   }

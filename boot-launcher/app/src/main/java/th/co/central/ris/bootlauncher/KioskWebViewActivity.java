@@ -355,6 +355,13 @@ public class KioskWebViewActivity extends Activity {
                 @Override public void run() { finish(); }
             });
         }
+
+        @JavascriptInterface
+        public void enableTestSleep() {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit().putBoolean("test_sleep_enabled", true).apply();
+            ScheduleReceiver.setTestAlarms(KioskWebViewActivity.this);
+        }
     }
 
     @Override

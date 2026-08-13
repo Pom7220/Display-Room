@@ -18,6 +18,8 @@ public class ScheduleReceiver extends BroadcastReceiver {
     public static final String ACTION_WAKE         = "th.co.central.ris.bootlauncher.ACTION_WAKE";
     public static final String ACTION_RESTART      = "th.co.central.ris.bootlauncher.ACTION_RESTART";
     public static final String ACTION_HEALTH_CHECK = "th.co.central.ris.bootlauncher.ACTION_HEALTH_CHECK";
+    public static final String ACTION_TEST_SLEEP   = "th.co.central.ris.bootlauncher.ACTION_TEST_SLEEP";
+    public static final String ACTION_TEST_WAKE    = "th.co.central.ris.bootlauncher.ACTION_TEST_WAKE";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -52,6 +54,17 @@ public class ScheduleReceiver extends BroadcastReceiver {
                 launchKioskHealthCheck(context);
             }
             scheduleHealthCheck(context); // always reschedule — business-hours gate is in onReceive
+
+        } else if (ACTION_TEST_SLEEP.equals(action)) {
+            logAlarmEvent(context, "test_sleep");
+            sendSleepHeartbeat(context);
+            launchStandby(context);
+
+        } else if (ACTION_TEST_WAKE.equals(action)) {
+            logAlarmEvent(context, "test_wake");
+            context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE)
+                .edit().putBoolean("test_sleep_enabled", false).apply();
+            BootReceiver.launchWebView(context);
         }
     }
 
@@ -203,6 +216,28 @@ public class ScheduleReceiver extends BroadcastReceiver {
                 } catch (Exception ignored) {}
             }
         }).start();
+    }
+
+    static void setTestAlarms(Context context) {
+        android.app.AlarmManager am = (android.app.AlarmManager)
+            context.getSystemService(android.content.Context.ALARM_SERVICE);
+        if (am == null) return;
+        int flags = android.os.Build.VERSION.SDK_INT >= 23
+            ? android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
+            : android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+        android.app.PendingIntent piSleep = android.app.PendingIntent.getBroadcast(context, 10,
+            new android.content.Intent(ACTION_TEST_SLEEP).setClass(context, ScheduleReceiver.class), flags);
+        android.app.PendingIntent piWake = android.app.PendingIntent.getBroadcast(context, 11,
+            new android.content.Intent(ACTION_TEST_WAKE).setClass(context, ScheduleReceiver.class), flags);
+        long sleepAt = nextOccurrence(8, 40);
+        long wakeAt  = nextOccurrence(8, 55);
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, sleepAt, piSleep);
+            am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, wakeAt,  piWake);
+        } else {
+            am.setExact(android.app.AlarmManager.RTC_WAKEUP, sleepAt, piSleep);
+            am.setExact(android.app.AlarmManager.RTC_WAKEUP, wakeAt,  piWake);
+        }
     }
 
     static void launchStandby(Context context) {
