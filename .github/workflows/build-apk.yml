@@ -41,8 +41,11 @@ jobs:
       - name: Commit APK to repo
         run: |
           cp boot-launcher/app/build/outputs/apk/release/app-release.apk ris-boot-launcher.apk
+          VERSION_CODE=$(grep versionCode boot-launcher/app/build.gradle | tr -dc '0-9')
+          VERSION_NAME=$(grep versionName boot-launcher/app/build.gradle | grep -o '"[^"]*"' | tr -d '"')
+          echo "{\"versionCode\":$VERSION_CODE,\"versionName\":\"$VERSION_NAME\",\"apkUrl\":\"https://ris-display.ris-display.workers.dev/api/apk\"}" > apk-version.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ris-boot-launcher.apk
-          git diff --staged --quiet || git commit -m "chore: update ris-boot-launcher.apk [skip ci]"
+          git add ris-boot-launcher.apk apk-version.json
+          git diff --staged --quiet || git commit -m "chore: update ris-boot-launcher.apk to $VERSION_NAME [skip ci]"
           git push
