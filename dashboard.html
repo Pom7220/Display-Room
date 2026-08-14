@@ -1314,12 +1314,13 @@ async function resolveIncidentRemote(incId, incKey, incRoom, incType) {
 }
 
 async function resolveAllIncidents() {
-  if (!confirm('Resolve all open incidents?')) return;
+  if (!confirm('Resolve all open incidents from today?')) return;
   const incResp = await fetch(MONITOR_URL + 'incidents?limit=50', {
     headers: {'X-Admin-Key': adminKey}
   });
   const incData = await incResp.json();
-  const open = (incData.incidents || []).filter(i => !i.resolvedAt);
+  const todayBKK = new Date(Date.now() + 7*60*60*1000).toISOString().slice(0, 10);
+  const open = (incData.incidents || []).filter(i => !i.resolvedAt && (i.reportedAt || '').slice(0, 10) === todayBKK);
   let resolved = 0;
   for (const inc of open) {
     const key = 'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '');
