@@ -1944,7 +1944,7 @@ function executeCommand(cmd){
     fetchCal();
   }
   else if(action==='enable_test_sleep'){
-    dbg('Test sleep command received — scheduling 08:40 sleep / 08:55 wake');
+    dbg('Test sleep command received — sleep in 2 min, wake in 10 min');
     try{
       if(window.Android&&window.Android.enableTestSleep){
         window.Android.enableTestSleep();

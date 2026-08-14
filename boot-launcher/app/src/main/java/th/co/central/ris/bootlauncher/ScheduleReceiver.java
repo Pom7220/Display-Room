@@ -229,8 +229,8 @@ public class ScheduleReceiver extends BroadcastReceiver {
             new android.content.Intent(ACTION_TEST_SLEEP).setClass(context, ScheduleReceiver.class), flags);
         android.app.PendingIntent piWake = android.app.PendingIntent.getBroadcast(context, 11,
             new android.content.Intent(ACTION_TEST_WAKE).setClass(context, ScheduleReceiver.class), flags);
-        long sleepAt = nextOccurrence(8, 40);
-        long wakeAt  = nextOccurrence(8, 55);
+        long sleepAt = System.currentTimeMillis() + 2  * 60 * 1000L;
+        long wakeAt  = System.currentTimeMillis() + 10 * 60 * 1000L;
         if (android.os.Build.VERSION.SDK_INT >= 23) {
             am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, sleepAt, piSleep);
             am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, wakeAt,  piWake);

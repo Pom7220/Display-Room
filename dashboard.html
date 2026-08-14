@@ -1359,7 +1359,7 @@ function renderSmartActions(rooms) {
 
   let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
     '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'all\')">↻ Reload all</button>' +
-    '<button class="adm-refresh-btn" style="background:#5b6af0" onclick="bulkCommand(\'enable_test_sleep\',\'all\')" title="Send test sleep to all tablets — sleeps at 08:40, wakes at 08:55">🌙 Test Sleep</button>' +
+    '<button class="adm-refresh-btn" style="background:#5b6af0" onclick="bulkCommand(\'enable_test_sleep\',\'all\')" title="Send test sleep to all tablets — sleeps in 2 min, wakes in 10 min">🌙 Test Sleep</button>' +
     '</div>';
 
   if (issues.needsFullscreen.length > 0) {
