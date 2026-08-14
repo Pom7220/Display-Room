@@ -396,7 +396,7 @@ async function handleCommandSet(request, env) {
       return jsonResponse({ error: 'Missing room or command' }, 400);
     }
 
-    var validCommands = ['reload', 'clear_tokens', 'clear_config', 'force_fullscreen', 're_auth', 're_auth_remote', 'fetchcal'];
+    var validCommands = ['reload', 'clear_tokens', 'clear_config', 'force_fullscreen', 're_auth', 're_auth_remote', 'fetchcal', 'auto_tap', 'set_tablet_key', 'enable_test_sleep'];
     if (validCommands.indexOf(data.command) === -1) {
       return jsonResponse({ error: 'Invalid command. Valid: ' + validCommands.join(', ') }, 400);
     }

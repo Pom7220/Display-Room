@@ -1384,8 +1384,8 @@ function renderSmartActions(rooms) {
 async function bulkCommand(command, group) {
   const issues = { needsFullscreen: [], needsReload: [], all: [] };
   RIS_ROOMS.forEach(function(ris) {
+    issues.all.push(ris); // always include all rooms for 'all' group
     const r = _lastAnalyzedRooms.find(function(rm) { return rm.room === ris.email; });
-    if (r && r.isOnline) issues.all.push(ris);
     if (!r) return;
 
     if (r.launchMode === 'browser') issues.needsFullscreen.push(ris);
