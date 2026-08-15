@@ -15,7 +15,9 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import org.json.JSONObject;
+import org.conscrypt.Conscrypt;
 
+import java.security.Security;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -138,6 +140,7 @@ public class StandbyActivity extends Activity {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
+                    try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
                     JSONObject body = new JSONObject();
                     body.put("room",       room);
                     body.put("roomname",   roomname);

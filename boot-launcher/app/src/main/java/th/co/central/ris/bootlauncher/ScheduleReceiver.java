@@ -44,13 +44,19 @@ public class ScheduleReceiver extends BroadcastReceiver {
             setExactAlarm(context, ACTION_WAKE, 2, 7, 30);
 
         } else if (ACTION_RESTART.equals(action)) {
-            logAlarmEvent(context, "restart");
-            sendSleepHeartbeat(context);
-            launchStandby(context);
+            int restartDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
+            boolean restartWeekend = (restartDay == Calendar.SATURDAY || restartDay == Calendar.SUNDAY);
+            if (!restartWeekend) {
+                logAlarmEvent(context, "restart");
+                sendSleepHeartbeat(context);
+                launchStandby(context);
+            } else {
+                logAlarmEvent(context, "restart_weekend");
+            }
             setExactAlarm(context, ACTION_RESTART, 3, 6, 0);
 
         } else if (ACTION_HEALTH_CHECK.equals(action)) {
-            if (isBusinessHours()) {
+            if (isBusinessHours() && !isWeekend()) {
                 launchKioskHealthCheck(context);
             }
             scheduleHealthCheck(context); // always reschedule — business-hours gate is in onReceive
@@ -101,6 +107,11 @@ public class ScheduleReceiver extends BroadcastReceiver {
             java.util.TimeZone.getTimeZone("Asia/Bangkok"));
         int h = bkk.get(java.util.Calendar.HOUR_OF_DAY);
         return h >= 8 && h < 20;
+    }
+
+    private static boolean isWeekend() {
+        int day = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK);
+        return day == java.util.Calendar.SATURDAY || day == java.util.Calendar.SUNDAY;
     }
 
     private static void launchKioskHealthCheck(Context context) {
