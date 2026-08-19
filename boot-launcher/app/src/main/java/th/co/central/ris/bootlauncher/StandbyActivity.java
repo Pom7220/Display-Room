@@ -30,11 +30,6 @@ public class StandbyActivity extends Activity {
     private static final long   HB_INTERVAL_MS  = 20 * 60 * 1000L; // 20 minutes
     private static final long   DIM_DELAY_MS    = 30 * 1000L;       // 30 seconds after touch
 
-    private static final OkHttpClient HB_CLIENT = new OkHttpClient.Builder()
-        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-        .build();
-
     private Handler  handler;
     private TextView hintText;
     private boolean  isDimmed = true;
@@ -141,6 +136,10 @@ public class StandbyActivity extends Activity {
             @Override public void run() {
                 try {
                     try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
+                    OkHttpClient client = new OkHttpClient.Builder()
+                        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                        .build();
                     JSONObject body = new JSONObject();
                     body.put("room",       room);
                     body.put("roomname",   roomname);
@@ -156,7 +155,7 @@ public class StandbyActivity extends Activity {
                         .url(HEARTBEAT_URL)
                         .post(rb)
                         .build();
-                    HB_CLIENT.newCall(req).execute().close();
+                    client.newCall(req).execute().close();
                 } catch (Exception ignored) {}
             }
         }).start();
