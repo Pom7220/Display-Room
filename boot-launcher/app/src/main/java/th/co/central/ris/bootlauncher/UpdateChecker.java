@@ -265,14 +265,10 @@ public class UpdateChecker {
                     if (!dlResp.isSuccessful()) { runCb(onFailure); return; }
 
                     if (dlResp.body() == null) { runCb(onFailure); return; }
-                    InputStream is = dlResp.body().byteStream();
-                    FileOutputStream fos = new FileOutputStream(apkFile);
-                    try {
+                    try (InputStream is = dlResp.body().byteStream();
+                         FileOutputStream fos = new FileOutputStream(apkFile)) {
                         byte[] buf = new byte[4096]; int n;
                         while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
-                    } finally {
-                        fos.close();
-                        is.close();
                     }
 
                     final Process proc = Runtime.getRuntime().exec(new String[]{
