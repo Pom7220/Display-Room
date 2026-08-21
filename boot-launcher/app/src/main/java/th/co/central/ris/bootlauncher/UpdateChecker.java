@@ -63,11 +63,13 @@ public class UpdateChecker {
     };
 
     private static final OkHttpClient CLIENT;
+    private static final OkHttpClient DOWNLOAD_CLIENT;
     static {
         // Install Conscrypt as the first SSL provider — replaces Android 4.4 system
         // OpenSSL with a modern TLS 1.2/1.3 implementation so HTTPS works on all tablets.
         try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
         OkHttpClient c = new OkHttpClient();
+        OkHttpClient dl = new OkHttpClient();
         try {
             // Accept all certificates — same policy as WebView's handler.proceed().
             // Required on Android 10 (rk3288/Latte) where FortiGate SSL inspection
@@ -75,14 +77,24 @@ public class UpdateChecker {
             SSLContext sc = SSLContext.getInstance("TLS");
             sc.init(null, new TrustManager[]{TRUST_ALL}, new SecureRandom());
             SSLSocketFactory sf = sc.getSocketFactory();
+            HostnameVerifier hv = new HostnameVerifier() {
+                @Override public boolean verify(String h, SSLSession s) { return true; }
+            };
             c = new OkHttpClient.Builder()
                 .sslSocketFactory(sf, TRUST_ALL)
-                .hostnameVerifier(new HostnameVerifier() {
-                    @Override public boolean verify(String h, SSLSession s) { return true; }
-                })
+                .hostnameVerifier(hv)
+                .build();
+            // Separate client for large APK downloads — Worker cold-start + GitHub Pages
+            // fetch can exceed the default 10s read timeout before first byte arrives.
+            dl = new OkHttpClient.Builder()
+                .sslSocketFactory(sf, TRUST_ALL)
+                .hostnameVerifier(hv)
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                 .build();
         } catch (Throwable ignored) {}
         CLIENT = c;
+        DOWNLOAD_CLIENT = dl;
     }
 
     private static volatile boolean sInstallInProgress = false;
@@ -169,7 +181,7 @@ public class UpdateChecker {
                     File apkFile = getApkFile(activity);
 
                     Request req = new Request.Builder().url(apkUrl).build();
-                    Response resp = CLIENT.newCall(req).execute();
+                    Response resp = DOWNLOAD_CLIENT.newCall(req).execute();
                     if (!resp.isSuccessful()) throw new Exception("HTTP " + resp.code());
 
                     InputStream is = resp.body().byteStream();
@@ -264,7 +276,7 @@ public class UpdateChecker {
                     if (remoteCode <= localCode) { runCb(onNoUpdate); return; }
 
                     File apkFile = getApkFile(context);
-                    Response dlResp = CLIENT.newCall(
+                    Response dlResp = DOWNLOAD_CLIENT.newCall(
                         new Request.Builder().url(apkUrl).build()).execute();
                     if (!dlResp.isSuccessful()) { runCb(onFailure); return; }
 
