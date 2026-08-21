@@ -1361,6 +1361,8 @@ function renderSmartActions(rooms) {
   let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
     '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'all\')">↻ Reload all</button>' +
     '<button class="adm-refresh-btn" style="background:#5b6af0" onclick="bulkCommand(\'enable_test_sleep\',\'all\')" title="Send test sleep to all tablets — sleeps in 2 min, wakes in 10 min">🌙 Test Sleep</button>' +
+    '<button class="adm-refresh-btn" style="background:#2d7d46" onclick="triggerOtaUpdate(\'ab\')" title="OTA update Macchiato + Viennese only">⬆ Update A/B</button>' +
+    '<button class="adm-refresh-btn" style="background:#1a5c32" onclick="triggerOtaUpdate(\'all\')" title="OTA update all 6 in-office tablets">⬆ Update ALL</button>' +
     '</div>';
 
   if (issues.needsFullscreen.length > 0) {
@@ -1407,6 +1409,26 @@ async function bulkCommand(command, group) {
   }
   showToast('✓ Sent to ' + sent + '/' + targets.length + ' rooms');
   setTimeout(refreshAdmin, 3000);
+}
+
+async function triggerOtaUpdate(target) {
+  var label = target === 'ab' ? 'Macchiato & Viennese' : 'ALL 6 tablets';
+  if (!confirm('Send OTA update to ' + label + '?')) return;
+  try {
+    var resp = await fetch(MONITOR_URL + 'admin/update', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
+      body: JSON.stringify({target: target})
+    });
+    var json = await resp.json();
+    if (json.ok) {
+      showToast('Update command sent to ' + label + ' — takes effect within ~90 sec');
+    } else {
+      showToast('Update failed: ' + (json.error || 'unknown error'));
+    }
+  } catch(e) {
+    showToast('Update failed: ' + e.message);
+  }
 }
 
 async function fetchReports() {
