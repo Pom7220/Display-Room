@@ -85,6 +85,8 @@ public class UpdateChecker {
         CLIENT = c;
     }
 
+    private static volatile boolean sInstallInProgress = false;
+
     public static void check(final Activity activity) {
         final Handler ui = new Handler(activity.getMainLooper());
         new Thread(new Runnable() {
@@ -243,6 +245,8 @@ public class UpdateChecker {
     public static void silentInstall(final Context context,
                                      final Runnable onNoUpdate,
                                      final Runnable onFailure) {
+        if (sInstallInProgress) { runCb(onNoUpdate); return; }
+        sInstallInProgress = true;
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
@@ -285,6 +289,7 @@ public class UpdateChecker {
                     if (proc.exitValue() != 0) { runCb(onFailure); return; }
                     // Exit 0: package manager will kill and restart this process.
                 } catch (Exception e) { runCb(onFailure); }
+                finally { sInstallInProgress = false; }
             }
         }).start();
     }
