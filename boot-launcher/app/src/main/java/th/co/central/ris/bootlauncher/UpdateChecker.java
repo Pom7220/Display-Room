@@ -275,8 +275,11 @@ public class UpdateChecker {
                         while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
                     }
 
+                    // Use full path — "su" alone may not be in PATH for app processes
+                    String suPath = new File("/system/xbin/su").exists()
+                        ? "/system/xbin/su" : "/system/bin/su";
                     final Process proc = Runtime.getRuntime().exec(new String[]{
-                        "su", "-c", "pm install -r " + apkFile.getAbsolutePath()
+                        suPath, "-c", "pm install -r " + apkFile.getAbsolutePath()
                     });
                     Thread waiter = new Thread(new Runnable() {
                         @Override public void run() {
