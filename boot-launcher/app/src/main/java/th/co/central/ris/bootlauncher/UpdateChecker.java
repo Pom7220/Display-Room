@@ -232,4 +232,60 @@ public class UpdateChecker {
                 Toast.LENGTH_LONG).show();
         }
     }
+
+    /**
+     * Downloads and silently installs a newer APK via root (su pm install -r).
+     * Runs on a background thread. Calls onNoUpdate if already up-to-date,
+     * onFailure if root is denied or install fails, neither on success
+     * (the package manager kills this process after install).
+     * Safe to call from a BroadcastReceiver — does not require Activity context.
+     */
+    public static void silentInstall(final Context context,
+                                     final Runnable onNoUpdate,
+                                     final Runnable onFailure) {
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    Request req = new Request.Builder().url(VERSION_URL).build();
+                    Response resp = CLIENT.newCall(req).execute();
+                    if (!resp.isSuccessful()) { runCb(onFailure); return; }
+
+                    JSONObject json = new JSONObject(resp.body().string());
+                    int remoteCode = json.getInt("versionCode");
+                    String apkUrl  = json.getString("apkUrl");
+
+                    int localCode = context.getPackageManager()
+                        .getPackageInfo(context.getPackageName(), 0).versionCode;
+                    if (remoteCode <= localCode) { runCb(onNoUpdate); return; }
+
+                    File apkFile = getApkFile(context);
+                    Response dlResp = CLIENT.newCall(
+                        new Request.Builder().url(apkUrl).build()).execute();
+                    if (!dlResp.isSuccessful()) { runCb(onFailure); return; }
+
+                    InputStream is = dlResp.body().byteStream();
+                    FileOutputStream fos = new FileOutputStream(apkFile);
+                    byte[] buf = new byte[4096]; int n;
+                    while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
+                    fos.close(); is.close();
+
+                    final Process proc = Runtime.getRuntime().exec(new String[]{
+                        "su", "-c", "pm install -r " + apkFile.getAbsolutePath()
+                    });
+                    Thread waiter = new Thread(new Runnable() {
+                        @Override public void run() {
+                            try { proc.waitFor(); } catch (InterruptedException ignored) {}
+                        }
+                    });
+                    waiter.start();
+                    waiter.join(60000);
+                    if (waiter.isAlive()) { proc.destroy(); runCb(onFailure); return; }
+                    if (proc.exitValue() != 0) { runCb(onFailure); return; }
+                    // Exit 0: package manager will kill and restart this process.
+                } catch (Exception e) { runCb(onFailure); }
+            }
+        }).start();
+    }
+
+    private static void runCb(Runnable r) { if (r != null) r.run(); }
 }
