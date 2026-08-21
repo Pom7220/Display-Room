@@ -49,7 +49,11 @@ public class ScheduleReceiver extends BroadcastReceiver {
             if (!restartWeekend) {
                 logAlarmEvent(context, "restart");
                 sendSleepHeartbeat(context);
-                launchStandby(context);
+                final Context ctx = context;
+                UpdateChecker.silentInstall(context,
+                    new Runnable() { @Override public void run() { launchStandby(ctx); } },
+                    new Runnable() { @Override public void run() { launchStandby(ctx); } }
+                );
             } else {
                 logAlarmEvent(context, "restart_weekend");
             }
