@@ -120,6 +120,11 @@ export default {
         return handleCommandSet(request, env);
       }
 
+      // POST /api/admin/update — trigger OTA update for 'all' or 'ab' (Macchiato+Viennese)
+      if (path === '/api/admin/update' && method === 'POST') {
+        return handleAdminUpdate(request, env);
+      }
+
       // GET /api/command?room=email — tablet polls for command
       if (path === '/api/command' && method === 'GET') {
         return handleCommandGet(url, env);
@@ -396,7 +401,7 @@ async function handleCommandSet(request, env) {
       return jsonResponse({ error: 'Missing room or command' }, 400);
     }
 
-    var validCommands = ['reload', 'clear_tokens', 'clear_config', 'force_fullscreen', 're_auth', 're_auth_remote', 'fetchcal', 'auto_tap', 'set_tablet_key', 'enable_test_sleep'];
+    var validCommands = ['reload', 'clear_tokens', 'clear_config', 'force_fullscreen', 're_auth', 're_auth_remote', 'fetchcal', 'auto_tap', 'set_tablet_key', 'enable_test_sleep', 'perform_update'];
     if (validCommands.indexOf(data.command) === -1) {
       return jsonResponse({ error: 'Invalid command. Valid: ' + validCommands.join(', ') }, 400);
     }
@@ -515,7 +520,27 @@ async function handleCommandGet(url, env) {
       return jsonResponse({ command: JSON.parse(cmd) });
     }
 
+    // Check bulk OTA update keys (not deleted on read — TTL expiry delivers to all tablets)
+    var isAb = (room === 'macchiato@central.co.th' || room === 'viennese@central.co.th');
+    var otaKey = isAb ? await env.RIS_KV.get('cmd:perform_update:ab') : null;
+    if (!otaKey) otaKey = await env.RIS_KV.get('cmd:perform_update:all');
+    if (otaKey) return jsonResponse({ command: { command: 'perform_update' } });
     return jsonResponse({ command: null });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+async function handleAdminUpdate(request, env) {
+  try {
+    var adminKey = request.headers.get('X-Admin-Key') || '';
+    if (adminKey !== (env.RIS_ADMIN_KEY || '')) {
+      return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+    var data = await request.json();
+    var target = data.target === 'ab' ? 'ab' : 'all';
+    await env.RIS_KV.put('cmd:perform_update:' + target, '1', { expirationTtl: 300 });
+    return jsonResponse({ ok: true, target: target });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
   }
