@@ -94,8 +94,8 @@ export default {
         return handleIndexVersion();
       }
 
-      // GET /api/apk — proxies APK binary so tablets never hit GitHub Pages TLS directly
-      if (path === '/api/apk' && method === 'GET') {
+      // GET /api/pkg — proxies APK binary so tablets never hit GitHub Pages TLS directly
+      if (path === '/api/pkg' && method === 'GET') {
         return handleApk();
       }
 
@@ -1769,7 +1769,7 @@ async function handleApk() {
     return new Response(resp.body, {
       status: 200,
       headers: {
-        'Content-Type': 'application/vnd.android.package-archive',
+        'Content-Type': 'application/octet-stream',
         'Content-Disposition': 'attachment; filename="ris-boot-launcher.apk"',
         'Cache-Control': 'no-store'
       }
