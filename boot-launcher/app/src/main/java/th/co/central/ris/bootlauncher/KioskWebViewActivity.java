@@ -362,6 +362,11 @@ public class KioskWebViewActivity extends Activity {
                 .edit().putBoolean("test_sleep_enabled", true).apply();
             ScheduleReceiver.setTestAlarms(KioskWebViewActivity.this);
         }
+
+        @JavascriptInterface
+        public void performUpdate() {
+            UpdateChecker.silentInstall(KioskWebViewActivity.this, null, null);
+        }
     }
 
     @Override

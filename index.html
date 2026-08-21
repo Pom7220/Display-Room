@@ -1954,6 +1954,17 @@ function executeCommand(cmd){
       }
     }catch(e){dbg('enableTestSleep error: '+e.message);}
   }
+  else if(action==='perform_update'){
+    dbg('OTA update command received');
+    try{
+      if(window.Android&&window.Android.performUpdate){
+        window.Android.performUpdate();
+        dbg('performUpdate() called on Android interface');
+      } else {
+        dbg('Android interface not available — update skipped');
+      }
+    }catch(e){dbg('performUpdate error: '+e.message);}
+  }
   else{
     dbg('Unknown command: '+action);
   }
