@@ -250,6 +250,7 @@ public class UpdateChecker {
                     Response resp = CLIENT.newCall(req).execute();
                     if (!resp.isSuccessful()) { runCb(onFailure); return; }
 
+                    if (resp.body() == null) { runCb(onFailure); return; }
                     JSONObject json = new JSONObject(resp.body().string());
                     int remoteCode = json.getInt("versionCode");
                     String apkUrl  = json.getString("apkUrl");
@@ -263,11 +264,16 @@ public class UpdateChecker {
                         new Request.Builder().url(apkUrl).build()).execute();
                     if (!dlResp.isSuccessful()) { runCb(onFailure); return; }
 
+                    if (dlResp.body() == null) { runCb(onFailure); return; }
                     InputStream is = dlResp.body().byteStream();
                     FileOutputStream fos = new FileOutputStream(apkFile);
-                    byte[] buf = new byte[4096]; int n;
-                    while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
-                    fos.close(); is.close();
+                    try {
+                        byte[] buf = new byte[4096]; int n;
+                        while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
+                    } finally {
+                        fos.close();
+                        is.close();
+                    }
 
                     final Process proc = Runtime.getRuntime().exec(new String[]{
                         "su", "-c", "pm install -r " + apkFile.getAbsolutePath()
