@@ -76,6 +76,10 @@ public class StandbyActivity extends Activity {
 
         dim();
 
+        // Re-register alarms on every standby entry — covers boot-into-standby path
+        // where BootReceiver calls launchStandby() and the alarm chain must stay intact.
+        ScheduleReceiver.schedule(this);
+
         // Initial heartbeat after 30s, then every 20 min
         handler.postDelayed(heartbeatRunnable, 30_000L);
     }

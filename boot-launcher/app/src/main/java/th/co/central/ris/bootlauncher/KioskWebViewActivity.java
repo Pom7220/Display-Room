@@ -377,6 +377,9 @@ public class KioskWebViewActivity extends Activity {
         _lastWatchdogReloadMs = 0; // reset cooldown — fresh start after standby
         startPingWatchdog(); // restart watchdog suspended in onPause
         hideSystemUI();
+        // Re-register alarms on every resume — guards against alarm chain breaks
+        // caused by unexpected crashes, OOM kills, or missed standby transitions.
+        ScheduleReceiver.schedule(this);
         // Health-check recovery: ScheduleReceiver fires every 10 min during business hours
         // and relaunches this activity with health_check=true if it was not foreground.
         // onNewIntent() keeps getIntent() current so this extra is always from the latest launch.
