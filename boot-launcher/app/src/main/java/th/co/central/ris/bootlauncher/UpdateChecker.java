@@ -262,34 +262,49 @@ public class UpdateChecker {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
+                    debugStep(context, "1_start", "");
                     Request req = new Request.Builder().url(VERSION_URL).build();
                     Response resp = CLIENT.newCall(req).execute();
-                    if (!resp.isSuccessful()) { runCb(onFailure); return; }
-
-                    if (resp.body() == null) { runCb(onFailure); return; }
+                    if (!resp.isSuccessful()) {
+                        debugStep(context, "ERR_version_http", String.valueOf(resp.code()));
+                        runCb(onFailure); return;
+                    }
+                    if (resp.body() == null) {
+                        debugStep(context, "ERR_version_nobody", "");
+                        runCb(onFailure); return;
+                    }
                     JSONObject json = new JSONObject(resp.body().string());
                     int remoteCode = json.getInt("versionCode");
                     String apkUrl  = json.getString("apkUrl");
-
                     int localCode = context.getPackageManager()
                         .getPackageInfo(context.getPackageName(), 0).versionCode;
-                    if (remoteCode <= localCode) { runCb(onNoUpdate); return; }
+                    if (remoteCode <= localCode) {
+                        debugStep(context, "2_noupdate", remoteCode + "<=" + localCode);
+                        runCb(onNoUpdate); return;
+                    }
+                    debugStep(context, "3_download_start", "remote=" + remoteCode + " local=" + localCode + " url=" + apkUrl);
 
                     File apkFile = getApkFile(context);
                     Response dlResp = DOWNLOAD_CLIENT.newCall(
                         new Request.Builder().url(apkUrl).build()).execute();
-                    if (!dlResp.isSuccessful()) { runCb(onFailure); return; }
-
-                    if (dlResp.body() == null) { runCb(onFailure); return; }
+                    if (!dlResp.isSuccessful()) {
+                        debugStep(context, "ERR_download_http", String.valueOf(dlResp.code()));
+                        runCb(onFailure); return;
+                    }
+                    if (dlResp.body() == null) {
+                        debugStep(context, "ERR_download_nobody", "");
+                        runCb(onFailure); return;
+                    }
+                    debugStep(context, "4_download_ok", "writing to " + apkFile.getAbsolutePath());
                     try (InputStream is = dlResp.body().byteStream();
                          FileOutputStream fos = new FileOutputStream(apkFile)) {
                         byte[] buf = new byte[4096]; int n;
                         while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
                     }
 
-                    // Use full path — "su" alone may not be in PATH for app processes
                     String suPath = new File("/system/xbin/su").exists()
                         ? "/system/xbin/su" : "/system/bin/su";
+                    debugStep(context, "5_su_start", suPath);
                     final Process proc = Runtime.getRuntime().exec(new String[]{
                         suPath, "-c", "pm install -r " + apkFile.getAbsolutePath()
                     });
@@ -300,11 +315,63 @@ public class UpdateChecker {
                     });
                     waiter.start();
                     waiter.join(60000);
-                    if (waiter.isAlive()) { proc.destroy(); runCb(onFailure); return; }
-                    if (proc.exitValue() != 0) { runCb(onFailure); return; }
+                    if (waiter.isAlive()) {
+                        proc.destroy();
+                        debugStep(context, "ERR_su_timeout", "60s");
+                        runCb(onFailure); return;
+                    }
+                    int exitCode = proc.exitValue();
+                    if (exitCode != 0) {
+                        debugStep(context, "ERR_su_exit", String.valueOf(exitCode));
+                        runCb(onFailure); return;
+                    }
+                    debugStep(context, "6_su_ok", "exit=0 installing");
                     // Exit 0: package manager will kill and restart this process.
-                } catch (Exception e) { runCb(onFailure); }
-                finally { sInstallInProgress = false; }
+                } catch (Exception e) {
+                    debugStep(context, "ERR_exception", e.getClass().getSimpleName() + ":" + e.getMessage());
+                    runCb(onFailure);
+                } finally { sInstallInProgress = false; }
+            }
+        }).start();
+    }
+
+    // Fire-and-forget: POST the current step to /api/ota-debug for remote diagnostics.
+    private static void debugStep(final Context context, final String step, final String detail) {
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    android.content.SharedPreferences p =
+                        context.getSharedPreferences("ris_kiosk_prefs",
+                            android.content.Context.MODE_PRIVATE);
+                    String room     = p.getString("room_email", "");
+                    String roomname = p.getString("room_name",  "");
+                    if (room.isEmpty()) return;
+                    String ver = "";
+                    try { ver = context.getPackageManager()
+                        .getPackageInfo(context.getPackageName(), 0).versionName;
+                    } catch (Exception ignored) {}
+                    String body = "{\"room\":\"" + room
+                        + "\",\"roomname\":\"" + roomname
+                        + "\",\"step\":\"" + step
+                        + "\",\"detail\":\"" + detail.replace("\"", "'")
+                        + "\",\"apkVersion\":\"" + ver + "\"}";
+                    okhttp3.OkHttpClient dbgClient = new okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .sslSocketFactory(
+                            ((javax.net.ssl.SSLSocketFactory) CLIENT.sslSocketFactory()),
+                            TRUST_ALL)
+                        .hostnameVerifier(new javax.net.ssl.HostnameVerifier() {
+                            @Override public boolean verify(String h, javax.net.ssl.SSLSession s) { return true; }
+                        })
+                        .build();
+                    okhttp3.Request req = new okhttp3.Request.Builder()
+                        .url("https://ris-display.ris-display.workers.dev/api/ota-debug")
+                        .post(okhttp3.RequestBody.create(
+                            okhttp3.MediaType.parse("application/json"), body))
+                        .build();
+                    dbgClient.newCall(req).execute().close();
+                } catch (Exception ignored) {}
             }
         }).start();
     }

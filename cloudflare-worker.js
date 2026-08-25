@@ -162,6 +162,19 @@ export default {
         return handleIncidentReport(request, env);
       }
 
+      // POST /api/ota-debug — tablet logs silent-install step for diagnostics
+      if (path === '/api/ota-debug' && method === 'POST') {
+        return handleOtaDebug(request, env);
+      }
+
+      // GET /api/ota-debug?room=email — read last OTA debug log for a room (protected)
+      if (path === '/api/ota-debug' && method === 'GET') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        var room = url.searchParams.get('room') || '';
+        var dbg = room ? await env.RIS_KV.get('otadebug:' + room, 'json') : null;
+        return jsonResponse(dbg || { error: 'no data' });
+      }
+
       // GET /api/reports — daily summary reports
       if (path === '/api/reports' && method === 'GET') {
         if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
@@ -347,6 +360,30 @@ async function handleAlarmLog(request, env) {
     if (log.length > 50) log = log.slice(0, 50);
     await env.RIS_KV.put(key, JSON.stringify(log), { expirationTtl: 604800 }); // 7 days
 
+    return jsonResponse({ ok: true });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
+// OTA DEBUG — silent install step logging
+// ═══════════════════════════════════════
+
+async function handleOtaDebug(request, env) {
+  try {
+    var data = await request.json();
+    if (!data.room || !data.step) return jsonResponse({ error: 'Missing room or step' }, 400);
+    var entry = {
+      room: data.room,
+      roomname: data.roomname || '',
+      step: data.step,
+      detail: data.detail || '',
+      apkVersion: data.apkVersion || '',
+      ts: new Date().toISOString()
+    };
+    // Store last step per room (TTL 24h — diagnostic only)
+    await env.RIS_KV.put('otadebug:' + data.room, JSON.stringify(entry), { expirationTtl: 86400 });
     return jsonResponse({ ok: true });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
