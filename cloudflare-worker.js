@@ -576,7 +576,7 @@ async function handleAdminUpdate(request, env) {
     }
     var data = await request.json();
     var target = data.target === 'ab' ? 'ab' : 'all';
-    await env.RIS_KV.put('cmd:perform_update:' + target, '1', { expirationTtl: 300 });
+    await env.RIS_KV.put('cmd:perform_update:' + target, '1', { expirationTtl: 1800 }); // 30 min — outlasts 20-min heartbeat interval
     return jsonResponse({ ok: true, target: target });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
