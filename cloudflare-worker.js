@@ -1143,7 +1143,7 @@ async function sendWeeklyEmail(env, data) {
 // ═══════════════════════════════════════
 // KNOWN ROOM REGISTRY
 // ═══════════════════════════════════════
-// All 6 deployed tablets. Used to surface offline rooms that have no KV heartbeat.
+// All deployed tablets. Used to surface offline rooms that have no KV heartbeat.
 var KNOWN_ROOMS = [
   { email: 'risaffogato@central.co.th',    name: 'Affogato' },
   { email: 'rismacchiato@central.co.th',   name: 'Macchiato' },

@@ -1362,7 +1362,7 @@ function renderSmartActions(rooms) {
     '<button class="adm-refresh-btn" style="background:var(--amber)" onclick="bulkCommand(\'reload\',\'all\')">↻ Reload all</button>' +
     '<button class="adm-refresh-btn" style="background:#5b6af0" onclick="bulkCommand(\'enable_test_sleep\',\'all\')" title="Send test sleep to all tablets — sleeps in 2 min, wakes in 10 min">🌙 Test Sleep</button>' +
     '<button class="adm-refresh-btn" style="background:#2d7d46" onclick="triggerOtaUpdate(\'ab\')" title="OTA update Macchiato + Viennese only">⬆ Update A/B</button>' +
-    '<button class="adm-refresh-btn" style="background:#1a5c32" onclick="triggerOtaUpdate(\'all\')" title="OTA update all 6 in-office tablets">⬆ Update ALL</button>' +
+    '<button class="adm-refresh-btn" style="background:#1a5c32" onclick="triggerOtaUpdate(\'all\')" title="OTA update all in-office tablets">⬆ Update ALL</button>' +
     '<button class="adm-refresh-btn" style="background:#4a3060" onclick="showOtaDebug()" title="Show last OTA silent-install step for A/B tablets">🔍 OTA Debug</button>' +
     '</div>';
 
@@ -1413,7 +1413,7 @@ async function bulkCommand(command, group) {
 }
 
 async function triggerOtaUpdate(target) {
-  var label = target === 'ab' ? 'Macchiato & Viennese' : 'ALL 6 tablets';
+  var label = target === 'ab' ? 'Macchiato & Viennese' : 'ALL tablets';
   if (!confirm('Send OTA update to ' + label + '?')) return;
   try {
     var resp = await fetch(MONITOR_URL + 'admin/update', {
