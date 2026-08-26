@@ -558,7 +558,7 @@ async function handleCommandGet(url, env) {
     }
 
     // Check bulk OTA update keys (not deleted on read — TTL expiry delivers to all tablets)
-    var isAb = (room === 'macchiato@central.co.th' || room === 'viennese@central.co.th');
+    var isAb = (room === 'rismacchiato@central.co.th' || room === 'risviennese@central.co.th');
     var otaKey = isAb ? await env.RIS_KV.get('cmd:perform_update:ab') : null;
     if (!otaKey) otaKey = await env.RIS_KV.get('cmd:perform_update:all');
     if (otaKey) return jsonResponse({ command: { command: 'perform_update' } });
