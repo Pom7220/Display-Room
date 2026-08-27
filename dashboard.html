@@ -1363,7 +1363,7 @@ function renderSmartActions(rooms) {
     '<button class="adm-refresh-btn" style="background:#5b6af0" onclick="bulkCommand(\'enable_test_sleep\',\'all\')" title="Send test sleep to all tablets — sleeps in 2 min, wakes in 10 min">🌙 Test Sleep</button>' +
     '<button class="adm-refresh-btn" style="background:#2d7d46" onclick="triggerOtaUpdate(\'ab\')" title="OTA update Macchiato + Viennese only">⬆ Update A/B</button>' +
     '<button class="adm-refresh-btn" style="background:#1a5c32" onclick="triggerOtaUpdate(\'all\')" title="OTA update all in-office tablets">⬆ Update ALL</button>' +
-    '<button class="adm-refresh-btn" style="background:#4a3060" onclick="showOtaDebug()" title="Show last OTA silent-install step for A/B tablets">🔍 OTA Debug</button>' +
+    '<button class="adm-refresh-btn" style="background:#4a3060" onclick="showOtaDebug()" title="Show last OTA silent-install step for all tablets">🔍 OTA Debug</button>' +
     '</div>';
 
   if (issues.needsFullscreen.length > 0) {
@@ -1433,7 +1433,7 @@ async function triggerOtaUpdate(target) {
 }
 
 async function showOtaDebug() {
-  var rooms = ['rismacchiato@central.co.th', 'risviennese@central.co.th'];
+  var rooms = ['rismacchiato@central.co.th', 'risviennese@central.co.th', 'risdecaffeinato@central.co.th', 'rislatte@central.co.th', 'rismocha@central.co.th', 'risaffogato@central.co.th'];
   var lines = [];
   for (var i = 0; i < rooms.length; i++) {
     try {
