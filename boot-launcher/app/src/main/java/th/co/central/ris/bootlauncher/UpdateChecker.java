@@ -305,14 +305,33 @@ public class UpdateChecker {
                     String suPath = new File("/system/xbin/su").exists()
                         ? "/system/xbin/su" : "/system/bin/su";
                     debugStep(context, "5_su_start", suPath);
-                    // Copy to /data/local/tmp/ first — pm install via su cannot access
+                    // Step 5b: cp APK to /data/local/tmp/ — pm install via su cannot access
                     // scoped storage paths (API 29+) even as root due to SELinux on Android 10.
-                    // /data/local/tmp/ is always accessible to pm install on all Android versions.
-                    String installCmd = "cp " + apkFile.getAbsolutePath()
-                        + " /data/local/tmp/" + APK_FILENAME
-                        + " && pm install -r /data/local/tmp/" + APK_FILENAME;
+                    final Process cpProc = Runtime.getRuntime().exec(new String[]{
+                        suPath, "-c", "cp " + apkFile.getAbsolutePath() + " /data/local/tmp/" + APK_FILENAME
+                    });
+                    Thread cpWaiter = new Thread(new Runnable() {
+                        @Override public void run() {
+                            try { cpProc.waitFor(); } catch (InterruptedException ignored) {}
+                        }
+                    });
+                    cpWaiter.start();
+                    cpWaiter.join(30000);
+                    if (cpWaiter.isAlive()) {
+                        cpProc.destroy();
+                        debugStep(context, "ERR_cp_timeout", "30s");
+                        runCb(onFailure); return;
+                    }
+                    int cpExit = cpProc.exitValue();
+                    if (cpExit != 0) {
+                        debugStep(context, "ERR_cp_exit", String.valueOf(cpExit));
+                        runCb(onFailure); return;
+                    }
+                    debugStep(context, "5c_cp_ok", "/data/local/tmp/" + APK_FILENAME);
+
+                    // Step 6: pm install from /data/local/tmp/
                     final Process proc = Runtime.getRuntime().exec(new String[]{
-                        suPath, "-c", installCmd
+                        suPath, "-c", "pm install -r /data/local/tmp/" + APK_FILENAME
                     });
                     Thread waiter = new Thread(new Runnable() {
                         @Override public void run() {
