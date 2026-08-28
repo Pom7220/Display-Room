@@ -305,8 +305,14 @@ public class UpdateChecker {
                     String suPath = new File("/system/xbin/su").exists()
                         ? "/system/xbin/su" : "/system/bin/su";
                     debugStep(context, "5_su_start", suPath);
+                    // Copy to /data/local/tmp/ first — pm install via su cannot access
+                    // scoped storage paths (API 29+) even as root due to SELinux on Android 10.
+                    // /data/local/tmp/ is always accessible to pm install on all Android versions.
+                    String installCmd = "cp " + apkFile.getAbsolutePath()
+                        + " /data/local/tmp/" + APK_FILENAME
+                        + " && pm install -r /data/local/tmp/" + APK_FILENAME;
                     final Process proc = Runtime.getRuntime().exec(new String[]{
-                        suPath, "-c", "pm install -r " + apkFile.getAbsolutePath()
+                        suPath, "-c", installCmd
                     });
                     Thread waiter = new Thread(new Runnable() {
                         @Override public void run() {

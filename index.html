@@ -818,8 +818,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 183,
-  date: '2026-08-26',
+  patch: 184,
+  date: '2026-08-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -885,6 +885,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.178 2026-07-31 - Standby diagnostics: pageHidden in heartbeat; visibilitychange after 19:00 BKK posts standby_resumed alarm event to diagnose StandbyActivity failures
 // v3.10.177 2026-07-28 - Redesign: expected boots (06:00/07:30 BKK) are not incidents — only unexpected_reboot at other times stays OPEN; midday_reload no longer an incident; Worker adds missed-wake cron at 01:00 UTC (08:00 BKK)
