@@ -610,7 +610,7 @@ async function handleIncidentReport(request, env) {
           record.durationMinutes = Math.round(
             (now.getTime() - new Date(record.reportedAt).getTime()) / 60000
           );
-          await env.RIS_KV.put(existingKey, JSON.stringify(record), { expirationTtl: 2592000 }); // 30 days
+          await env.RIS_KV.put(existingKey, JSON.stringify(record), { expirationTtl: 1209600 }); // 14 days
           return jsonResponse({ ok: true, incident: record });
         }
       }
@@ -649,7 +649,7 @@ async function handleIncidentReport(request, env) {
     var index = indexRaw ? JSON.parse(indexRaw) : [];
     index.unshift(incidentKey);
     if (index.length > 200) index = index.slice(0, 200);
-    await env.RIS_KV.put('incidents_index', JSON.stringify(index));
+    await env.RIS_KV.put('incidents_index', JSON.stringify(index), { expirationTtl: 1209600 }); // 14 days
 
     return jsonResponse({ ok: true, incident: incident, key: incidentKey });
   } catch (e) {
@@ -873,16 +873,16 @@ async function generateDailyReport(env) {
     }
   };
 
-  // Store report (TTL 90 days)
-  await env.RIS_KV.put('report:' + today, JSON.stringify(report), { expirationTtl: 7776000 });
+  // Store report (TTL 30 days)
+  await env.RIS_KV.put('report:' + today, JSON.stringify(report), { expirationTtl: 2592000 });
 
-  // Update report index (last 90 days)
+  // Update report index (last 30 days, TTL 30 days)
   var riRaw = await env.RIS_KV.get('reports_index');
   var ri = riRaw ? JSON.parse(riRaw) : [];
   if (ri.indexOf('report:' + today) === -1) {
     ri.unshift('report:' + today);
-    if (ri.length > 90) ri = ri.slice(0, 90);
-    await env.RIS_KV.put('reports_index', JSON.stringify(ri));
+    if (ri.length > 30) ri = ri.slice(0, 30);
+    await env.RIS_KV.put('reports_index', JSON.stringify(ri), { expirationTtl: 2592000 });
   }
 
   return report;
@@ -1194,7 +1194,7 @@ async function checkMissedWakes(env) {
       var idx = idxRaw ? JSON.parse(idxRaw) : [];
       idx.unshift(incKey);
       if (idx.length > 200) idx = idx.slice(0, 200);
-      await env.RIS_KV.put('incidents_index', JSON.stringify(idx));
+      await env.RIS_KV.put('incidents_index', JSON.stringify(idx), { expirationTtl: 1209600 }); // 14 days
     }
   }
 }
