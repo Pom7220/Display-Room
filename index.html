@@ -818,8 +818,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 189,
-  date: '2026-08-28',
+  patch: 190,
+  date: '2026-08-29',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -885,6 +885,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.190 2026-08-29 - APK 5.73: capture pm install stdout to detect false-positive 6_su_ok on LG Android 4.4 (su always exits 0)
 // v3.10.189 2026-08-28 - APK 5.72: RestartReceiver relaunches kiosk after silent OTA install (MY_PACKAGE_REPLACED) — prevents offline-after-update
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard

@@ -333,12 +333,29 @@ public class UpdateChecker {
                         debugStep(context, "ERR_su_timeout", "60s");
                         runCb(onFailure); return;
                     }
+                    // Read stdout — pm install prints "Success" or "Failure [REASON]".
+                    // On some Android 4.4 devices su always exits 0 regardless of pm result,
+                    // so we must check stdout to know the real outcome.
+                    String pmOut = "";
+                    try {
+                        java.io.BufferedReader br = new java.io.BufferedReader(
+                            new java.io.InputStreamReader(proc.getInputStream()));
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = br.readLine()) != null) sb.append(line).append(' ');
+                        pmOut = sb.toString().trim();
+                    } catch (Exception ignored) {}
+
                     int exitCode = proc.exitValue();
                     if (exitCode != 0) {
-                        debugStep(context, "ERR_su_exit", String.valueOf(exitCode));
+                        debugStep(context, "ERR_su_exit", exitCode + " pm=" + pmOut);
                         runCb(onFailure); return;
                     }
-                    debugStep(context, "6_su_ok", "exit=0 installing");
+                    if (!pmOut.isEmpty() && !pmOut.contains("Success")) {
+                        debugStep(context, "ERR_pm_output", pmOut);
+                        runCb(onFailure); return;
+                    }
+                    debugStep(context, "6_su_ok", "exit=0 pm=" + pmOut);
                     // Exit 0: package manager will kill and restart this process.
                 } catch (Exception e) {
                     debugStep(context, "ERR_exception", e.getClass().getSimpleName() + ":" + e.getMessage());
