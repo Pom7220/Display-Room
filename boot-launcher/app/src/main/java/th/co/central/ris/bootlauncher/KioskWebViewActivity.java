@@ -272,7 +272,11 @@ public class KioskWebViewActivity extends Activity {
                     @Override
                     public void onSystemUiVisibilityChange(int visibility) {
                         if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
-                            hideSystemUI();
+                            // Delay so Android restores window focus before we re-apply the flags.
+                            // On Android 4.4, calling setSystemUiVisibility() without focus is ignored.
+                            getWindow().getDecorView().postDelayed(new Runnable() {
+                                @Override public void run() { hideSystemUI(); }
+                            }, 300);
                         }
                     }
                 }
