@@ -1,7 +1,7 @@
 # RIS Kiosk — Schedule, Alarms & Health Check Reference
 
-**Last updated:** 2026-08-16  
-**Applies to:** APK v5.57+
+**Last updated:** 2026-08-31  
+**Applies to:** APK v5.75+
 
 ---
 
@@ -15,11 +15,11 @@ Each LG Android tablet runs three scheduled alarms plus a continuous health chec
 
 ### 1. 06:00 — ACTION_RESTART (Daily Maintenance)
 
-**Purpose:** Forces a clean app restart each morning before business hours. Clears accumulated WebView memory and state from the previous day. Also catches tablets that may have crashed overnight by returning them to a known-good standby state.
+**Purpose:** Forces a clean app restart each morning before business hours. Clears accumulated WebView memory and state from the previous day. Also catches tablets that may have crashed overnight by returning them to a known-good standby state. On weekdays, `UpdateChecker.silentInstall()` runs first (see [OTA Silent Update (06:00)](#ota-silent-update-0600) below).
 
 | Day | Behaviour |
 |-----|-----------|
-| Monday–Friday | Launches `StandbyActivity` → tablet dims to near-black |
+| Monday–Friday | Runs `UpdateChecker.silentInstall()` → if update installs, app process is killed; `BootReceiver` fires → `StandbyActivity`. If no update, proceeds directly to `StandbyActivity` → tablet dims to near-black. After a successful install, `MY_PACKAGE_REPLACED` fires `RestartReceiver` which relaunches the kiosk. |
 | Saturday–Sunday | Skips (logs `restart_weekend`) — tablet stays in standby from 20:30 Friday |
 
 **Reschedules itself** for 06:00 the following day.
@@ -149,10 +149,45 @@ Conscrypt must be installed per-process. Each alarm fires in a fresh process and
 
 ---
 
+---
+
+## OTA Silent Update (06:00)
+
+Introduced in v5.72. At 06:00 on weekdays, `ScheduleReceiver` calls `UpdateChecker.silentInstall()` before launching `StandbyActivity`.
+
+**Update flow:**
+
+```
+06:00  ACTION_RESTART fires (weekday)
+       → UpdateChecker.silentInstall() checks /api/version
+       → if remoteCode > localCode:
+             download APK → su -c "pm install -r <path>"
+             read pm install stdout to confirm success (Android 4.4: exit code alone unreliable)
+             if success: app process killed by package manager
+                         BootReceiver fires → StandbyActivity
+                         MY_PACKAGE_REPLACED broadcast → RestartReceiver fires
+                         RestartReceiver issues full-screen notification → KioskWebViewActivity relaunches
+       → if no update: proceeds to StandbyActivity normally
+07:30  ACTION_WAKE → KioskWebViewActivity (new version running)
+```
+
+**Key details:**
+- `pm install` stdout is read and checked for "Success" or "Failure [REASON]" — on LG Android 4.4, `su` always exits 0 regardless of the actual pm install result (v5.73)
+- `RestartReceiver` uses `setFullScreenIntent()` (full-screen notification) instead of `startActivity()` directly — required on Android 10 (Latte), where background activity launch from a killed-app receiver is blocked; the notification approach also works on Android 4.4 (v5.75)
+- Network (FortiGate) may not be available before ~08:00–08:15 BKK — if `/api/version` or APK download fails at 06:00, the install is silently skipped and StandbyActivity proceeds normally. The next scheduled opportunity is the following weekday at 06:00 unless an admin-triggered update is issued from the dashboard.
+- **Bootstrap problem:** if `silentInstall` is itself broken in the currently installed APK version (as in v5.68), the tablet cannot self-update; a manual sideload via the room picker or `adb install` is required.
+
+---
+
 ## Version History
 
-| Version | Weekend change |
-|---------|---------------|
+| Version | Change |
+|---------|--------|
 | v5.55 | No weekend guard on RESTART or health check |
-| v5.56 | Relative test sleep timing (+2 min / +10 min). No weekend behavior change. |
-| v5.57 | ✓ ACTION_RESTART weekend guard added. ✓ Health check weekend guard added. ✓ StandbyActivity Conscrypt fixed. |
+| v5.56 | Relative test sleep timing (+2 min / +10 min). No weekend behaviour change. |
+| v5.57 | ACTION_RESTART weekend guard added. Health check weekend guard added. StandbyActivity Conscrypt fixed. |
+| v5.58 | StandbyActivity overnight heartbeat fix — OkHttpClient built after Conscrypt install. |
+| v5.72 | `RestartReceiver` added — listens for `MY_PACKAGE_REPLACED` to relaunch kiosk after silent OTA install. `silentInstall()` added to `UpdateChecker` and called at 06:00. |
+| v5.73 | `pm install` stdout captured and checked for "Success"/"Failure" on Android 4.4 — `su` exit code alone is not reliable on LG. |
+| v5.74 | `postDelayed(300ms)` before re-applying immersive flags in `OnSystemUiVisibilityChangeListener` — fixes nav bar reappearing on Android 4.4 after a system overlay dismisses without restoring window focus. |
+| v5.75 | `RestartReceiver` replaced direct `startActivity()` with full-screen notification (`setFullScreenIntent()`) — bypasses Android 10 background activity launch restrictions; also works on Android 4.4. |

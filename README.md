@@ -7,9 +7,9 @@ Meeting room kiosk display and mobile dashboard for the RIS floor at Central Sil
 - Dashboard: `https://ris-display.ris-display.workers.dev/dashboard.html`
 - GitHub Pages (direct): `https://pom7220.github.io/Display-Room/` *(update after corporate repo transfer)*
 
-**Current versions:** index v3.10.149 · boot-launcher APK v5.42 · cloudflare-worker (auto-deployed via GitHub Actions)
+**Current versions:** index v3.10.192 · boot-launcher APK v5.75 · cloudflare-worker (auto-deployed via GitHub Actions)
 
-**Deployment status:** 6 of 12 tablets live (office zone — Macchiato, Viennese, Decaffinato, Latte, Mocha, Affogato). All run Android 4.4.2.
+**Deployment status:** 6 of 12 tablets live (office zone — Macchiato, Viennese, Decaffinato, Latte, Mocha, Affogato). Macchiato, Viennese, Decaffinato, Mocha, and Affogato run Android 4.4.2 (LG 10SM3TB). Latte runs Android 10 (Lenovo-style tablet).
 
 ---
 
@@ -17,7 +17,7 @@ Meeting room kiosk display and mobile dashboard for the RIS floor at Central Sil
 
 ```
 LG Tablet (Android 4.4.2)            iPhone/Surface (modern browser)
-Boot Launcher APK v5.42                        │
+Boot Launcher APK v5.75                        │
         │                                      │
         │ loads Worker URL                     │
         │ ?tabletkey=...&webview=1             │
@@ -216,7 +216,7 @@ loadCfg() → initMsal() → handleRedirectCallback → launch()
 
 ---
 
-### boot-launcher/ (v5.42) — Android APK
+### boot-launcher/ (v5.75) — Android APK
 
 **Package:** `th.co.central.ris.bootlauncher`
 
@@ -228,7 +228,8 @@ loadCfg() → initMsal() → handleRedirectCallback → launch()
 | `BootReceiver.java` | `BOOT_COMPLETED` → 90s WiFi settle → launches KioskWebViewActivity |
 | `ScheduleReceiver.java` | Three daily alarms: standby 20:30, wake 07:30, restart 06:00. Each alarm reschedules itself +1 day. Logs event to Worker `/api/alarm`. Installs Conscrypt for TLS 1.2 on Android 4.4. |
 | `MainActivity.java` | Setup screen — room email/name, saved to SharedPreferences |
-| `UpdateChecker.java` | Polls Worker `/api/version` on boot — downloads and installs APK if newer version found |
+| `UpdateChecker.java` | Polls Worker `/api/version` on boot — downloads and silently installs APK via `su -c "pm install -r"` if newer version found. Reads `pm install` stdout to confirm success on Android 4.4 (exit code alone is unreliable — `su` always exits 0 on LG). Falls back to manual install dialog if root unavailable. |
+| `RestartReceiver.java` | Relaunches `KioskWebViewActivity` after silent OTA install via `MY_PACKAGE_REPLACED` broadcast. Uses a full-screen notification with `setFullScreenIntent()` on all Android versions to bypass Android 10 background activity launch restrictions. Registered in `AndroidManifest.xml`. |
 | `ForegroundWatchService.java` | Watchdog — checks every 5 min if WebView is foreground; relaunches if not |
 
 **Alarm chain (critical for daily restarts):**
@@ -386,6 +387,14 @@ Worker marks tablet offline if KV record is >70 min old. With the conditional wr
 ### "APK ?" badge on dashboard
 Shown when `cfg.apkVersion` is empty. Happens if WebView reloaded without the APK URL params (`?apkVersion=...`). Resolves automatically at the next daily 06:00 restart when the APK re-injects the param.
 
+### Nav bar visible over kiosk app on LG tablets
+
+The system nav bar reappears because a system overlay (e.g. a Superuser prompt, notification shade) dismissed without restoring the window focus that immersive mode requires. On Android 4.4, `setSystemUiVisibility()` is silently ignored when the window does not have focus. The quickest manual fix is to tap Recent Apps and reselect the kiosk. v5.74 adds a 300ms `postDelayed` in `OnSystemUiVisibilityChangeListener` so the app self-heals once focus is restored.
+
+### KV writes hit 1,000/day limit
+
+Each `debugStep()` call in the OTA debug flow triggers one KV PUT write. Clicking the "OTA Debug" button repeatedly in the dashboard can exhaust the free-tier limit of 1,000 writes/day (resets 00:00 UTC = 07:00 BKK). Do not click OTA Debug unless actively diagnosing an issue. Normal heartbeat writes are conditional (only if status/version changed or >55 min since last write) and amount to roughly 72 writes/day for 6 tablets, well under the limit.
+
 ### Duplicate heartbeat commands
 Commands are delivered via both heartbeat response (every 20 min) and command poll (every 2 min). A 30-second dedup window in `executeCommand()` prevents the same command running twice.
 
@@ -433,3 +442,11 @@ Commands are delivered via both heartbeat response (every 20 min) and command po
 | 2026-07-16 | v3.10.146 | +30 button `<br>` fix for Chromium 30; End early button contrast improved |
 | 2026-07-16 | v3.10.147 | QR avg/day: elapsed calendar days denominator + 30-day rolling prune |
 | 2026-07-16 | v3.10.149 | Worker: conditional KV write (save quota); CI/CD: auto-deploy via wrangler-action |
+| 2026-08-17 | APK v5.57 | Weekend health check guard added; ACTION_RESTART weekend guard added; StandbyActivity Conscrypt fixed |
+| 2026-08-19 | APK v5.58 | StandbyActivity overnight heartbeat fix — OkHttpClient now built after Conscrypt install |
+| 2026-08-xx | APK v5.68 | OTA silentInstall introduced — broke on Android 4.4 due to `cp` step in `su` chain (bootstrap problem version) |
+| 2026-08-xx | APK v5.71 | OTA dashboard "Update All" deployed |
+| 2026-08-28 | APK v5.72 | `RestartReceiver` added — listens for `MY_PACKAGE_REPLACED` to relaunch kiosk after silent OTA install; registered in AndroidManifest.xml |
+| 2026-08-29 | APK v5.73 | Capture `pm install` stdout to detect false-positive `6_su_ok` on LG Android 4.4 (`su` exits 0 regardless of install result; stdout now read for "Success"/"Failure") |
+| 2026-08-31 | APK v5.74 | `postDelayed(300ms)` before re-applying immersive flags in `OnSystemUiVisibilityChangeListener`; fixes nav bar reappearing on Android 4.4 after system overlay dismisses without restoring window focus |
+| 2026-08-31 | APK v5.75 | `RestartReceiver` uses full-screen notification with `setFullScreenIntent()` instead of `startActivity()` directly; bypasses Android 10 background activity launch restrictions; works on Android 4.4 too |
