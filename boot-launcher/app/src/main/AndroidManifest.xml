@@ -13,6 +13,9 @@
     <!-- External storage for APK download (API 28 and below only) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- Required for full-screen intent notifications on Android 10+ (API 29+) -->
+    <!-- Without this, setFullScreenIntent() is silently downgraded to heads-up on sleeping screens -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:allowBackup="false"
