@@ -310,7 +310,12 @@ public class UpdateChecker {
                     // scoped storage paths even as root on some Android 10 devices.
                     final Process proc;
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        String cmd = "cp " + apkFile.getAbsolutePath()
+                        // Turn screen off before pm install so that MY_PACKAGE_REPLACED's
+                        // full-screen notification fires while screen is off — Android only
+                        // auto-launches full-screen intents when the screen is off/locked.
+                        // sleep 2 gives the screen time to fully off before install starts.
+                        String cmd = "input keyevent 26 && sleep 2"
+                            + " && cp " + apkFile.getAbsolutePath()
                             + " /data/local/tmp/" + APK_FILENAME
                             + " && pm install -r /data/local/tmp/" + APK_FILENAME;
                         debugStep(context, "5_su_start", suPath + " 0 sh -c");

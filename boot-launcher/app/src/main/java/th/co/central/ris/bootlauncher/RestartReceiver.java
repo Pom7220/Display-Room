@@ -59,13 +59,12 @@ public class RestartReceiver extends BroadcastReceiver {
 
         NotificationCompat.Builder nb = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Tap to resume kiosk")
-            .setContentText("APK updated — tap here to relaunch the display")
+            .setContentTitle("Restarting kiosk")
+            .setContentText("APK updated — resuming display")
             .setFullScreenIntent(pi, true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setOngoing(true)       // prevents accidental swipe-dismiss; must tap to launch
-            .setAutoCancel(true);   // auto-cancels once tapped
+            .setAutoCancel(true);
 
         NotificationManagerCompat.from(context).notify(NOTIF_ID, nb.build());
     }
