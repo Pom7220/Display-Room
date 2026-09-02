@@ -15,9 +15,12 @@ import androidx.core.app.NotificationManagerCompat;
  * MY_PACKAGE_REPLACED is sent to the newly installed version once
  * the package manager finishes replacing the APK — no reboot needed.
  *
- * Uses a full-screen notification instead of startActivity() directly so
- * that Android 10+ background activity launch restrictions are bypassed.
- * Works on Android 4.4 too (same code path, simpler OS handling).
+ * Android 4.4 (API 19-28): startActivity() directly — works fine, no notification
+ * needed and avoids the notification bar breaking immersive mode on LG tablets.
+ *
+ * Android 10+ (API 29+): background activity launch is restricted — uses a
+ * full-screen notification with USE_FULL_SCREEN_INTENT. Screen off/locked →
+ * auto-launches. Screen on → shows as persistent heads-up (tap to launch).
  */
 public class RestartReceiver extends BroadcastReceiver {
 
@@ -30,6 +33,18 @@ public class RestartReceiver extends BroadcastReceiver {
 
         Intent launch = new Intent(context, KioskWebViewActivity.class);
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        if (Build.VERSION.SDK_INT >= 29) {
+            // Android 10+: startActivity() blocked in background — use notification
+            postFullScreenNotification(context, launch);
+        } else {
+            // Android 4.4–9: direct launch works and avoids notification bar
+            // disrupting immersive mode on LG tablets
+            context.startActivity(launch);
+        }
+    }
+
+    private void postFullScreenNotification(Context context, Intent launch) {
         int piFlags = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
         PendingIntent pi = PendingIntent.getActivity(context, 0, launch, piFlags);
 
@@ -44,12 +59,13 @@ public class RestartReceiver extends BroadcastReceiver {
 
         NotificationCompat.Builder nb = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Restarting kiosk")
-            .setContentText("APK updated — resuming display")
+            .setContentTitle("Tap to resume kiosk")
+            .setContentText("APK updated — tap here to relaunch the display")
             .setFullScreenIntent(pi, true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true);
+            .setOngoing(true)       // prevents accidental swipe-dismiss; must tap to launch
+            .setAutoCancel(true);   // auto-cancels once tapped
 
         NotificationManagerCompat.from(context).notify(NOTIF_ID, nb.build());
     }
