@@ -1,5 +1,6 @@
 package th.co.central.ris.bootlauncher;
 
+import android.app.AlarmManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -7,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.SystemClock;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -15,8 +17,10 @@ import androidx.core.app.NotificationManagerCompat;
  * MY_PACKAGE_REPLACED is sent to the newly installed version once
  * the package manager finishes replacing the APK — no reboot needed.
  *
- * Android 4.4 (API 19-28): startActivity() directly — works fine, no notification
- * needed and avoids the notification bar breaking immersive mode on LG tablets.
+ * Android 4.4 (API 19-28): schedules a 5-second AlarmManager alarm targeting
+ * DelayedLaunchReceiver so the package manager fully settles before the activity
+ * launches — immediate startActivity() from MY_PACKAGE_REPLACED prevents
+ * IMMERSIVE_STICKY from engaging on LG Android 4.4.
  *
  * Android 10+ (API 29+): background activity launch is restricted — uses a
  * full-screen notification with USE_FULL_SCREEN_INTENT. Screen off/locked →
@@ -38,9 +42,16 @@ public class RestartReceiver extends BroadcastReceiver {
             // Android 10+: startActivity() blocked in background — use notification
             postFullScreenNotification(context, launch);
         } else {
-            // Android 4.4–9: direct launch works and avoids notification bar
-            // disrupting immersive mode on LG tablets
-            context.startActivity(launch);
+            // Android 4.4–9: schedule launch 5 s later via AlarmManager so the package
+            // manager fully settles before we start the activity. Immediate startActivity()
+            // from MY_PACKAGE_REPLACED context starts before system UI is ready, preventing
+            // IMMERSIVE_STICKY from engaging on LG Android 4.4.
+            AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            Intent delayed = new Intent(DelayedLaunchReceiver.ACTION);
+            delayed.setPackage(context.getPackageName());
+            PendingIntent pi = PendingIntent.getBroadcast(context, 0, delayed, 0);
+            am.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + 5000, pi);
         }
     }
 

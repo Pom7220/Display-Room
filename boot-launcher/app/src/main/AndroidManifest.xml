@@ -68,6 +68,14 @@
             android:exported="false" />
 
         <receiver
+            android:name=".DelayedLaunchReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="th.co.central.ris.bootlauncher.ACTION_DELAYED_LAUNCH" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".ScheduleReceiver"
             android:exported="false">
             <intent-filter>
