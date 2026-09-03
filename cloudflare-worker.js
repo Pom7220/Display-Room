@@ -375,15 +375,20 @@ async function handleOtaDebug(request, env) {
     var data = await request.json();
     if (!data.room || !data.step) return jsonResponse({ error: 'Missing room or step' }, 400);
     var entry = {
-      room: data.room,
-      roomname: data.roomname || '',
       step: data.step,
       detail: data.detail || '',
       apkVersion: data.apkVersion || '',
       ts: new Date().toISOString()
     };
-    // Store last step per room (TTL 24h — diagnostic only)
-    await env.RIS_KV.put('otadebug:' + data.room, JSON.stringify(entry), { expirationTtl: 86400 });
+    // Append to array — keep last 30 steps per room (TTL 48h)
+    var key = 'otadebug:' + data.room;
+    var existing = await env.RIS_KV.get(key, 'json');
+    var log = Array.isArray(existing) ? existing : (existing ? [existing] : []);
+    // Reset log when a new OTA session starts (1_start step)
+    if (data.step === '1_start') log = [];
+    log.push(entry);
+    if (log.length > 30) log = log.slice(-30);
+    await env.RIS_KV.put(key, JSON.stringify(log), { expirationTtl: 172800 });
     return jsonResponse({ ok: true });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);

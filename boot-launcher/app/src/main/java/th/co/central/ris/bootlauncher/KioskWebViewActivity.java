@@ -86,6 +86,7 @@ public class KioskWebViewActivity extends Activity {
         androidx.core.app.NotificationManagerCompat.from(this).cancel(1001);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        postOtaLaunchStep(prefs);
         enforceOneApp = prefs.getBoolean("enforce_one_app", false);
 
         // Re-register standby/wake alarms on every launch — ensures they survive APK updates
@@ -572,5 +573,40 @@ public class KioskWebViewActivity extends Activity {
         if (_pingWatchdog != null) _wdHandler.removeCallbacks(_pingWatchdog);
         if (webView != null) { webView.destroy(); webView = null; }
         super.onDestroy();
+    }
+
+    // POST a 7_activity_launch step to /api/ota-debug so we can confirm the new APK's
+    // KioskWebViewActivity started after MY_PACKAGE_REPLACED — fired by the NEW process.
+    private void postOtaLaunchStep(final SharedPreferences prefs) {
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    String room = prefs.getString("room_email", "");
+                    String roomname = prefs.getString("room_name", "");
+                    if (room.isEmpty()) return;
+                    String ver = "";
+                    try { ver = getPackageManager()
+                        .getPackageInfo(getPackageName(), 0).versionName;
+                    } catch (Exception ignored) {}
+                    String launchSource = getIntent() != null
+                        && android.content.Intent.ACTION_MY_PACKAGE_REPLACED.equals(getIntent().getAction())
+                        ? "MY_PACKAGE_REPLACED" : "other";
+                    String body = "{\"room\":\"" + room
+                        + "\",\"roomname\":\"" + roomname
+                        + "\",\"step\":\"7_activity_launch\""
+                        + ",\"detail\":\"src=" + launchSource + " sdk=" + Build.VERSION.SDK_INT + "\""
+                        + ",\"apkVersion\":\"" + ver + "\"}";
+                    okhttp3.OkHttpClient c = new okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .build();
+                    c.newCall(new okhttp3.Request.Builder()
+                        .url("https://ris-display.ris-display.workers.dev/api/ota-debug")
+                        .post(okhttp3.RequestBody.create(
+                            okhttp3.MediaType.parse("application/json"), body))
+                        .build()).execute().close();
+                } catch (Exception ignored) {}
+            }
+        }).start();
     }
 }
