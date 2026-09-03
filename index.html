@@ -818,7 +818,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 203,
+  patch: 204,
   date: '2026-09-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -1627,7 +1627,7 @@ function launch(){
   el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
   renderRoomChips();
   startClock();fetchCal();fetchWeather();
-  setInterval(fetchCal,300000);   // 5 min — was 2 min
+  setInterval(fetchCal,180000);   // 3 min — was 5 min
   setInterval(fetchWeather,1800000);
   startBurnIn();
   // Generate corner QR on load so it's visible without tapping

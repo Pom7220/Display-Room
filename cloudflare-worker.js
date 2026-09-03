@@ -261,20 +261,15 @@ async function handleHeartbeat(request, env) {
     var newRefresh     = !!data.hasRefreshToken;
     var newMiddayReload = data.middayReload || null;
 
-    // Only write if something health-critical changed, or >55 min since last write.
-    // 5-min floor even for critical changes prevents burst writes during OTA cycles
-    // (multiple tablets updating simultaneously would otherwise spike KV usage).
+    // Only write if operationally critical state changed (status/auth), or >55 min since last write.
+    // apkVersion and version are display-only — they update on the next scheduled write.
     var msSinceLast = prev ? Date.now() - new Date(prev.timestamp).getTime() : Infinity;
     var criticalChange = !prev
       || prev.status          !== newStatus
-      || prev.version         !== newVersion
-      || prev.apkVersion      !== newApk
-      || prev.hasRefreshToken !== newRefresh
-      || (newMiddayReload && newMiddayReload !== 'pending' && prev.middayReload !== newMiddayReload);
+      || prev.hasRefreshToken !== newRefresh;
     var staleEnough = msSinceLast > 55 * 60 * 1000;
-    var pastMinFloor = msSinceLast > 5 * 60 * 1000;
 
-    if ((criticalChange && pastMinFloor) || staleEnough) {
+    if (criticalChange || staleEnough) {
       var record = {
         room: data.room,
         roomname: data.roomname || '',
