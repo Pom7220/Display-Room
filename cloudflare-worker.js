@@ -384,8 +384,9 @@ async function handleOtaDebug(request, env) {
     var key = 'otadebug:' + data.room;
     var existing = await env.RIS_KV.get(key, 'json');
     var log = Array.isArray(existing) ? existing : (existing ? [existing] : []);
-    // Reset log when a new OTA session starts (1_start step)
-    if (data.step === '1_start') log = [];
+    // Reset log only when a real download begins — routine "no update" checks also fire
+    // 1_start and would erase actual install history if we reset there instead.
+    if (data.step === '3_download_start') log = [];
     log.push(entry);
     if (log.length > 30) log = log.slice(-30);
     await env.RIS_KV.put(key, JSON.stringify(log), { expirationTtl: 172800 });

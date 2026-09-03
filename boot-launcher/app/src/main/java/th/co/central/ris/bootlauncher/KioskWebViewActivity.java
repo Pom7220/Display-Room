@@ -79,7 +79,8 @@ public class KioskWebViewActivity extends Activity {
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
         // Dismiss any lingering OTA-restart notification (posted by RestartReceiver on MY_PACKAGE_REPLACED;
         // auto-cancelled on tap but persists if the full-screen intent didn't fire or wasn't tapped).
@@ -281,7 +282,7 @@ public class KioskWebViewActivity extends Activity {
                             // On Android 4.4, calling setSystemUiVisibility() without focus is ignored.
                             getWindow().getDecorView().postDelayed(new Runnable() {
                                 @Override public void run() { hideSystemUI(); }
-                            }, 300);
+                            }, 2000);
                         }
                     }
                 }
@@ -297,7 +298,14 @@ public class KioskWebViewActivity extends Activity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) hideSystemUI();
+        if (hasFocus) {
+            hideSystemUI();
+            // Android 4.4 LG: activity-from-receiver transition can re-show nav bar
+            // after onWindowFocusChanged fires; re-hide at 1 s when animation is settled.
+            getWindow().getDecorView().postDelayed(new Runnable() {
+                @Override public void run() { hideSystemUI(); }
+            }, 1000);
+        }
     }
 
     @Override
