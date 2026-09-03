@@ -38,9 +38,21 @@ public class RestartReceiver extends BroadcastReceiver {
             // Android 10+: startActivity() blocked in background — use notification
             postFullScreenNotification(context, launch);
         } else {
-            // Android 4.4–9: direct launch works and avoids notification bar
-            // disrupting immersive mode on LG tablets
-            context.startActivity(launch);
+            // Android 4.4–9: delay 3 s so the system fully settles after pm install
+            // before the activity launches. Launching immediately causes the nav bar
+            // to stay visible because immersive mode cannot engage while the package
+            // manager is still processing the replacement. goAsync() keeps this
+            // process alive until startActivity() fires.
+            final PendingResult async = goAsync();
+            final Context ctx = context.getApplicationContext();
+            final Intent lnch = launch;
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    try { Thread.sleep(3000); } catch (Exception ignored) {}
+                    ctx.startActivity(lnch);
+                    async.finish();
+                }
+            }).start();
         }
     }
 
