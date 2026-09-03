@@ -321,20 +321,9 @@ public class UpdateChecker {
                         debugStep(context, "5_su_start", suPath + " 0 sh -c");
                         proc = Runtime.getRuntime().exec(new String[]{suPath, "0", "sh", "-c", cmd});
                     } else {
-                        // After pm install the Java process is killed by the package manager.
-                        // The su subprocess is orphaned to init and continues running — so
-                        // "am start" fires 3 s after install without needing the Java parent.
-                        // This launches the activity from the shell (not a BroadcastReceiver
-                        // context), which is the only way to get IMMERSIVE_STICKY to engage
-                        // correctly on LG Android 4.4 without a nav bar overlay.
-                        String amCmd = "am start -n "
-                            + context.getPackageName() + "/."
-                            + "KioskWebViewActivity";
                         debugStep(context, "5_su_start", suPath + " -c");
                         proc = Runtime.getRuntime().exec(new String[]{
-                            suPath, "-c",
-                            "pm install -r " + apkFile.getAbsolutePath()
-                            + " && sleep 3 && " + amCmd
+                            suPath, "-c", "pm install -r " + apkFile.getAbsolutePath()
                         });
                     }
                     Thread waiter = new Thread(new Runnable() {
