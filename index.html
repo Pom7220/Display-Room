@@ -818,8 +818,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 195,
-  date: '2026-09-02',
+  patch: 196,
+  date: '2026-09-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -885,6 +885,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.196 2026-09-03 - APK 5.79: cancel OTA restart notification on KioskWebViewActivity launch (clears heads-up left over when screen was on during MY_PACKAGE_REPLACED)
 // v3.10.195 2026-09-02 - APK 5.78: turn screen off (keyevent 26) before pm install on Android 10 so full-screen intent auto-launches KioskWebViewActivity without user tap
 // v3.10.194 2026-09-02 - APK 5.77: RestartReceiver splits by API: Android 4.4 uses startActivity() directly (no notification/nav bar disruption); Android 10+ uses ongoing full-screen notification (tap to launch, cannot swipe away)
 // v3.10.193 2026-09-01 - APK 5.76: add USE_FULL_SCREEN_INTENT permission so full-screen notification wakes screen on Android 10 (Latte)

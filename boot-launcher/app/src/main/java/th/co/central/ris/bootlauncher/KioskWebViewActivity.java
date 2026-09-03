@@ -81,6 +81,10 @@ public class KioskWebViewActivity extends Activity {
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        // Dismiss any lingering OTA-restart notification (posted by RestartReceiver on MY_PACKAGE_REPLACED;
+        // auto-cancelled on tap but persists if the full-screen intent didn't fire or wasn't tapped).
+        androidx.core.app.NotificationManagerCompat.from(this).cancel(1001);
+
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         enforceOneApp = prefs.getBoolean("enforce_one_app", false);
 

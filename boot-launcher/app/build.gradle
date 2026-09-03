@@ -8,8 +8,8 @@ android {
         applicationId "th.co.central.ris.bootlauncher"
         minSdkVersion 19
         targetSdkVersion 30
-        versionCode 109
-        versionName "5.78"
+        versionCode 110
+        versionName "5.79"
     }
 
     signingConfigs {
