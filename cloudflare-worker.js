@@ -262,7 +262,8 @@ async function handleHeartbeat(request, env) {
     var newMiddayReload = data.middayReload || null;
 
     // Only write if something health-critical changed, or >55 min since last write.
-    // This keeps heartbeat KV writes to ~1/hour per room instead of 3/hour.
+    // 5-min floor even for critical changes prevents burst writes during OTA cycles
+    // (multiple tablets updating simultaneously would otherwise spike KV usage).
     var msSinceLast = prev ? Date.now() - new Date(prev.timestamp).getTime() : Infinity;
     var criticalChange = !prev
       || prev.status          !== newStatus
@@ -271,8 +272,9 @@ async function handleHeartbeat(request, env) {
       || prev.hasRefreshToken !== newRefresh
       || (newMiddayReload && newMiddayReload !== 'pending' && prev.middayReload !== newMiddayReload);
     var staleEnough = msSinceLast > 55 * 60 * 1000;
+    var pastMinFloor = msSinceLast > 5 * 60 * 1000;
 
-    if (criticalChange || staleEnough) {
+    if ((criticalChange && pastMinFloor) || staleEnough) {
       var record = {
         room: data.room,
         roomname: data.roomname || '',
