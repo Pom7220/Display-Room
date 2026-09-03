@@ -818,7 +818,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 200,
+  patch: 201,
   date: '2026-09-03',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -885,6 +885,7 @@ var APP_VERSION = {
 // v3.10.76 2026-07-03 - UI refresh: remove progress bar; buttons outside status card (fixed zone); status card fixed min-height; show 2 upcoming meetings + More+ row; remove Today/Tomorrow tabs; UPCOMING label; Available all day empty state; Instant Booking outlined blue; remove status line below room name; no Walk-in on free state; free state uses card style
 // v3.10.152 2026-07-17 - No-show countdown UX: left strip shows solid amber (#e07800) with black MM:SS digits during countdown (matching NO SHOW label style); Check In button brighter green (#1db954) white text 64px tall; instruction hint text above button replaces inline countdown text
 // v3.10.153 2026-07-17 - Layout: status card taller (min-height 240px, padding 44/32px); title 46px, time 50px, org 22px; UPCOMING label margin-top 136px (was 104px)
+// v3.10.201 2026-09-03 - APK 5.84: relaunch on LG Android 4.4 via am start from root shell (su subprocess orphaned to init) instead of startActivity() from BroadcastReceiver — fixes nav bar overlay after OTA
 // v3.10.200 2026-09-03 - APK 5.83: RestartReceiver delays startActivity() 3s on Android 4.4 so system settles after pm install before kiosk launches (fixes nav bar)
 // v3.10.199 2026-09-03 - APK 5.82: FLAG_TURN_SCREEN_ON wakes Latte after OTA; nav bar retry 300ms→2000ms + 1s focus safety net for LG Android 4.4; otadebug resets on 3_download_start not 1_start
 // v3.10.198 2026-09-03 - APK 5.81: version bump — target for tomorrow 06:00 OTA from 5.80 to capture full step trace and 7_activity_launch in otadebug KV
