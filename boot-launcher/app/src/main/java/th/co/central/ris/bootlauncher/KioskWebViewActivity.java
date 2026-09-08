@@ -66,8 +66,6 @@ public class KioskWebViewActivity extends Activity {
     private static final long LOAD_WATCHDOG_MS    =  5 * 60 * 1000; // 5 min
     private static final long PING_TIMEOUT_MS    = 10 * 60 * 1000; // 10 min
     private static final long PING_CHECK_MS      =  5 * 60 * 1000; // 5 min
-    private static final long WATCHDOG_COOLDOWN_MS = 20 * 60 * 1000; // min gap between watchdog reloads
-    private volatile long _lastWatchdogReloadMs = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -154,20 +152,48 @@ public class KioskWebViewActivity extends Activity {
             @Override public void run() {
                 if (webView == null) return;
                 if (System.currentTimeMillis() - _lastPingMs > PING_TIMEOUT_MS) {
-                    long now = System.currentTimeMillis();
-                    if (now - _lastWatchdogReloadMs < WATCHDOG_COOLDOWN_MS) {
-                        // Reloaded recently — pings still absent; wait before trying again
-                        _wdHandler.postDelayed(this, PING_CHECK_MS);
-                    } else {
-                        _lastWatchdogReloadMs = now;
-                        loadDisplay(); // JS stopped pinging — WebView likely frozen
-                    }
+                    // JS timers died — WebView GPU/renderer likely frozen.
+                    // A simple reload in the same process won't fix a broken GPU layer;
+                    // schedule relaunch via AlarmManager then kill this process.
+                    scheduleProcessRestart("ping_timeout");
                 } else {
                     _wdHandler.postDelayed(this, PING_CHECK_MS);
                 }
             }
         };
         _wdHandler.postDelayed(_pingWatchdog, PING_CHECK_MS);
+    }
+
+    /** Schedule a fresh process launch 3 s from now, then kill this process. */
+    private void scheduleProcessRestart(final String reason) {
+        logWebViewRestart(reason);
+        android.app.AlarmManager am =
+            (android.app.AlarmManager) getSystemService(ALARM_SERVICE);
+        Intent relaunch = new Intent(this, KioskWebViewActivity.class);
+        relaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        android.app.PendingIntent pi = android.app.PendingIntent.getActivity(
+            this, 9999, relaunch,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT);
+        am.set(android.app.AlarmManager.RTC_WAKEUP,
+            System.currentTimeMillis() + 3000L, pi);
+        android.os.Process.killProcess(android.os.Process.myPid());
+    }
+
+    private void logWebViewRestart(final String reason) {
+        android.content.SharedPreferences p =
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        final String room     = p.getString("room_email", "");
+        final String roomname = p.getString("room_name", "");
+        String ver;
+        try { ver = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+        catch (Exception e) { ver = ""; }
+        final String apkVer = ver;
+        String payload = "{\"room\":\"" + room + "\","
+            + "\"roomname\":\"" + roomname + "\","
+            + "\"event\":\"webview_process_restart\","
+            + "\"reason\":\"" + reason + "\","
+            + "\"apkVersion\":\"" + apkVer + "\"}";
+        postJsonFire(BASE_URL + "api/alarm", payload);
     }
 
     // Safety net: catches any non-Worker navigation (FortiGate redirect, stray MSAL, etc.).
@@ -391,7 +417,6 @@ public class KioskWebViewActivity extends Activity {
         super.onResume();
         if (webView != null) webView.onResume();
         _lastPingMs = System.currentTimeMillis();
-        _lastWatchdogReloadMs = 0; // reset cooldown — fresh start after standby
         startPingWatchdog(); // restart watchdog suspended in onPause
         hideSystemUI();
         // Re-register alarms on every resume — guards against alarm chain breaks
