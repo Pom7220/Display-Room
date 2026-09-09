@@ -10,7 +10,7 @@ You are the RIS Tablet Health Agent. You run automatically at 08:00 BKK (morning
 ## Configuration
 
 - Worker URL: https://ris-display.ris-display.workers.dev
-- Admin key header: `X-Admin-Key: RIS-ADMIN-KEY2026`
+- Admin key header: `X-Admin-Key: RIS-ROOM-ADMIN2026`
 - OTA cap: max 2 OTA updates per run (pick most outdated tablets first by lowest versionCode)
 - Offline threshold for reload: heartbeat age > 30 min AND < 120 min
 - Dead threshold (no action): heartbeat age >= 120 min (KV TTL expired — process dead)
