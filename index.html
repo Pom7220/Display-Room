@@ -818,8 +818,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 204,
-  date: '2026-09-03',
+  patch: 205,
+  date: '2026-09-09',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -901,6 +901,7 @@ var APP_VERSION = {
 // v3.10.189 2026-08-28 - APK 5.72: RestartReceiver relaunches kiosk after silent OTA install (MY_PACKAGE_REPLACED) — prevents offline-after-update
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
+// v3.10.205 2026-09-09 - First heartbeat after any page load sends restarted:true; Worker forces KV write on restarted flag — fixes dashboard showing stale offline after 06:00 restart when last write was <55m ago
 // v3.10.178 2026-07-31 - Standby diagnostics: pageHidden in heartbeat; visibilitychange after 19:00 BKK posts standby_resumed alarm event to diagnose StandbyActivity failures
 // v3.10.177 2026-07-28 - Redesign: expected boots (06:00/07:30 BKK) are not incidents — only unexpected_reboot at other times stays OPEN; midday_reload no longer an incident; Worker adds missed-wake cron at 01:00 UTC (08:00 BKK)
 // v3.10.176 2026-07-28 - Fix: boot_detected resolve delayed 30s so network is stable before XHR fires — eliminates open incidents at 07:30 wake
@@ -1653,6 +1654,7 @@ function launch(){
 // REMOTE MONITORING — heartbeat, commands, incidents
 // ══════════════════════════════════════
 var _lastAndroidPingMs = 0;
+var _firstHeartbeat = true; // cleared after first send; tells Worker to force KV write
 
 function startMonitoring(){
   if(!cfg.roomemail)return;
@@ -1785,6 +1787,7 @@ function getMonitorStatus(){
 function sendHeartbeat(){
   if(!cfg.roomemail)return;
   var data=getMonitorStatus();
+  if(_firstHeartbeat){data.restarted=true;_firstHeartbeat=false;}
 
   try{
     var xhr=new XMLHttpRequest();

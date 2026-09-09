@@ -266,7 +266,8 @@ async function handleHeartbeat(request, env) {
     var msSinceLast = prev ? Date.now() - new Date(prev.timestamp).getTime() : Infinity;
     var criticalChange = !prev
       || prev.status          !== newStatus
-      || prev.hasRefreshToken !== newRefresh;
+      || prev.hasRefreshToken !== newRefresh
+      || data.restarted === true;  // first heartbeat after any page load — always write
     var staleEnough = msSinceLast > 55 * 60 * 1000;
 
     if (criticalChange || staleEnough) {
