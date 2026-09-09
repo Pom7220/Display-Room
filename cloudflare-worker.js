@@ -20,27 +20,10 @@
  */
 
 export default {
-  // Cron triggers:
-  //   0 1  * * * (daily 01:00 UTC = 08:00 BKK) — missed-wake check (tablets should be up 30min after 07:30 alarm)
-  //   0 11 * * 6 (Friday 11:00 UTC = 18:00 BKK) — weekly noshow report
-  //   0 14 * * * (daily 14:00 UTC = 21:00 BKK) — daily health digest
+  // Cron triggers: removed — tablet health monitoring is now handled by the
+  // Claude Code scheduled agent (ris-health-agent, runs 01:00 + 14:00 UTC).
   async scheduled(event, env) {
-    if (!env.RIS_KV) return;
-
-    var nowUtcHour = new Date(Date.now()).getUTCHours();
-    if (nowUtcHour === 1) {
-      // 08:00 BKK — check for tablets that failed to wake at 07:30
-      await checkMissedWakes(env);
-      return;
-    }
-
-    var nowBkkDay = new Date(Date.now() + 7 * 3600000).getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
-    var isFriday = nowBkkDay === 5;
-    var report = await generateDailyReport(env);
-    await sendDailyHealthDigest(env, report);
-    if (isFriday) {
-      await generateWeeklyNoshowReport(env);
-    }
+    // No-op: cron handling moved to Claude Code scheduled agent.
   },
 
   async fetch(request, env) {
@@ -112,6 +95,19 @@ export default {
       // GET /api/status — admin reads all room statuses
       if (path === '/api/status' && method === 'GET') {
         return handleStatus(env);
+      }
+
+      // GET /api/diagnostics — full per-room snapshot for health agent (protected)
+      if (path === '/api/diagnostics' && method === 'GET') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        return handleDiagnostics(env);
+      }
+
+      // GET /api/fix-log?room=email — read agent fix history (protected)
+      // POST /api/fix-log — agent logs a fix action (protected)
+      if (path === '/api/fix-log') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        return handleFixLog(request, env);
       }
 
       // POST /api/command — admin sends command to tablet (protected)
@@ -292,6 +288,15 @@ async function handleHeartbeat(request, env) {
       };
       // TTL 2 hours — covers up to 55-min write interval with headroom
       await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
+
+      // Heartbeat history ring buffer — gives agent the same timeline view a human
+      // gets from Cloudflare log view. Written on same gate as the heartbeat record.
+      var hbHistKey = 'hb_history:' + data.room;
+      var hbHistRaw = await env.RIS_KV.get(hbHistKey);
+      var hbHist = hbHistRaw ? JSON.parse(hbHistRaw) : [];
+      hbHist.unshift({ timestamp: new Date().toISOString(), status: newStatus });
+      if (hbHist.length > 20) hbHist = hbHist.slice(0, 20);
+      await env.RIS_KV.put(hbHistKey, JSON.stringify(hbHist), { expirationTtl: 604800 });
     }
 
     // Auto-resolve any open standby_failure incident on first heartbeat after recovery.
@@ -426,6 +431,91 @@ async function handleStatus(env) {
     });
 
     return jsonResponse({ rooms: rooms, timestamp: new Date().toISOString() });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
+// DIAGNOSTICS — agent health snapshot
+// ═══════════════════════════════════════
+
+async function handleDiagnostics(env) {
+  try {
+    var list = await env.RIS_KV.list({ prefix: 'room:' });
+    var rooms = [];
+
+    for (var i = 0; i < list.keys.length; i++) {
+      var val = await env.RIS_KV.get(list.keys[i].name);
+      if (!val) continue;
+      var record = JSON.parse(val);
+      var room = record.room;
+
+      var hbHistRaw = await env.RIS_KV.get('hb_history:' + room);
+      var alarmRaw  = await env.RIS_KV.get('alarm_log:'  + room);
+
+      rooms.push({
+        room: room,
+        roomname: record.roomname || '',
+        heartbeat: {
+          status:          record.status,
+          timestamp:       record.timestamp,
+          apkVersion:      record.apkVersion || '',
+          hasRefreshToken: record.hasRefreshToken
+        },
+        heartbeatHistory: hbHistRaw ? JSON.parse(hbHistRaw) : [],
+        alarmLog:         alarmRaw  ? JSON.parse(alarmRaw).slice(0, 20) : [],
+        openIncidents:    []
+      });
+    }
+
+    rooms.sort(function(a, b) {
+      return (a.roomname || a.room).localeCompare(b.roomname || b.room);
+    });
+
+    return jsonResponse({ generatedAt: new Date().toISOString(), rooms: rooms });
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 500);
+  }
+}
+
+// ═══════════════════════════════════════
+// FIX LOG — agent action history
+// ═══════════════════════════════════════
+
+async function handleFixLog(request, env) {
+  try {
+    var url = new URL(request.url);
+    if (request.method === 'GET') {
+      var room = url.searchParams.get('room') || '';
+      if (!room) return jsonResponse({ error: 'Missing room' }, 400);
+      var raw = await env.RIS_KV.get('fix_log:' + room);
+      return jsonResponse(raw ? JSON.parse(raw) : []);
+    }
+
+    var data = await request.json();
+    if (!data.room || !data.action) {
+      return jsonResponse({ error: 'Missing room or action' }, 400);
+    }
+    var entry = {
+      timestamp:        new Date().toISOString(),
+      room:             data.room,
+      roomname:         data.roomname         || '',
+      action:           data.action,
+      triggerCondition: data.triggerCondition || '',
+      rootCauseLabel:   data.rootCauseLabel   || 'unknown',
+      expectedOutcome:  data.expectedOutcome  || '',
+      actualOutcome:    data.actualOutcome     !== undefined ? data.actualOutcome : null,
+      resolvedAt:       data.resolvedAt        !== undefined ? data.resolvedAt    : null,
+      humanNote:        data.humanNote         !== undefined ? data.humanNote     : null
+    };
+    var key = 'fix_log:' + data.room;
+    var raw = await env.RIS_KV.get(key);
+    var log = raw ? JSON.parse(raw) : [];
+    log.unshift(entry);
+    if (log.length > 50) log = log.slice(0, 50);
+    await env.RIS_KV.put(key, JSON.stringify(log), { expirationTtl: 604800 });
+    return jsonResponse({ ok: true });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
   }
