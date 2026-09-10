@@ -73,7 +73,7 @@ Active (current 6):
 
 Future rollout:
 - Doppio:      10.0.54.81
-- Cappuccino:  10.0.54.72  ⚠️ same IP as Latte — verify before use
+- Cappuccino:  10.0.54.85
 - Americano:   10.0.54.10
 - Lungo:       10.0.54.73
 - Ristretto:   10.0.54.79
