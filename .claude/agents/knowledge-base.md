@@ -40,13 +40,13 @@ Agent reads this at the start of every run and self-amends when patterns are pro
 - root cause: Design intent, not a bug. `restart` = silent process restart for OTA check. `wake` = screen on + kiosk launch.
 - agent action: Do NOT flag tablets as offline if heartbeat gap aligns with 05:50–06:10 AND next heartbeat resumes at 07:30. This is normal standby behaviour.
 
-### [2026-09-10] USB debugging reset on PoE cycle (Android 4.4.2) — UNCONFIRMED
-- status: candidate
+### [2026-09-10] ADB authorization requires "Always allow" on first connect
+- status: confirmed
 - seenCount: 1
-- firstSeen: 2026-09-09 (Viennese incident)
-- confirmedOn: pending — ADB session was lost after PoE recycle on Viennese but direct causation not yet verified. All 12 tablets are on PoE; no deliberate PoE-cycle + ADB test has been done.
-- hypothesis: Android 4.4 may not persist USB debugging state across power loss, which is documented OS behaviour for some builds.
-- agent action: If ADB connection is refused after a PoE cycle, try re-enabling USB debugging physically before concluding the tablet has a different problem.
+- confirmedOn: 2026-09-10
+- evidence: During Doppio rollout, ADB connected but showed "device unauthorized" after reboot. Root cause was NOT reboot — "Always allow from this computer" was not tapped on the initial authorization dialog. Once tapped, connection was persistent.
+- root cause: Android ADB RSA key authorization is per-device. Must tap "Always allow from this computer" (not just "Allow once") on first connect. If "Allow once" was tapped, the authorization is lost on reboot or ADB server restart.
+- agent action: N/A — manual step only. Rollout runbook must include: tap "Always allow from this computer" on first ADB connect.
 - adb note: See ADB Manual Investigation runbook below.
 
 ### [2026-09-10] `ota_install` event confirms APK update completed
@@ -110,6 +110,16 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 **After investigation:** Update this knowledge base with findings before closing the session.
 
 ---
+
+## Confirmed Patterns (continued)
+
+### [2026-09-10] FortiGate blocks new rollout tablets until IP whitelisted
+- status: confirmed
+- confirmedOn: 2026-09-10
+- evidence: Doppio room picker showed "Update check failed: JSONException: Value <html><body><script of type java.lang.String cannot be converted to JSONObject". OkHttp received HTML (FortiGate redirect page) instead of JSON from /api/version. WebView also showed white screen for same reason — FortiGate intercepted HTTPS to Cloudflare Worker.
+- root cause: FortiGate SSL inspection is active on the office LAN. Existing 6 active tablets (Affogato, Mocha, Latte, Decaffinato, Viennese, Macchiato) have their IPs whitelisted in a FortiGate bypass rule (created 2026-07-10). New rollout tablets are NOT in the bypass rule — their HTTPS to Cloudflare Worker is intercepted.
+- fix: Network engineer must add each new tablet's IP to the FortiGate Cloudflare bypass rule BEFORE rollout. See rollout runbook.
+- agent action: N/A — infrastructure change, not APK. If a newly rolled-out tablet shows update check failures or white WebView with no logcat JS execution, FortiGate bypass is missing for that IP.
 
 ## Candidate Patterns
 
