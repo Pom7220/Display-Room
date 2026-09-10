@@ -47,13 +47,18 @@ public class ScheduleReceiver extends BroadcastReceiver {
             int restartDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
             boolean restartWeekend = (restartDay == Calendar.SATURDAY || restartDay == Calendar.SUNDAY);
             if (!restartWeekend) {
-                logAlarmEvent(context, "restart");
                 sendSleepHeartbeat(context);
                 final Context ctx = context;
-                UpdateChecker.silentInstall(context,
-                    new Runnable() { @Override public void run() { launchStandby(ctx); } },
-                    new Runnable() { @Override public void run() { launchStandby(ctx); } }
-                );
+                // Log alarm event synchronously before silentInstall — pm install kills this
+                // process mid-flight, which drops any in-flight background threads including
+                // a fire-and-forget logAlarmEvent call.
+                new Thread(new Runnable() { @Override public void run() {
+                    logAlarmEventSync(ctx, "restart");
+                    UpdateChecker.silentInstall(ctx,
+                        new Runnable() { @Override public void run() { launchStandby(ctx); } },
+                        new Runnable() { @Override public void run() { launchStandby(ctx); } }
+                    );
+                }}).start();
             } else {
                 logAlarmEvent(context, "restart_weekend");
             }
@@ -164,6 +169,35 @@ public class ScheduleReceiver extends BroadcastReceiver {
             cal.add(java.util.Calendar.DAY_OF_YEAR, 1);
         }
         return cal.getTimeInMillis();
+    }
+
+    // Blocking version — call from a background thread before silentInstall so the POST
+    // completes before pm install kills this process.
+    private static void logAlarmEventSync(Context context, String event) {
+        try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
+        SharedPreferences prefs = context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE);
+        String room = prefs.getString("room_email", "");
+        if (room.isEmpty()) return;
+        String roomName = prefs.getString("room_name", "");
+        String apkVer = "";
+        try {
+            apkVer = context.getPackageManager()
+                .getPackageInfo(context.getPackageName(), 0).versionName;
+        } catch (Exception ignored) {}
+        String json = "{\"room\":\"" + room
+            + "\",\"roomname\":\"" + roomName
+            + "\",\"event\":\"" + event
+            + "\",\"apkVersion\":\"" + apkVer + "\"}";
+        RequestBody body = RequestBody.create(MediaType.parse("application/json"), json);
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                if (attempt > 0) Thread.sleep(5000);
+                new OkHttpClient().newCall(new Request.Builder()
+                    .url("https://ris-display.ris-display.workers.dev/api/alarm")
+                    .post(body).build()).execute().close();
+                return;
+            } catch (Exception ignored) {}
+        }
     }
 
     // Package-private so RestartReceiver can call it for ota_install events.
