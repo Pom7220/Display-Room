@@ -62,12 +62,22 @@ Use when the agent flags a case as "needs ADB" — pattern not explainable from 
 - USB debugging must be enabled on the tablet (re-enable physically if PoE cycled)
 
 **Known tablet IPs** (update if DHCP changes):
-- Mocha: 10.0.54.111
-- Affogato: unknown — check router DHCP table
-- Viennese: unknown
-- Decaffinato: unknown
-- Macchiato: unknown
-- Latte: unknown
+
+Active (current 6):
+- Affogato:    10.0.54.111
+- Mocha:       10.0.54.110
+- Latte:       10.0.54.72
+- Decaffinato: 10.0.54.108
+- Viennese:    10.0.54.107
+- Macchiato:   10.0.54.101
+
+Future rollout:
+- Doppio:      10.0.54.81
+- Cappuccino:  10.0.54.72  ⚠️ same IP as Latte — verify before use
+- Americano:   10.0.54.10
+- Lungo:       10.0.54.73
+- Ristretto:   10.0.54.79
+- Espresso:    10.0.54.112
 
 **Step 1 — Connect:**
 ```
