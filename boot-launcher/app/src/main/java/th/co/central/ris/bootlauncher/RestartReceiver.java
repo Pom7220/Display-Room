@@ -35,6 +35,9 @@ public class RestartReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (!Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction())) return;
 
+        // Log the OTA install so the dashboard and health agent can see it.
+        ScheduleReceiver.logAlarmEvent(context, "ota_install");
+
         Intent launch = new Intent(context, KioskWebViewActivity.class);
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 

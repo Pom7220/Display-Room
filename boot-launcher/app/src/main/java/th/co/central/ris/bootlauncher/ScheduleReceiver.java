@@ -166,38 +166,44 @@ public class ScheduleReceiver extends BroadcastReceiver {
         return cal.getTimeInMillis();
     }
 
-    private static void logAlarmEvent(final Context context, final String event) {
+    // Package-private so RestartReceiver can call it for ota_install events.
+    static void logAlarmEvent(final Context context, final String event) {
         new Thread(new Runnable() {
             @Override public void run() {
+                // Install Conscrypt so TLS 1.2 works on Android 4.4 even when the
+                // main app hasn't run yet (alarm fires from a fresh process).
+                try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
+
+                SharedPreferences prefs = context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE);
+                String room = prefs.getString("room_email", "");
+                if (room.isEmpty()) return;
+                String roomName = prefs.getString("room_name", "");
+                String apkVer = "";
                 try {
-                    // Install Conscrypt so TLS 1.2 works on Android 4.4 even when the
-                    // main app hasn't run yet (alarm fires from a fresh process).
-                    try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
-
-                    SharedPreferences prefs = context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE);
-                    String room = prefs.getString("room_email", "");
-                    if (room.isEmpty()) return;
-                    String roomName = prefs.getString("room_name", "");
-                    String apkVer = "";
-                    try {
-                        apkVer = context.getPackageManager()
-                            .getPackageInfo(context.getPackageName(), 0).versionName;
-                    } catch (Exception ignored) {}
-
-                    String json = "{\"room\":\"" + room
-                        + "\",\"roomname\":\"" + roomName
-                        + "\",\"event\":\"" + event
-                        + "\",\"apkVersion\":\"" + apkVer + "\"}";
-
-                    OkHttpClient client = new OkHttpClient();
-                    RequestBody body = RequestBody.create(
-                        MediaType.parse("application/json"), json);
-                    Request req = new Request.Builder()
-                        .url("https://ris-display.ris-display.workers.dev/api/alarm")
-                        .post(body)
-                        .build();
-                    client.newCall(req).execute().close();
+                    apkVer = context.getPackageManager()
+                        .getPackageInfo(context.getPackageName(), 0).versionName;
                 } catch (Exception ignored) {}
+
+                String json = "{\"room\":\"" + room
+                    + "\",\"roomname\":\"" + roomName
+                    + "\",\"event\":\"" + event
+                    + "\",\"apkVersion\":\"" + apkVer + "\"}";
+                RequestBody body = RequestBody.create(MediaType.parse("application/json"), json);
+
+                // Retry up to 3 times with 10 s delay — WiFi may not be ready
+                // immediately after the alarm wakes the device from overnight standby.
+                for (int attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        if (attempt > 0) Thread.sleep(10000);
+                        OkHttpClient client = new OkHttpClient();
+                        Request req = new Request.Builder()
+                            .url("https://ris-display.ris-display.workers.dev/api/alarm")
+                            .post(body)
+                            .build();
+                        client.newCall(req).execute().close();
+                        return;
+                    } catch (Exception ignored) {}
+                }
             }
         }).start();
     }
