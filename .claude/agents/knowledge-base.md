@@ -1,8 +1,8 @@
 # RIS Health Agent — Knowledge Base
 
-Patterns accumulated from live runs. Agent reads this at the start of every run.
-Self-amended by the agent when patterns are promoted (confirmed) or retired.
-Human review recommended when a candidate reaches 3+ occurrences without a clear fix.
+Patterns accumulated from live runs AND manual debug sessions.
+Agent reads this at the start of every run and self-amends when patterns are promoted or retired.
+**Convention:** At the end of every manual debug session with Claude, update this file before closing the session. Human review recommended when a candidate reaches 3+ occurrences without a clear fix.
 
 ---
 
@@ -27,6 +27,71 @@ Human review recommended when a candidate reaches 3+ occurrences without a clear
 - root cause: APK process sent to background between 13:33–14:33 BKK. Chrome or another app took foreground. `unexpected_reboot` event likely from a process restart that didn't reinstate kiosk mode.
 - fix: PoE cycle resolved. No APK change — trigger not reproducible without retained logs.
 - agent action: If `app_resumed_from_bg` with empty apkVersion appears in alarmLog, flag as "Chrome mode incident" — physical inspection recommended.
+
+### [2026-09-10] 06:00 alarm = process restart, screen stays OFF
+- status: confirmed
+- confirmedOn: 2026-09-10
+- evidence: Dashboard showed all 5 non-Mocha tablets in standby at 06:24 BKK. User expected them to be awake. ADB logcat confirmed `ACTION_RESTART` fired correctly — it restarts the APK process but does NOT wake the screen. Screen only wakes at 07:30 `wake` alarm via `BootReceiver.launchWebView`.
+- root cause: Design intent, not a bug. `restart` = silent process restart for OTA check. `wake` = screen on + kiosk launch.
+- agent action: Do NOT flag tablets as offline if heartbeat gap aligns with 05:50–06:10 AND next heartbeat resumes at 07:30. This is normal standby behaviour.
+
+### [2026-09-10] USB debugging reset on PoE cycle (Android 4.4.2)
+- status: confirmed
+- confirmedOn: 2026-09-10
+- evidence: Viennese ADB session lost after PoE recycle. USB debugging flag cleared by Android 4.4.2 on power loss — expected OS behaviour.
+- root cause: Android 4.4 does not persist USB debugging state across power cycles.
+- agent action: If ADB investigation is needed after a PoE cycle, USB debugging must be re-enabled physically on the tablet before connecting.
+- adb note: See ADB Manual Investigation runbook below.
+
+### [2026-09-10] `ota_install` event confirms APK update completed
+- status: confirmed
+- confirmedOn: 2026-09-10
+- evidence: All 6 tablets logged `ota_install` with `apkVersion: 5.88` within 30 seconds of "Update all" trigger at 08:43–44 BKK. `RestartReceiver.onReceive(MY_PACKAGE_REPLACED)` fires in the newly installed version — reliable OTA completion signal.
+- root cause: N/A — this is a positive signal, not a failure pattern.
+- agent action: After any OTA run, confirm `ota_install` appears in each updated tablet's alarmLog within 15 min. If absent after 15 min, OTA may have silently failed — flag for retry.
+
+---
+
+## ADB Manual Investigation Runbook
+
+Use when the agent flags a case as "needs ADB" — pattern not explainable from Worker data alone.
+
+**Prerequisites:**
+- ADB platform tools: `C:\TEMP\platform-tools\adb.exe`
+- Tablet IP address (see tablet-ips below)
+- USB debugging must be enabled on the tablet (re-enable physically if PoE cycled)
+
+**Known tablet IPs** (update if DHCP changes):
+- Mocha: 10.0.54.111
+- Affogato: unknown — check router DHCP table
+- Viennese: unknown
+- Decaffinato: unknown
+- Macchiato: unknown
+- Latte: unknown
+
+**Step 1 — Connect:**
+```
+C:\TEMP\platform-tools\adb.exe connect <ip>:5555
+```
+If connection refused: USB debugging not enabled. Enable via Settings → Developer Options → USB Debugging on the tablet.
+
+**Step 2 — Pull recent alarm-related logs:**
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 logcat -d -t 1000 | findstr /i "ScheduleReceiver UpdateChecker AlarmManager restart wake standby"
+```
+
+**Step 3 — Check if AlarmManager alarms are still registered:**
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell dumpsys alarm | findstr /i "ris.bootlauncher"
+```
+Expected: 3 entries for ACTION_RESTART, ACTION_WAKE, ACTION_STANDBY. If missing, alarm chain is broken — PoE cycle or manual APK relaunch needed.
+
+**Step 4 — Disconnect:**
+```
+C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
+```
+
+**After investigation:** Update this knowledge base with findings before closing the session.
 
 ---
 
