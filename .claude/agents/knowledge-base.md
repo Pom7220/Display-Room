@@ -35,12 +35,13 @@ Agent reads this at the start of every run and self-amends when patterns are pro
 - root cause: Design intent, not a bug. `restart` = silent process restart for OTA check. `wake` = screen on + kiosk launch.
 - agent action: Do NOT flag tablets as offline if heartbeat gap aligns with 05:50–06:10 AND next heartbeat resumes at 07:30. This is normal standby behaviour.
 
-### [2026-09-10] USB debugging reset on PoE cycle (Android 4.4.2)
-- status: confirmed
-- confirmedOn: 2026-09-10
-- evidence: Viennese ADB session lost after PoE recycle. USB debugging flag cleared by Android 4.4.2 on power loss — expected OS behaviour.
-- root cause: Android 4.4 does not persist USB debugging state across power cycles.
-- agent action: If ADB investigation is needed after a PoE cycle, USB debugging must be re-enabled physically on the tablet before connecting.
+### [2026-09-10] USB debugging reset on PoE cycle (Android 4.4.2) — UNCONFIRMED
+- status: candidate
+- seenCount: 1
+- firstSeen: 2026-09-09 (Viennese incident)
+- confirmedOn: pending — ADB session was lost after PoE recycle on Viennese but direct causation not yet verified. All 12 tablets are on PoE; no deliberate PoE-cycle + ADB test has been done.
+- hypothesis: Android 4.4 may not persist USB debugging state across power loss, which is documented OS behaviour for some builds.
+- agent action: If ADB connection is refused after a PoE cycle, try re-enabling USB debugging physically before concluding the tablet has a different problem.
 - adb note: See ADB Manual Investigation runbook below.
 
 ### [2026-09-10] `ota_install` event confirms APK update completed
@@ -71,7 +72,7 @@ Active (current 6):
 - Viennese:    10.0.54.107
 - Macchiato:   10.0.54.101
 
-Future rollout (USB debugging enabled as of 2026-09-10):
+Future rollout (USB debugging enabled as of 2026-09-10; all on PoE — whether debugging persists across PoE cycle is unconfirmed, see candidate pattern above):
 - Doppio:      10.0.54.81
 - Cappuccino:  10.0.54.85
 - Americano:   10.0.54.10
