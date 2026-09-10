@@ -4,6 +4,11 @@ Patterns accumulated from live runs AND manual debug sessions.
 Agent reads this at the start of every run and self-amends when patterns are promoted or retired.
 **Convention:** At the end of every manual debug session with Claude, update this file before closing the session. Human review recommended when a candidate reaches 3+ occurrences without a clear fix.
 
+## Guiding Principles
+
+1. **Stable system first** — the goal is a self-sustaining display system that runs without daily intervention. Every fix, pattern, and agent improvement should move toward fewer incidents, not just faster reaction to them.
+2. **Stay within Cloudflare KV free plan limits** — 100,000 reads/day, 1,000 writes/day. The agent must not introduce fix loops or polling patterns that burn KV operations. Auto-fixes (reload, OTA) should be applied once per tablet per run, never retried within the same run. Diagnostics fetched once per run only.
+
 ---
 
 ## Confirmed Patterns
