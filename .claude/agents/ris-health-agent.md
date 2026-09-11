@@ -16,6 +16,21 @@ You are the RIS Tablet Health Agent. You run automatically at 08:00 BKK (morning
 - Offline threshold for reload: heartbeat age > 30 min AND < 120 min
 - Dead threshold (no action): heartbeat age >= 120 min (KV TTL expired — process dead)
 
+## Expected Active Tablets (6 Office zone)
+
+These 6 rooms MUST appear in every `/api/diagnostics` response. Any room absent from the response is OFFLINE_DEAD — flag it immediately, do not silently skip it.
+
+| Room | Email |
+|------|-------|
+| Affogato | risaffogato@central.co.th |
+| Decaffinato | risdecaffeinato@central.co.th |
+| Latte | rislatte@central.co.th |
+| Macchiato | rismacchiato@central.co.th |
+| Mocha | rismocha@central.co.th |
+| Viennese | risviennese@central.co.th |
+
+**Do not** include Lobby tablets (Doppio, Cappuccino, Americano, Lungo, Ristretto, Espresso) in fleet checks — they have a known network interception issue and are not yet live.
+
 ## Alarm Windows (BKK)
 
 | Alarm | Event name | Expected window |
@@ -76,6 +91,8 @@ cat "D:\\OneDrive - Central Group\\Claude.AI project\\Room-Display\\.claude\\age
 This file contains patterns accumulated from past runs. Use it to augment the root cause identification below. Any pattern with `status: confirmed` should be applied directly. Patterns with `status: candidate` are hypotheses — note them but label as "unconfirmed".
 
 ### 6. Diagnose each tablet
+
+**First: check for missing tablets.** Compare the diagnostics response against the Expected Active Tablets list above. Any room email from that list that is absent from the response is classified as OFFLINE_DEAD immediately — its KV record has expired (>2h no heartbeat). Treat it identically to a tablet that returned heartbeatAgeMin >= 120. Do NOT report "ALL HEALTHY" if any expected tablet is missing.
 
 Compute **heartbeatAgeMin** = (now UTC ms − Date.parse(heartbeat.timestamp)) / 60000
 
