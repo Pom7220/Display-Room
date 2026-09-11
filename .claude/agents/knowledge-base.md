@@ -126,6 +126,14 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 - fix applies to: All 6 Lobby tablets (Doppio, Cappuccino, Americano, Lungo, Ristretto, Espresso) — same VLAN, same issue.
 - evidence to show NW engineer: "Cloudflare Worker logs show zero requests from Doppio (10.0.54.81) while all Office tablets appear. Request intercepted before leaving building. Device on Lobby VLAN gateway 10.0.54.11 must be configured to allow HTTPS to 172.67.213.200:443."
 
+## Cloud Agent Design — On Hold (2026-09-11)
+
+- **Decision**: Full cloud autonomous agent requires a persistent office-network bridge device (always-on machine on 10.0.54.x running ADB + Cloudflare Tunnel)
+- **Without bridge**: agent can detect + analyse + Tier 1 fixes (reload, OTA) autonomously; Tier 2 (OFFLINE_DEAD, broken alarm chain) requires human PoE cycle
+- **Architecture agreed**: Cloud routine (Anthropic) → Worker `/api/agent-config` for secrets → GitHub API for knowledge base read/write → LINE Notify + Claude session for reports
+- **Resume trigger**: decision on office bridge device (dedicated Pi ~$50, or existing always-on machine)
+- **Agent bug fixed 2026-09-11**: agent now detects tablets absent from diagnostics response as OFFLINE_DEAD (was silently skipping Mocha)
+
 ## Candidate Patterns
 
 <!-- Agent appends here when new unclassified patterns are observed. -->
