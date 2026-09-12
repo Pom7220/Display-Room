@@ -20,6 +20,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
     public static final String ACTION_HEALTH_CHECK = "th.co.central.ris.bootlauncher.ACTION_HEALTH_CHECK";
     public static final String ACTION_TEST_SLEEP   = "th.co.central.ris.bootlauncher.ACTION_TEST_SLEEP";
     public static final String ACTION_TEST_WAKE    = "th.co.central.ris.bootlauncher.ACTION_TEST_WAKE";
+    public static final String ACTION_WATCHDOG     = "th.co.central.ris.bootlauncher.ACTION_WATCHDOG";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -80,6 +81,10 @@ public class ScheduleReceiver extends BroadcastReceiver {
             context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE)
                 .edit().putBoolean("test_sleep_enabled", false).apply();
             BootReceiver.launchWebView(context);
+
+        } else if (ACTION_WATCHDOG.equals(action)) {
+            checkAndHeal(context);
+            scheduleWatchdog(context);
         }
     }
 
@@ -92,6 +97,25 @@ public class ScheduleReceiver extends BroadcastReceiver {
         setExactAlarm(context, ACTION_WAKE,    2,  7, 30);
         setExactAlarm(context, ACTION_RESTART, 3,  6,  0);
         scheduleHealthCheck(context);
+        scheduleWatchdog(context);
+    }
+
+    static void scheduleWatchdog(Context context) {
+        android.app.AlarmManager am = (android.app.AlarmManager)
+            context.getSystemService(android.content.Context.ALARM_SERVICE);
+        if (am == null) return;
+        int flags = android.os.Build.VERSION.SDK_INT >= 23
+            ? android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
+            : android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+        android.app.PendingIntent pi = android.app.PendingIntent.getBroadcast(context, 5,
+            new android.content.Intent(ACTION_WATCHDOG).setClass(context, ScheduleReceiver.class),
+            flags);
+        long triggerAt = System.currentTimeMillis() + 30 * 60 * 1000L;
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
+        } else {
+            am.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
+        }
     }
 
     static void scheduleHealthCheck(Context context) {
@@ -121,6 +145,36 @@ public class ScheduleReceiver extends BroadcastReceiver {
     private static boolean isWeekend() {
         int day = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK);
         return day == java.util.Calendar.SATURDAY || day == java.util.Calendar.SUNDAY;
+    }
+
+    private static void checkAndHeal(final Context context) {
+        // getRunningTasks(1) returns all apps' tasks on API 19 (Android 4.4).
+        // On API 21+, it only returns our own package's tasks — useless for
+        // detecting whether Chrome has taken the foreground. Skip on Latte.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) return;
+
+        java.util.Calendar bkk = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        int timeBKK = bkk.get(java.util.Calendar.HOUR_OF_DAY) * 100
+                    + bkk.get(java.util.Calendar.MINUTE);
+        if (timeBKK < 730 || timeBKK >= 2030) return; // standby hours — nothing to heal
+
+        android.app.ActivityManager am =
+            (android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (am == null) return;
+        java.util.List<android.app.ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
+        if (tasks == null || tasks.isEmpty()) return;
+
+        String top = tasks.get(0).topActivity.getPackageName();
+        if (!context.getPackageName().equals(top)) {
+            // logAlarmEventSync is blocking HTTP — must run off the main thread.
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    logAlarmEventSync(context, "watchdog_relaunch");
+                    BootReceiver.launchWebView(context);
+                }
+            }).start();
+        }
     }
 
     private static void launchKioskHealthCheck(Context context) {
