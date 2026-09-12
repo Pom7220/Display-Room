@@ -232,7 +232,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
 
     // Blocking version — call from a background thread before silentInstall so the POST
     // completes before pm install kills this process.
-    private static void logAlarmEventSync(Context context, String event) {
+    static void logAlarmEventSync(Context context, String event) {
         try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
         SharedPreferences prefs = context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE);
         String room = prefs.getString("room_email", "");

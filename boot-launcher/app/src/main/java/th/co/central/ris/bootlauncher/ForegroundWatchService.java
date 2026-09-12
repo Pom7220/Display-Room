@@ -53,10 +53,41 @@ public class ForegroundWatchService extends Service {
     private Runnable checkRunnable = new Runnable() {
         @Override
         public void run() {
+            checkHeartbeat();
             checkAndRestore();
             handler.postDelayed(this, CHECK_INTERVAL_MS);
         }
     };
+
+    private void checkHeartbeat() {
+        long lastSuccess = ScheduleReceiver.lastHeartbeatSuccessMs;
+        // No heartbeat recorded yet in this process — skip on cold start.
+        if (lastSuccess == 0L) return;
+
+        java.util.Calendar bkk = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        int timeBKK = bkk.get(java.util.Calendar.HOUR_OF_DAY) * 100
+                    + bkk.get(java.util.Calendar.MINUTE);
+        if (timeBKK < 730 || timeBKK >= 2030) return; // standby hours
+
+        long threshold = ScheduleReceiver.heartbeatIntervalMs + 15 * 60 * 1000L;
+        if (System.currentTimeMillis() - lastSuccess <= threshold) return;
+
+        // Heartbeat overdue — log and restart kiosk.
+        final android.content.Context ctx = getApplicationContext();
+        new Thread(new Runnable() {
+            @Override public void run() {
+                ScheduleReceiver.logAlarmEventSync(ctx, "heartbeat_watchdog_restart");
+                android.content.Intent launch =
+                    ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+                if (launch != null) {
+                    launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                    ctx.startActivity(launch);
+                }
+                android.os.Process.killProcess(android.os.Process.myPid());
+            }
+        }).start();
+    }
 
     private void checkAndRestore() {
         // getRunningTasks returns only our own tasks on API 21+
