@@ -22,6 +22,11 @@ public class ScheduleReceiver extends BroadcastReceiver {
     public static final String ACTION_TEST_WAKE    = "th.co.central.ris.bootlauncher.ACTION_TEST_WAKE";
     public static final String ACTION_WATCHDOG     = "th.co.central.ris.bootlauncher.ACTION_WATCHDOG";
 
+    // Written by JS bridge on every successful heartbeat XHR.
+    // Read by ForegroundWatchService heartbeat watchdog.
+    public static volatile long lastHeartbeatSuccessMs = 0L;
+    public static volatile long heartbeatIntervalMs    = 30 * 60 * 1000L; // default 30 min
+
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();

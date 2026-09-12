@@ -221,6 +221,7 @@ public class KioskWebViewActivity extends Activity {
 
     private void setupWebView() {
         webView.addJavascriptInterface(new KioskInterface(), "Android");
+        webView.addJavascriptInterface(new HeartbeatBridge(), "AndroidHB");
         WebView.setWebContentsDebuggingEnabled(true);
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -409,6 +410,16 @@ public class KioskWebViewActivity extends Activity {
         @JavascriptInterface
         public void performUpdate() {
             UpdateChecker.silentInstall(KioskWebViewActivity.this, null, null);
+        }
+    }
+
+    private static class HeartbeatBridge {
+        @JavascriptInterface
+        public void recordHeartbeatSuccess(int intervalMins) {
+            ScheduleReceiver.lastHeartbeatSuccessMs = System.currentTimeMillis();
+            if (intervalMins > 0) {
+                ScheduleReceiver.heartbeatIntervalMs = intervalMins * 60 * 1000L;
+            }
         }
     }
 
