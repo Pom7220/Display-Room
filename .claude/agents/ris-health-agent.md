@@ -86,7 +86,7 @@ Classify into exactly one primary category (RECOVERED takes priority over HEALTH
 
 | Category | Condition |
 |----------|-----------|
-| RECOVERED | heartbeatAgeMin < 70 AND alarmLog has `webview_process_restart` OR `watchdog_relaunch` within last 2 hours |
+| RECOVERED | heartbeatAgeMin < 70 AND alarmLog has `webview_process_restart` OR `watchdog_relaunch` OR `heartbeat_watchdog_restart` within last 2 hours |
 | HEALTHY | heartbeatAgeMin < 70 AND apkVersion matches target versionName |
 | HEALTHY_OUTDATED | heartbeatAgeMin < 70 AND apkVersion does NOT match target versionName |
 | OFFLINE_RECOVERABLE | 30 ≤ heartbeatAgeMin < 120 |
@@ -125,6 +125,7 @@ Apply only when an expected alarm event is absent from the log window:
 
 - **RECOVERED (webview_process_restart)**: "GPU freeze — webview_process_restart at [ts BKK]. hb_history gap [from BKK]–[to BKK]. Internal watchdog self-recovered."
 - **RECOVERED (watchdog_relaunch)**: "APK not in foreground — watchdog_relaunch fired at [ts BKK]. KioskWebViewActivity was not top activity. ACTION_WATCHDOG alarm relaunched it."
+- **RECOVERED (heartbeat_watchdog_restart)**: "JS heartbeat loop went silent — heartbeat_watchdog_restart at [ts BKK]. ForegroundWatchService detected no heartbeat within interval + 15 min. Process restarted clean."
 - **OFFLINE_RECOVERABLE** with gap just after a wake/standby alarm event in alarmLog within 30 min: "JS loop died after alarm event. hb_history flat since [ts BKK]."
 - **OFFLINE_RECOVERABLE** with no matching pattern: "Unknown — hb_history flat since [ts BKK]. No webview_process_restart in alarmLog. Cause unclear without ADB."
 - **OFFLINE_DEAD**: "Process dead — KV record expired (>2h). Physical intervention needed (PoE cycle)."

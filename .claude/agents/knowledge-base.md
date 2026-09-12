@@ -113,6 +113,12 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 
 ## Confirmed Patterns (continued)
 
+### [2026-09-12] Heartbeat watchdog restart (APK ≥ 5.90)
+- status: confirmed
+- confirmedOn: 2026-09-12 (deployed)
+- evidence: ForegroundWatchService 5-min loop checks `now - lastHeartbeatSuccessMs > heartbeatIntervalMs + 15 min` during 07:30–20:30 BKK. JS calls `window.AndroidHB.recordHeartbeatSuccess(intervalMins)` on every successful XHR heartbeat. `lastHeartbeatSuccessMs = 0` on cold start — watchdog skips until first JS heartbeat arrives (no false restart on boot). On threshold exceeded: logs `heartbeat_watchdog_restart`, relaunches via `getLaunchIntentForPackage` + `Process.killProcess`.
+- agent action: If `heartbeat_watchdog_restart` appears in alarmLog, classify as RECOVERED. No fix action needed. Report: "Self-recovered via heartbeat watchdog at HH:MM BKK — JS loop had been silent since [last heartbeat ts]."
+
 ### [2026-09-12] ACTION_WATCHDOG self-heal alarm (APK ≥ 5.89)
 - status: confirmed
 - confirmedOn: 2026-09-12 (deployed)
@@ -145,6 +151,15 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 <!-- Agent appends here when new unclassified patterns are observed. -->
 <!-- Format: ### [YYYY-MM-DD] [RoomName] — [brief description] -->
 <!-- Fields: status, seenCount, firstSeen, lastSeen, evidence, hypothesis, fix applied, fix outcome -->
+
+### [2026-09-12] Mocha + Latte simultaneously absent from diagnostics
+- status: candidate
+- seenCount: 1
+- firstSeen: 2026-09-12 17:23 BKK (run triggered ~3.5h ahead of the 21:00 BKK evening schedule — actual UTC 10:23)
+- evidence: `/api/diagnostics` returned only 4 of the 6 expected Office rooms (Affogato, Decaffinato, Macchiato, Viennese present; Mocha and Latte both absent). No prior fix-log entries exist for either room. Per the 2026-09-11 agent-bug fix, both are classified OFFLINE_DEAD.
+- hypothesis: Unconfirmed. Could be independent KV expiry on two tablets, or a shared cause (same switch/PoE port/network segment) since both went dark at once. No ADB evidence yet — needs physical/ADB check on 10.0.54.110 (Mocha) and 10.0.54.72 (Latte).
+- fix applied: None — OFFLINE_DEAD, reload command has no effect on a dead process.
+- fix outcome: pending — flagged for physical intervention (PoE cycle) or ADB investigation.
 
 ---
 
