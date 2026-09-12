@@ -113,6 +113,12 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 
 ## Confirmed Patterns (continued)
 
+### [2026-09-12] ACTION_WATCHDOG self-heal alarm (APK ≥ 5.89)
+- status: confirmed
+- confirmedOn: 2026-09-12 (deployed)
+- evidence: AlarmManager fires every 30 min independently of APK process state. On Android 4.4 (API 19), checks if KioskWebViewActivity is top activity via ActivityManager.getRunningTasks(1). If not (and BKK time 07:30–20:30), logs watchdog_relaunch and relaunches. Skips on API 21+ (Latte) — getRunningTasks restricted to own package on Lollipop+.
+- agent action: If watchdog_relaunch appears in alarmLog, classify as RECOVERED. No fix action needed — watchdog already resolved it. Report: "Self-recovered via watchdog at HH:MM BKK."
+
 ### [2026-09-10] Doppio white screen — root cause unconfirmed
 - status: candidate
 - seenCount: 1
