@@ -138,11 +138,31 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 - fix applies to: All 6 Lobby tablets (Doppio, Cappuccino, Americano, Lungo, Ristretto, Espresso) — same VLAN, same issue.
 - evidence to show NW engineer: "Cloudflare Worker logs show zero requests from Doppio (10.0.54.81) while all Office tablets appear. Request intercepted before leaving building. Device on Lobby VLAN gateway 10.0.54.11 must be configured to allow HTTPS to 172.67.213.200:443."
 
-## Cloud Agent Design — On Hold (2026-09-11)
+## System Architecture — Current State (2026-09-12)
 
+### Self-heal layers (innermost to outermost)
+1. **v5.90 heartbeat watchdog** — ForegroundWatchService 5-min loop; if JS heartbeat silent > interval+15 min during 07:30–20:30 BKK, logs `heartbeat_watchdog_restart` and restarts process via `getLaunchIntentForPackage` + `Process.killProcess`. Covers: dead JS loop, frozen WebView XHR.
+2. **v5.89 ACTION_WATCHDOG** — AlarmManager fires every 30 min; on API 19 only, checks if KioskWebViewActivity is top activity; relaunches if not. Logs `watchdog_relaunch`. Covers: APK pushed to background (API 19 tablets only).
+3. **06:00 ACTION_RESTART** — daily process restart + OTA check. Covers: accumulated memory issues, pending OTA.
+4. **Agent morning report** — observer only; flags OFFLINE_DEAD and ALARM_GAP; sends OTA for version upgrades. Does NOT send reload (watchdogs handle recovery).
+5. **Physical PoE cycle** — last resort for OFFLINE_DEAD where AlarmManager chain is broken.
+
+### Agent behaviour (as of 2026-09-12)
+- **Reload command: RETIRED** — agent no longer sends reload. Tablets self-heal via watchdogs.
+- **fix-log endpoint: RETIRED** — agent no longer reads or writes `/api/fix-log`. Every run is fully independent.
+- **OTA: unlimited** — `perform_update` sent to ALL HEALTHY_OUTDATED tablets per run, no cap.
+- **OFFLINE_RECOVERABLE**: agent reports the gap and notes watchdog will self-heal. No action taken.
+- **OFFLINE_DEAD**: flag for physical intervention only.
+
+### AlarmManager protection
+- ACTION_WATCHDOG (v5.89) re-registers itself every 30 min — keeps the chain alive between reboots.
+- BOOT_COMPLETED re-registers all alarms on every power-on via BootReceiver.
+- Allied Telesis PoE schedule (daily 05:30 BKK) discussed but not configured — mixed Office/Lobby switch layout makes per-zone scheduling impractical for now.
+- Agent ALARM_GAP detection: if `restart` event missing 2+ consecutive days → flag for investigation.
+
+### Cloud Agent Design — On Hold (2026-09-11)
 - **Decision**: Full cloud autonomous agent requires a persistent office-network bridge device (always-on machine on 10.0.54.x running ADB + Cloudflare Tunnel)
-- **Without bridge**: agent can detect + analyse + Tier 1 fixes (reload, OTA) autonomously; Tier 2 (OFFLINE_DEAD, broken alarm chain) requires human PoE cycle
-- **Architecture agreed**: Cloud routine (Anthropic) → Worker `/api/agent-config` for secrets → GitHub API for knowledge base read/write → LINE Notify + Claude session for reports
+- **Without bridge**: agent can detect + analyse + OTA autonomously; Tier 2 (OFFLINE_DEAD, broken alarm chain) requires human PoE cycle
 - **Resume trigger**: decision on office bridge device (dedicated Pi ~$50, or existing always-on machine)
 - **Agent bug fixed 2026-09-11**: agent now detects tablets absent from diagnostics response as OFFLINE_DEAD (was silently skipping Mocha)
 
@@ -154,12 +174,23 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 
 ### [2026-09-12] Mocha + Latte simultaneously absent from diagnostics
 - status: candidate
+- seenCount: 2
+- firstSeen: 2026-09-12 17:23 BKK
+- lastSeen: 2026-09-12 19:56 BKK (still absent across 2 runs same day)
+- evidence: `/api/diagnostics` returned only 4 of 6 expected Office rooms — Mocha and Latte both absent. KV heartbeat record expired (>2h). CF logs confirmed JS heartbeat (not OkHttp) is the active heartbeat during active hours. `reload` command sent earlier had no effect — process was dead.
+- root cause investigation: JS heartbeat XHR failing while GET /api/calendar (different JS call) was still working — suggests JS XHR thread specifically died. KV TTL expired after >2h silence.
+- known limitation: v5.89 ACTION_WATCHDOG skips on Latte (API 29 — getRunningTasks restricted). v5.90 heartbeat watchdog covers Latte too once installed.
+- fix applied: `perform_update` to v5.90 sent 2026-09-12 20:04 BKK. Tablets will install at 06:00 BKK 2026-09-13 via ACTION_RESTART.
+- fix outcome: pending — expect both tablets HEALTHY with `ota_install: 5.90` in 08:00 morning report on 2026-09-13.
+- if still absent at 08:00 on 2026-09-13: AlarmManager chain broken — physical PoE cycle required on 10.0.54.110 (Mocha) and 10.0.54.72 (Latte).
+
+### [2026-09-12] OTA sent previous run did not change apkVersion
+- status: candidate
 - seenCount: 1
-- firstSeen: 2026-09-12 17:23 BKK (run triggered ~3.5h ahead of the 21:00 BKK evening schedule — actual UTC 10:23)
-- evidence: `/api/diagnostics` returned only 4 of the 6 expected Office rooms (Affogato, Decaffinato, Macchiato, Viennese present; Mocha and Latte both absent). No prior fix-log entries exist for either room. Per the 2026-09-11 agent-bug fix, both are classified OFFLINE_DEAD.
-- hypothesis: Unconfirmed. Could be independent KV expiry on two tablets, or a shared cause (same switch/PoE port/network segment) since both went dark at once. No ADB evidence yet — needs physical/ADB check on 10.0.54.110 (Mocha) and 10.0.54.72 (Latte).
-- fix applied: None — OFFLINE_DEAD, reload command has no effect on a dead process.
-- fix outcome: pending — flagged for physical intervention (PoE cycle) or ADB investigation.
+- firstSeen: 2026-09-12 19:56 BKK (evening run)
+- evidence: Fix-log showed `perform_update` sent to Affogato and Decaffinato at 2026-09-12T10:25 UTC (17:25 BKK) targeting v5.89 (`actualOutcome` was still null). At the evening check (12:56 UTC / 19:56 BKK), both tablets were online (heartbeat <6 min old) but `apkVersion` still read 5.88 — no version change occurred despite the command being sent and the tablet staying reachable. Target has since moved to 5.90.
+- hypothesis: Unconfirmed — could be OTA command not delivered, `perform_update` silently failing client-side, or target version changing before the update cycle completed. No ADB evidence.
+- agent action taken: Per script logic (heartbeat age <70min = fix succeeded), previous entries were marked `actualOutcome: "online"` since the tablets are reachable — but this does NOT confirm the OTA itself completed. A fresh `perform_update` was sent this run for both rooms targeting 5.90. If apkVersion is still 5.88 at the next run, escalate — do not just resend silently a third time.
 
 ---
 
