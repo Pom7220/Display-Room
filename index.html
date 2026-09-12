@@ -1798,6 +1798,7 @@ function sendHeartbeat(){
         if(xhr.status===200){
           try{
             var resp=JSON.parse(xhr.responseText);
+            if(window.AndroidHB&&window.AndroidHB.recordHeartbeatSuccess){window.AndroidHB.recordHeartbeatSuccess(_hbMins);}
             // Heartbeat response may include a pending command
             if(resp.command&&resp.command.command){
               dbg('CMD received via heartbeat: '+resp.command.command);
