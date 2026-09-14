@@ -48,6 +48,28 @@ public class BootReceiver extends BroadcastReceiver {
 
         // Re-register alarms lost on reboot
         ScheduleReceiver.schedule(context);
+
+        // Configure LGKioskMode daily 06:00 cold-reboot (persists across boots)
+        sendLgRebootSchedule(context);
+
+        // OTA check on boot — replaces the old ACTION_RESTART 06:00 handler (weekdays only)
+        if (!isWeekend) {
+            final Context ctx = context;
+            new Thread(new Runnable() { @Override public void run() {
+                ScheduleReceiver.logAlarmEventSync(ctx, "restart");
+                UpdateChecker.silentInstall(ctx, null, null);
+            }}).start();
+        }
+    }
+
+    private static void sendLgRebootSchedule(Context context) {
+        try {
+            Intent rb = new Intent("com.lge.signage.intent.action.RB");
+            rb.putExtra("KEY_ON_OFF", true);
+            rb.putExtra("KEY_HOUR", 6);
+            rb.putExtra("KEY_MINUTE", 0);
+            context.sendBroadcast(rb);
+        } catch (Exception ignored) {}
     }
 
     static void launchWebView(Context context) {

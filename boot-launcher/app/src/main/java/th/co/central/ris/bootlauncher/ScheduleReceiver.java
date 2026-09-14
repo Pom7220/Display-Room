@@ -49,27 +49,6 @@ public class ScheduleReceiver extends BroadcastReceiver {
             }
             setExactAlarm(context, ACTION_WAKE, 2, 7, 30);
 
-        } else if (ACTION_RESTART.equals(action)) {
-            int restartDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
-            boolean restartWeekend = (restartDay == Calendar.SATURDAY || restartDay == Calendar.SUNDAY);
-            if (!restartWeekend) {
-                sendSleepHeartbeat(context);
-                final Context ctx = context;
-                // Log alarm event synchronously before silentInstall — pm install kills this
-                // process mid-flight, which drops any in-flight background threads including
-                // a fire-and-forget logAlarmEvent call.
-                new Thread(new Runnable() { @Override public void run() {
-                    logAlarmEventSync(ctx, "restart");
-                    UpdateChecker.silentInstall(ctx,
-                        new Runnable() { @Override public void run() { launchStandby(ctx); } },
-                        new Runnable() { @Override public void run() { launchStandby(ctx); } }
-                    );
-                }}).start();
-            } else {
-                logAlarmEvent(context, "restart_weekend");
-            }
-            setExactAlarm(context, ACTION_RESTART, 3, 6, 0);
-
         } else if (ACTION_HEALTH_CHECK.equals(action)) {
             if (isBusinessHours() && !isWeekend()) {
                 launchKioskHealthCheck(context);
@@ -100,7 +79,6 @@ public class ScheduleReceiver extends BroadcastReceiver {
     static void schedule(Context context) {
         setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
         setExactAlarm(context, ACTION_WAKE,    2,  7, 30);
-        setExactAlarm(context, ACTION_RESTART, 3,  6,  0);
         scheduleHealthCheck(context);
         scheduleWatchdog(context);
     }
