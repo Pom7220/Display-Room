@@ -31,7 +31,7 @@ public class BootReceiver extends BroadcastReceiver {
         int day  = now.get(Calendar.DAY_OF_WEEK);
         boolean isWeekend    = (day == Calendar.SATURDAY || day == Calendar.SUNDAY);
         int minute = now.get(Calendar.MINUTE);
-        boolean isOfficeHours = !isWeekend && (hour > 7 || (hour == 7 && minute >= 30)) && hour < 20;
+        boolean isOfficeHours = !isWeekend && hour >= 7 && hour < 20;
 
         if (isOfficeHours) {
             // Delay so MEET IN TOUCH can open first, then our WebView takes over
@@ -49,7 +49,7 @@ public class BootReceiver extends BroadcastReceiver {
         // Re-register alarms lost on reboot
         ScheduleReceiver.schedule(context);
 
-        // Configure LGKioskMode daily 06:00 cold-reboot (persists across boots)
+        // Configure LGKioskMode daily 07:00 cold-reboot (persists across boots)
         sendLgRebootSchedule(context);
 
         // OTA check on boot — replaces the old ACTION_RESTART 06:00 handler (weekdays only)
@@ -66,7 +66,7 @@ public class BootReceiver extends BroadcastReceiver {
         try {
             Intent rb = new Intent("com.lge.signage.intent.action.RB");
             rb.putExtra("KEY_ON_OFF", true);
-            rb.putExtra("KEY_HOUR", 6);
+            rb.putExtra("KEY_HOUR", 7);
             rb.putExtra("KEY_MINUTE", 0);
             context.sendBroadcast(rb);
         } catch (Exception ignored) {}

@@ -33,21 +33,14 @@ public class ScheduleReceiver extends BroadcastReceiver {
         if (action == null) return;
 
         if (ACTION_STANDBY.equals(action)) {
-            logAlarmEvent(context, "standby");
-            sendSleepHeartbeat(context);
-            launchStandby(context);
-            setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
-
-        } else if (ACTION_WAKE.equals(action)) {
             int day = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
             boolean isWeekend = (day == Calendar.SATURDAY || day == Calendar.SUNDAY);
             if (!isWeekend) {
-                logAlarmEvent(context, "wake");
-                BootReceiver.launchWebView(context);
-            } else {
-                logAlarmEvent(context, "wake_weekend");
+                logAlarmEvent(context, "standby");
+                sendSleepHeartbeat(context);
+                launchStandby(context);
             }
-            setExactAlarm(context, ACTION_WAKE, 2, 7, 30);
+            setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
 
         } else if (ACTION_HEALTH_CHECK.equals(action)) {
             if (isBusinessHours() && !isWeekend()) {
@@ -78,7 +71,6 @@ public class ScheduleReceiver extends BroadcastReceiver {
     // not batched by Android which can delay setInexactRepeating by 2-3 hours.
     static void schedule(Context context) {
         setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
-        setExactAlarm(context, ACTION_WAKE,    2,  7, 30);
         scheduleHealthCheck(context);
         scheduleWatchdog(context);
     }
