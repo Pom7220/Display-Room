@@ -52,14 +52,6 @@ public class BootReceiver extends BroadcastReceiver {
         // Configure LGKioskMode daily 07:00 cold-reboot (persists across boots)
         sendLgRebootSchedule(context);
 
-        // OTA check on boot — replaces the old ACTION_RESTART 06:00 handler (weekdays only)
-        if (!isWeekend) {
-            final Context ctx = context;
-            new Thread(new Runnable() { @Override public void run() {
-                ScheduleReceiver.logAlarmEventSync(ctx, "restart");
-                UpdateChecker.silentInstall(ctx, null, null);
-            }}).start();
-        }
     }
 
     static boolean hasLgKioskMode(Context context) {
