@@ -363,6 +363,22 @@ async function handleAlarmLog(request, env) {
     if (log.length > 50) log = log.slice(0, 50);
     await env.RIS_KV.put(key, JSON.stringify(log), { expirationTtl: 604800 }); // 7 days
 
+    // Standby event — stamp room record so dashboard shows 💤 instead of ❌ offline overnight.
+    // TTL 43200s (12h) covers 20:30→07:00 with margin; next heartbeat after 07:00 overwrites it.
+    if (data.event === 'standby') {
+      var roomKey = 'room:' + data.room;
+      var prevRaw = await env.RIS_KV.get(roomKey);
+      var prev = prevRaw ? JSON.parse(prevRaw) : {};
+      var standbyRecord = Object.assign({}, prev, {
+        room:       data.room,
+        roomname:   data.roomname || prev.roomname || '',
+        status:     'standby',
+        apkVersion: data.apkVersion || prev.apkVersion || '',
+        timestamp:  new Date().toISOString()
+      });
+      await env.RIS_KV.put(roomKey, JSON.stringify(standbyRecord), { expirationTtl: 43200 });
+    }
+
     return jsonResponse({ ok: true });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
@@ -1408,7 +1424,8 @@ async function sendDailyHealthDigest(env, report) {
     roomData.forEach(function(r) {
       var ageMins = r.timestamp ? (now - new Date(r.timestamp).getTime()) / 60000 : Infinity;
       var online = ageMins < 70;
-      var statusIcon = online ? '✅' : '❌';
+      var inStandby = !online && r.status === 'standby';
+      var statusIcon = online ? '✅' : (inStandby ? '💤' : '❌');
       var flags = [];
 
       // Version check
@@ -1447,12 +1464,16 @@ async function sendDailyHealthDigest(env, report) {
         flags.push('⚠️ ' + r.pollStats.slowCount + ' slow poll' + (r.pollStats.slowCount > 1 ? 's' : '') + ' (last ' + r.pollStats.lastSlowMs + 'ms)');
       }
 
-      // Offline
+      // Offline or standby
       if (!online) {
-        var offlineDesc = r.timestamp ? Math.round(ageMins) + 'min' : 'no heartbeat ever';
-        var lastSeenDesc = r.timestamp ? ' (last seen ' + new Date(r.timestamp).toISOString() + ')' : ' (never seen — heartbeat expired or never sent)';
-        flags.push('❌ offline ' + offlineDesc);
-        anomalies.push(r.roomname + ': offline ' + offlineDesc + lastSeenDesc);
+        if (inStandby) {
+          flags.push('💤 standby');
+        } else {
+          var offlineDesc = r.timestamp ? Math.round(ageMins) + 'min' : 'no heartbeat ever';
+          var lastSeenDesc = r.timestamp ? ' (last seen ' + new Date(r.timestamp).toISOString() + ')' : ' (never seen — heartbeat expired or never sent)';
+          flags.push('❌ offline ' + offlineDesc);
+          anomalies.push(r.roomname + ': offline ' + offlineDesc + lastSeenDesc);
+        }
       }
 
       // Only ⚠️/❌ flags go to anomaly count; ℹ️ (reboot-explained gaps) are informational only
