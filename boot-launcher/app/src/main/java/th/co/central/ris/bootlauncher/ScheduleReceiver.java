@@ -42,6 +42,18 @@ public class ScheduleReceiver extends BroadcastReceiver {
             }
             setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
 
+        } else if (ACTION_WAKE.equals(action)) {
+            // Only scheduled on non-LG devices (Latte/Lenovo) — LG tablets use LGKioskMode cold reboot
+            int day = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
+            boolean isWeekend = (day == Calendar.SATURDAY || day == Calendar.SUNDAY);
+            if (!isWeekend) {
+                logAlarmEvent(context, "wake");
+                BootReceiver.launchWebView(context);
+            } else {
+                logAlarmEvent(context, "wake_weekend");
+            }
+            setExactAlarm(context, ACTION_WAKE, 2, 7, 0);
+
         } else if (ACTION_HEALTH_CHECK.equals(action)) {
             if (isBusinessHours() && !isWeekend()) {
                 launchKioskHealthCheck(context);
@@ -69,8 +81,12 @@ public class ScheduleReceiver extends BroadcastReceiver {
     // for tonight's occurrences. Each alarm reschedules itself for the next day when it fires.
     // Using setExact (not setInexactRepeating) so alarms fire within ~1 min of target,
     // not batched by Android which can delay setInexactRepeating by 2-3 hours.
-    static void schedule(Context context) {
+    static void schedule(Context context, boolean hasLgKioskMode) {
         setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
+        // Non-LG devices (Latte/Lenovo) need a software wake alarm — LG tablets use LGKioskMode cold reboot
+        if (!hasLgKioskMode) {
+            setExactAlarm(context, ACTION_WAKE, 2, 7, 0);
+        }
         scheduleHealthCheck(context);
         scheduleWatchdog(context);
     }

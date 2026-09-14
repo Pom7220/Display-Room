@@ -90,7 +90,7 @@ public class KioskWebViewActivity extends Activity {
 
         // Re-register standby/wake alarms on every launch — ensures they survive APK updates
         // (BootReceiver only fires on full device reboot, not on APK update relaunch)
-        ScheduleReceiver.schedule(this);
+        ScheduleReceiver.schedule(this, BootReceiver.hasLgKioskMode(this));
 
         webView = new WebView(this);
         setContentView(webView);
@@ -432,7 +432,7 @@ public class KioskWebViewActivity extends Activity {
         hideSystemUI();
         // Re-register alarms on every resume — guards against alarm chain breaks
         // caused by unexpected crashes, OOM kills, or missed standby transitions.
-        ScheduleReceiver.schedule(this);
+        ScheduleReceiver.schedule(this, BootReceiver.hasLgKioskMode(this));
         // Health-check recovery: ScheduleReceiver fires every 10 min during business hours
         // and relaunches this activity with health_check=true if it was not foreground.
         // onNewIntent() keeps getIntent() current so this extra is always from the latest launch.

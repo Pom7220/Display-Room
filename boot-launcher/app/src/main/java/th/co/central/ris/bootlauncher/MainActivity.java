@@ -361,6 +361,6 @@ public class MainActivity extends Activity {
     }
 
     private void scheduleAlarms() {
-        ScheduleReceiver.schedule(this);
+        ScheduleReceiver.schedule(this, BootReceiver.hasLgKioskMode(this));
     }
 }

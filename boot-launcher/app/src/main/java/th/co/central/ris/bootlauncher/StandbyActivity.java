@@ -78,7 +78,7 @@ public class StandbyActivity extends Activity {
 
         // Re-register alarms on every standby entry — covers boot-into-standby path
         // where BootReceiver calls launchStandby() and the alarm chain must stay intact.
-        ScheduleReceiver.schedule(this);
+        ScheduleReceiver.schedule(this, BootReceiver.hasLgKioskMode(this));
 
         // Initial heartbeat after 30s, then every 20 min
         handler.postDelayed(heartbeatRunnable, 30_000L);

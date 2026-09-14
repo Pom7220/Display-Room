@@ -47,7 +47,7 @@ public class BootReceiver extends BroadcastReceiver {
         }
 
         // Re-register alarms lost on reboot
-        ScheduleReceiver.schedule(context);
+        ScheduleReceiver.schedule(context, hasLgKioskMode(context));
 
         // Configure LGKioskMode daily 07:00 cold-reboot (persists across boots)
         sendLgRebootSchedule(context);
@@ -59,6 +59,15 @@ public class BootReceiver extends BroadcastReceiver {
                 ScheduleReceiver.logAlarmEventSync(ctx, "restart");
                 UpdateChecker.silentInstall(ctx, null, null);
             }}).start();
+        }
+    }
+
+    static boolean hasLgKioskMode(Context context) {
+        try {
+            context.getPackageManager().getPackageInfo("com.lge.lgkioskmode", 0);
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 
