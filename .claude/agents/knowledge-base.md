@@ -69,21 +69,21 @@ Use when the agent flags a case as "needs ADB" — pattern not explainable from 
 
 **Known tablet IPs** (update if DHCP changes):
 
-Active (current 6):
-- Affogato:    10.0.54.111
-- Mocha:       10.0.54.110
-- Latte:       10.0.54.72
-- Decaffinato: 10.0.54.108
-- Viennese:    10.0.54.107
-- Macchiato:   10.0.54.101
+Active — confirmed IPs after NW rearrangement on 2026-09-14:
+- Doppio:      10.0.54.101  (ADB authorized, v5.97+)
+- Cappuccino:  10.0.54.102  (ADB authorized, v5.97+)
+- Americano:   10.0.54.103  (app NOT yet deployed — lobby tablet)
+- Lungo:       10.0.54.104  (app NOT yet deployed — lobby tablet)
+- Ristretto:   10.0.54.105  (app NOT yet deployed — lobby tablet)
+- Macchiato:   10.0.54.106  (boot looping since 2026-09-14 18:00 BKK — needs physical intervention)
+- Viennese:    10.0.54.107  (boot looping / offline — needs physical intervention)
+- Decaffinato: 10.0.54.108  (ADB unauthorized, v5.97+ via Update All)
+- Latte:       10.0.54.109  (ADB authorized, v5.97+)
+- Mocha:       10.0.54.110  (ADB authorized, v5.97+)
+- Affogato:    10.0.54.111  (ADB authorized, v5.97+)
+- Espresso:    10.0.54.112  (app NOT yet deployed — lobby tablet)
 
-Future rollout (USB debugging enabled as of 2026-09-10; all on PoE — whether debugging persists across PoE cycle is unconfirmed, see candidate pattern above):
-- Doppio:      10.0.54.81
-- Cappuccino:  10.0.54.85
-- Americano:   10.0.54.10
-- Lungo:       10.0.54.73
-- Ristretto:   10.0.54.79
-- Espresso:    10.0.54.112
+Note: All IPs changed by NW team on 2026-09-14. Old mapping is obsolete. Lobby tablets (.103–.105, .112) on separate VLAN with FortiGate HTTPS interception issue — not yet deployed. No LGKioskMode risk on lobby tablets.
 
 **Step 1 — Connect:**
 ```
@@ -173,16 +173,20 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 <!-- Fields: status, seenCount, firstSeen, lastSeen, evidence, hypothesis, fix applied, fix outcome -->
 
 ### [2026-09-12] Mocha + Latte simultaneously absent from diagnostics
-- status: candidate
-- seenCount: 2
+- status: confirmed (Mocha half) / resolved (Latte half)
+- seenCount: 3
 - firstSeen: 2026-09-12 17:23 BKK
-- lastSeen: 2026-09-12 19:56 BKK (still absent across 2 runs same day)
+- lastSeen: 2026-09-13 08:26 BKK
 - evidence: `/api/diagnostics` returned only 4 of 6 expected Office rooms — Mocha and Latte both absent. KV heartbeat record expired (>2h). CF logs confirmed JS heartbeat (not OkHttp) is the active heartbeat during active hours. `reload` command sent earlier had no effect — process was dead.
 - root cause investigation: JS heartbeat XHR failing while GET /api/calendar (different JS call) was still working — suggests JS XHR thread specifically died. KV TTL expired after >2h silence.
 - known limitation: v5.89 ACTION_WATCHDOG skips on Latte (API 29 — getRunningTasks restricted). v5.90 heartbeat watchdog covers Latte too once installed.
-- fix applied: `perform_update` to v5.90 sent 2026-09-12 20:04 BKK. Tablets will install at 06:00 BKK 2026-09-13 via ACTION_RESTART.
-- fix outcome: pending — expect both tablets HEALTHY with `ota_install: 5.90` in 08:00 morning report on 2026-09-13.
-- if still absent at 08:00 on 2026-09-13: AlarmManager chain broken — physical PoE cycle required on 10.0.54.110 (Mocha) and 10.0.54.72 (Latte).
+- fix applied: `perform_update` to v5.90 sent 2026-09-12 20:04 BKK. Tablets were expected to install at 06:00 BKK 2026-09-13 via ACTION_RESTART.
+- fix outcome (2026-09-13 08:26 BKK run): **Latte recovered** — present in diagnostics, heartbeat ~56 min old, apkVersion still 5.88 (OTA to 5.90 re-sent this run). **Mocha still absent** from diagnostics at 08:26 BKK, past the 08:00 escalation checkpoint set in the prior run.
+- escalation (per prior run's own criteria): Mocha AlarmManager chain appears broken — **physical PoE cycle required on 10.0.54.110 (Mocha)**. No agent action can recover it (absent from KV entirely = process dead, not just slow).
+- fix outcome (2026-09-14 09:30 BKK run): **Latte fully resolved** — apkVersion 5.90, restart ✅ 06:00, wake ✅ 07:30, `ota_install` confirmed matching heartbeat. **Mocha back online** (heartbeat ~59 min old, presumably PoE-cycled or self-recovered between runs) but still on apkVersion 5.88 — no `ota_install` logged since 2026-09-10. Also showing a NEW symptom: `restart` alarm event missing from alarmLog for both today (2026-09-14) and yesterday (2026-09-13, weekend variant) — 2-day consecutive gap on APK ≥5.88. `wake` alarm fired fine both days. `perform_update` re-sent to Mocha targeting 5.90 this run.
+- ADB investigation (2026-09-14 ~09:32–09:35 BKK, on-device via 10.0.54.110:5555): **hypothesis of "AlarmManager chain broken" is REFUTED by direct evidence.** `dumpsys alarm` shows `ACTION_RESTART`, `ACTION_WAKE`, `ACTION_STANDBY` all still registered under `ScheduleReceiver` with 19 cumulative wakes/alarms each (matching the app's running lifetime) — the alarms ARE firing and the chain is intact. Logcat confirms the local restart process itself also worked: `perform_update` sent this run triggered a live `pm install -r` sequence at 09:32:20–09:32:29 BKK (force-stop → codePath swap → PACKAGE_REMOVED/ADDED → `RestartReceiver` started proc → `KioskWebViewActivity` relaunched) — so command-polling, install, and restart are all functioning normally on this device right now.
+- **Root cause found for the missing `restart` server-log event**: `ConnectivityService` logged `tryFailover: set mActiveDefaultNetwork=-1, prevNetType=9` (network type 9 = ETHERNET) at **05:49:45 and 05:59:50 BKK** on 2026-09-14 — i.e. the device's default network route dropped/failed over twice, bracketing the exact 05:50–06:10 BKK restart-alarm window. The local `ACTION_RESTART` alarm and process restart succeeded (per dumpsys/logcat above), but the `logAlarmEventSync` HTTP POST to the Cloudflare Worker almost certainly failed silently because there was no active default network route at that moment. This is a **local Ethernet/PoE connectivity blip specific to Mocha's port**, not an AlarmManager or APK logic bug. Only one morning's data point was available in the retained logcat buffer (buffer covered 09-13 20:30 through the time of inspection), so recurrence across multiple mornings is not yet confirmed — needs another ADB check on a subsequent morning to see if `tryFailover` recurs at the same 05:50–06:10 window before calling this the confirmed cause of Mocha's alarm-log gaps.
+- agent action: Do not classify Mocha's `restart` alarm gaps as "AlarmManager chain broken" going forward — reclassify as candidate "network failover at restart-alarm window" pending a second confirmed occurrence. Escalation path if it recurs: check the Mocha PoE switch port / Ethernet cabling, not the tablet software.
 
 ### [2026-09-12] OTA sent previous run did not change apkVersion
 - status: candidate
@@ -191,6 +195,16 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 - evidence: Fix-log showed `perform_update` sent to Affogato and Decaffinato at 2026-09-12T10:25 UTC (17:25 BKK) targeting v5.89 (`actualOutcome` was still null). At the evening check (12:56 UTC / 19:56 BKK), both tablets were online (heartbeat <6 min old) but `apkVersion` still read 5.88 — no version change occurred despite the command being sent and the tablet staying reachable. Target has since moved to 5.90.
 - hypothesis: Unconfirmed — could be OTA command not delivered, `perform_update` silently failing client-side, or target version changing before the update cycle completed. No ADB evidence.
 - agent action taken: Per script logic (heartbeat age <70min = fix succeeded), previous entries were marked `actualOutcome: "online"` since the tablets are reachable — but this does NOT confirm the OTA itself completed. A fresh `perform_update` was sent this run for both rooms targeting 5.90. If apkVersion is still 5.88 at the next run, escalate — do not just resend silently a third time.
+- 2026-09-13 08:26 BKK run: all 5 present tablets (Affogato, Decaffinato, Latte, Macchiato, Viennese) still report apkVersion 5.88; `perform_update` re-sent to all 5 targeting 5.90. This is the first run since 5.90 was cut (2026-09-12), so 5.88 here is expected, not a repeat failure. Verify apkVersion advanced to 5.90 at the next run — if still 5.88 then, this becomes a second occurrence of the stuck-OTA pattern.
+- fix outcome (2026-09-14 09:30 BKK run): **RESOLVED for the 5 Office tablets** — Affogato, Decaffinato, Latte, Macchiato, Viennese all show apkVersion 5.90 with matching `ota_install` events at 2026-09-14 06:00 BKK. The overnight OTA cycle worked as designed — no stuck-OTA pattern for these 5. **Mocha is a new instance**: apkVersion has been stuck at 5.88 since its last `ota_install` on 2026-09-10, i.e. 4+ days and at least 2 prior `perform_update` sends with no version change — this is a stronger case than the original 1-occurrence pattern above. Given Mocha also has a concurrent alarm-chain gap (see the Mocha entry above), the two symptoms may share a root cause (AlarmManager/OTA-install chain broken on this specific device) rather than being independent. Do not resend a 4th time without also flagging for ADB per the runbook if 5.88 persists at the next run.
+
+### [2026-09-13] Scheduled run fired at 08:26 BKK labeled "Evening run (21:00 BKK)"
+- status: candidate
+- seenCount: 1
+- firstSeen: 2026-09-13 08:26 BKK
+- evidence: The scheduled task invocation's own header text said "EVENING run (21:00 BKK)" but the diagnostics fetch and system clock at execution time were 2026-09-13T01:26 UTC = 08:26 BKK — a morning time, not evening. Fix-log/reload steps in the scheduled task body were skipped in favor of the retired-fix-log / no-reload rules in this knowledge base (see Agent behaviour section) since those are newer and postdate the task file.
+- hypothesis: Unconfirmed — could be a cron schedule misconfiguration (UTC vs BKK offset error, e.g. scheduled for 21:00 UTC instead of BKK), a one-off manual/test trigger, or a stale task label. No evidence collected either way.
+- agent action: None — flagged for user review. If this recurs, check the scheduled task's cron expression for a timezone mismatch.
 
 ---
 
