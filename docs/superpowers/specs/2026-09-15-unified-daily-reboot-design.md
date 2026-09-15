@@ -99,7 +99,9 @@ Replace the current soft process restart with:
 
 ```
 1. Run OTA check (same as now — check for new APK, install if available)
-2. su -c reboot
+2. Reboot — method depends on Android version and Device Admin status:
+   - If Device Admin active AND API 21+ → DevicePolicyManager.reboot()  (Latte, Android 10)
+   - Else                               → su -c reboot                  (LG, Android 4.4)
 ```
 
 The reboot happens unconditionally after OTA check, every weekday. No conditions on whether OTA installed or not.
