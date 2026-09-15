@@ -82,7 +82,7 @@ This is a one-time step per tablet, similar to the initial ADB authorization. In
 
 | Time | Event | Mechanism |
 |------|-------|-----------|
-| 06:00 | OTA check → cold reboot | `ACTION_RESTART` → `su -c reboot` |
+| 06:00 | OTA check → cold reboot | `ACTION_RESTART` → if Device Admin active + API 21+ → `DevicePolicyManager.reboot()` (Latte); else → `su -c reboot` (LG Android 4.4) |
 | 06:01 | Boot → standby screen | `BootReceiver` → `launchStandby()` |
 | 07:00 | Kiosk WebView on | `ACTION_WAKE` (also backup if WebView failed) |
 | 20:30 | Standby screen | `ACTION_STANDBY` |
