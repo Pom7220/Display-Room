@@ -64,6 +64,13 @@ public class BootReceiver extends BroadcastReceiver {
     }
 
     private static void sendLgRebootSchedule(Context context) {
+        // Only schedule if current time is before 07:00.
+        // Sending RB after 07:00 causes LGKioskMode to fire immediately (today's slot passed)
+        // which creates an infinite reboot loop after the 07:00 cold boot.
+        Calendar now = Calendar.getInstance();
+        int hour = now.get(Calendar.HOUR_OF_DAY);
+        int minute = now.get(Calendar.MINUTE);
+        if (hour > 7 || (hour == 7 && minute > 0)) return;
         try {
             Intent rb = new Intent("com.lge.signage.intent.action.RB");
             rb.putExtra("KEY_ON_OFF", true);
