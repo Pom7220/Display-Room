@@ -25,6 +25,56 @@ The original daily cold reboot relied on LGKioskMode (`com.lge.lgkioskmode`), an
 2. **No boot loop risk** — safe to cold-reboot at any time of day
 3. **Unified approach** — same code path for Android 4.4 (LG) and Android 10 (Latte)
 4. **MEET IN TOUCH coexistence** — stays running in background as backup room display
+5. **Device Admin registration** — enables `DevicePolicyManager.reboot()` on Android 10, protects app from uninstall, prevents USB debugging lockdown
+
+---
+
+## Device Admin Registration
+
+### Why
+
+MEET IN TOUCH is registered as a Device Administrator. This gives it:
+- `DevicePolicyManager.reboot()` — programmatic cold reboot without root (Android 5.0+ / API 21+)
+- Protection from uninstall without physical consent (admin must be revoked first)
+- Potential to lock/unlock developer options
+
+We should do the same for our app. Benefits:
+
+| Benefit | Android 4.4 (LG) | Android 10 (Latte) |
+|---------|-----------------|-------------------|
+| `DevicePolicyManager.reboot()` | Not available (API 19) — use `su -c reboot` | ✅ Available — no root needed |
+| Uninstall protection | ✅ | ✅ |
+| USB debugging protection | Investigate | Investigate |
+
+### How
+
+1. Create `DeviceAdminReceiver` subclass in our app
+2. Declare it in `AndroidManifest.xml` with `BIND_DEVICE_ADMIN` permission and `ACTION_DEVICE_ADMIN_ENABLED` policy
+3. On first launch, prompt user to activate Device Admin (one-time physical action)
+4. In `ScheduleReceiver.ACTION_RESTART`:
+   - If Device Admin active AND Android 10+ → use `DevicePolicyManager.reboot()`
+   - Else → use `su -c reboot` (LG Android 4.4)
+
+### Reboot logic (unified)
+
+```
+if (isDeviceAdminActive && Build.VERSION.SDK_INT >= 21) {
+    devicePolicyManager.reboot(adminComponent)  // Android 10 (Latte)
+} else {
+    Runtime.exec("su -c reboot")                // Android 4.4 (LG)
+}
+```
+
+### USB Debugging protection
+
+To be investigated during implementation — Device Admin policies on Android 4.4 may allow locking developer options. If confirmed, add to v5.100. If not, defer to separate ticket.
+
+### One-time activation
+
+Device Admin requires the user to physically activate it on each tablet via:
+Settings → Security → Device Administrators → Boot Launcher → Activate
+
+This is a one-time step per tablet, similar to the initial ADB authorization. Include in the rollout runbook for v5.100.
 
 ---
 
@@ -112,6 +162,21 @@ MEET IN TOUCH triggers its own cold reboot at 08:00 via LGKioskMode RB broadcast
 **`BootReceiver.java`:**
 - No change needed — `pm disable` + `pm clear` already in v5.99
 - Remove `am broadcast RB KEY_ON_OFF=false` (was v5.98, already replaced by `pm clear` in v5.99)
+
+**New: `BootLauncherDeviceAdminReceiver.java`:**
+- Subclass of `DeviceAdminReceiver`
+- Declared in `AndroidManifest.xml` with `BIND_DEVICE_ADMIN` + `android.app.device_admin` metadata
+
+**`ScheduleReceiver.java` — reboot logic:**
+```java
+DevicePolicyManager dpm = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+ComponentName admin = new ComponentName(context, BootLauncherDeviceAdminReceiver.class);
+if (Build.VERSION.SDK_INT >= 21 && dpm.isAdminActive(admin)) {
+    dpm.reboot(admin);  // Latte (Android 10)
+} else {
+    Runtime.getRuntime().exec(new String[]{"su", "-c", "reboot"});  // LG Android 4.4
+}
+```
 
 **`build.gradle`:**
 - Bump to versionCode 600, versionName "5.100"
