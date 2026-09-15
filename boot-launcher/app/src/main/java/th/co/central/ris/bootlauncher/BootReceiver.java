@@ -32,7 +32,7 @@ public class BootReceiver extends BroadcastReceiver {
             } catch (Exception ignored) {}
             try {
                 Runtime.getRuntime().exec(new String[]{"su", "-c",
-                    "am broadcast -a com.lge.signage.intent.action.RB --ei KEY_HOUR 7 --ez KEY_ON_OFF false"});
+                    "pm clear com.lge.lgkioskmode"});
             } catch (Exception ignored) {}
         }
 
