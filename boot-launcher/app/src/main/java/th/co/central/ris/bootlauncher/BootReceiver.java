@@ -30,6 +30,10 @@ public class BootReceiver extends BroadcastReceiver {
                 Runtime.getRuntime().exec(new String[]{"su", "-c",
                     "pm disable me.exzy.meetingroom/.SystemBroadcastReceiver"});
             } catch (Exception ignored) {}
+            try {
+                Runtime.getRuntime().exec(new String[]{"su", "-c",
+                    "am broadcast -a com.lge.signage.intent.action.RB --ei KEY_HOUR 7 --ez KEY_ON_OFF false"});
+            } catch (Exception ignored) {}
         }
 
         // Check current time to decide which activity to launch
