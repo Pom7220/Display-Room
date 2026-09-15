@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-import java.util.Calendar;
 
 public class BootReceiver extends BroadcastReceiver {
 
@@ -49,9 +48,6 @@ public class BootReceiver extends BroadcastReceiver {
         // Re-register alarms lost on reboot
         ScheduleReceiver.schedule(context, hasLgKioskMode(context));
 
-        // Configure LGKioskMode daily 07:00 cold-reboot (persists across boots)
-        sendLgRebootSchedule(context);
-
     }
 
     static boolean hasLgKioskMode(Context context) {
@@ -61,23 +57,6 @@ public class BootReceiver extends BroadcastReceiver {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    private static void sendLgRebootSchedule(Context context) {
-        // Only schedule if current time is before 07:00.
-        // Sending RB after 07:00 causes LGKioskMode to fire immediately (today's slot passed)
-        // which creates an infinite reboot loop after the 07:00 cold boot.
-        Calendar now = Calendar.getInstance();
-        int hour = now.get(Calendar.HOUR_OF_DAY);
-        int minute = now.get(Calendar.MINUTE);
-        if (hour > 7 || (hour == 7 && minute > 0)) return;
-        try {
-            Intent rb = new Intent("com.lge.signage.intent.action.RB");
-            rb.putExtra("KEY_ON_OFF", true);
-            rb.putExtra("KEY_HOUR", 7);
-            rb.putExtra("KEY_MINUTE", 0);
-            context.sendBroadcast(rb);
-        } catch (Exception ignored) {}
     }
 
     static void launchWebView(Context context) {
