@@ -25,6 +25,13 @@ public class BootReceiver extends BroadcastReceiver {
             }
         } catch (Exception ignored) {}
 
+        if (hasLgKioskMode(context)) {
+            try {
+                Runtime.getRuntime().exec(new String[]{"su", "-c",
+                    "pm disable me.exzy.meetingroom/.SystemBroadcastReceiver"});
+            } catch (Exception ignored) {}
+        }
+
         // Check current time to decide which activity to launch
         Calendar now = Calendar.getInstance();
         int hour = now.get(Calendar.HOUR_OF_DAY);
