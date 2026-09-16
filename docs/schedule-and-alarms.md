@@ -1,41 +1,43 @@
 # RIS Kiosk — Schedule, Alarms & Health Check Reference
 
-**Last updated:** 2026-08-31  
-**Applies to:** APK v5.75+
+**Last updated:** 2026-09-16  
+**Applies to:** APK v5.100+
 
 ---
 
 ## Overview
 
-Each LG Android tablet runs three scheduled alarms plus a continuous health check watchdog. Together they manage the daily on/off cycle and self-recovery from crashes.
+Each tablet runs three scheduled alarms plus a continuous health check watchdog. Together they manage the daily on/off cycle and self-recovery from crashes.
+
+**v5.100 change:** ACTION_RESTART at 06:00 now triggers a **cold reboot** (device restart) instead of a soft process restart. BootReceiver fires on every boot and posts `cold_boot` to the alarm log (shown as ❄️ on the dashboard).
 
 ---
 
 ## The Three Alarms
 
-### 1. 06:00 — ACTION_RESTART (Daily Maintenance)
+### 1. 06:00 — ACTION_RESTART (Daily Cold Reboot)
 
-**Purpose:** Forces a clean app restart each morning before business hours. Clears accumulated WebView memory and state from the previous day. Also catches tablets that may have crashed overnight by returning them to a known-good standby state. On weekdays, `UpdateChecker.silentInstall()` runs first (see [OTA Silent Update (06:00)](#ota-silent-update-0600) below).
+**Purpose:** Triggers a daily cold reboot every weekday morning. The cold reboot ensures a clean memory state, flushes hung processes, re-runs BootReceiver's safety steps (pm disable MEET IN TOUCH + pm clear LGKioskMode), and applies any pending OTA update.
 
 | Day | Behaviour |
 |-----|-----------|
-| Monday–Friday | Runs `UpdateChecker.silentInstall()` → if update installs, app process is killed; `BootReceiver` fires → `StandbyActivity`. If no update, proceeds directly to `StandbyActivity` → tablet dims to near-black. After a successful install, `MY_PACKAGE_REPLACED` fires `RestartReceiver` which relaunches the kiosk. |
-| Saturday–Sunday | Skips (logs `restart_weekend`) — tablet stays in standby from 20:30 Friday |
+| Monday–Friday | Runs `UpdateChecker.silentInstall()` first. If OTA installs, package manager kills the process and reboots. If no OTA, executes cold reboot: `DevicePolicyManager.reboot()` on Android 10 (Latte, if Device Admin active) or `su -c reboot` on Android 4.4 (LG). `BootReceiver` then fires → posts `cold_boot` → `StandbyActivity`. |
+| Saturday–Sunday | Skips entirely — tablet stays in standby from 20:30 Friday |
 
 **Reschedules itself** for 06:00 the following day.
 
 ---
 
-### 2. 07:30 — ACTION_WAKE (Business Hours Start)
+### 2. 07:00 — ACTION_WAKE (Business Hours Start)
 
-**Purpose:** Launches the kiosk WebView to start the working day.
+**Purpose:** Launches the kiosk WebView to start the working day. Also acts as a backup if WebView failed to launch after the 06:00 cold reboot.
 
 | Day | Behaviour |
 |-----|-----------|
-| Monday–Friday | Launches `KioskWebViewActivity` — tablet goes live |
+| Monday–Friday | Launches `KioskWebViewActivity` — tablet goes live. Logs `wake`. |
 | Saturday–Sunday | Skips (logs `wake_weekend`) — tablet stays in standby |
 
-**Reschedules itself** for 07:30 the following day.
+**Reschedules itself** for 07:00 the following day.
 
 ---
 
@@ -70,15 +72,17 @@ Each LG Android tablet runs three scheduled alarms plus a continuous health chec
 
 ## Full Weekly Schedule
 
-### Weekday (Monday–Friday)
+### Weekday (Monday–Friday) — v5.100+
 
 ```
 20:30 (prev day)  ACTION_STANDBY   → StandbyActivity (screen dims)
       overnight   StandbyActivity sends heartbeat every 20 min (status=sleep)
-06:00             ACTION_RESTART   → StandbyActivity restarts (fresh app state)
-07:30             ACTION_WAKE      → KioskWebViewActivity (tablet goes live)
+06:00             ACTION_RESTART   → OTA check → cold reboot (su -c reboot / DPM.reboot)
+06:01             BOOT_COMPLETED   → BootReceiver: pm disable MEET IN TOUCH + pm clear LGKioskMode
+                                     → posts cold_boot (❄️ on dashboard) → StandbyActivity
+07:00             ACTION_WAKE      → KioskWebViewActivity (tablet goes live, logs wake ☀️)
 08:00 onwards     Health check     → fires every 10 min, skips (WebView running)
-20:30             ACTION_STANDBY   → StandbyActivity (end of day)
+20:30             ACTION_STANDBY   → StandbyActivity (end of day, logs standby 🌙)
 ```
 
 ### Weekend (Saturday–Sunday) — v5.57+
@@ -86,8 +90,8 @@ Each LG Android tablet runs three scheduled alarms plus a continuous health chec
 ```
 20:30 Friday      ACTION_STANDBY   → StandbyActivity (screen dims)
       overnight   StandbyActivity sends heartbeat every 20 min (status=sleep)
-06:00 Sat/Sun     ACTION_RESTART   → skips (logs restart_weekend)
-07:30 Sat/Sun     ACTION_WAKE      → skips (logs wake_weekend)
+06:00 Sat/Sun     ACTION_RESTART   → skips entirely (no reboot, no log)
+07:00 Sat/Sun     ACTION_WAKE      → skips (logs wake_weekend)
 08:00–20:00       Health check     → fires every 10 min, skips (weekend guard)
                   Tablet stays in standby all weekend ✓
 ```
@@ -191,3 +195,5 @@ Introduced in v5.72. At 06:00 on weekdays, `ScheduleReceiver` calls `UpdateCheck
 | v5.73 | `pm install` stdout captured and checked for "Success"/"Failure" on Android 4.4 — `su` exit code alone is not reliable on LG. |
 | v5.74 | `postDelayed(300ms)` before re-applying immersive flags in `OnSystemUiVisibilityChangeListener` — fixes nav bar reappearing on Android 4.4 after a system overlay dismisses without restoring window focus. |
 | v5.75 | `RestartReceiver` replaced direct `startActivity()` with full-screen notification (`setFullScreenIntent()`) — bypasses Android 10 background activity launch restrictions; also works on Android 4.4. |
+| v5.99 | `BootReceiver` added `pm disable me.exzy.meetingroom/.SystemBroadcastReceiver` and `su -c pm clear com.lge.lgkioskmode` — prevents boot loops caused by LGKioskMode stored schedule firing after off-hours cold reboot. |
+| v5.100 | `ACTION_RESTART` replaced soft process restart with daily cold reboot (`DevicePolicyManager.reboot()` on Android 10, `su -c reboot` on Android 4.4). `BootReceiver` posts `cold_boot` event (❄️ on dashboard). `restart`/`restart_weekend` events retired. `BootLauncherDeviceAdminReceiver` added. Build via CI only (no local Java). |
