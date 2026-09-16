@@ -56,6 +56,22 @@ Agent reads this at the start of every run and self-amends when patterns are pro
 - root cause: N/A — this is a positive signal, not a failure pattern.
 - agent action: After any OTA run, confirm `ota_install` appears in each updated tablet's alarmLog within 15 min. If absent after 15 min, OTA may have silently failed — flag for retry.
 
+### [2026-09-14] LGKioskMode boot loop after off-hours PoE power cut
+- status: confirmed
+- seenCount: 2 (Macchiato .106, Viennese .107)
+- firstSeen: 2026-09-14 18:00 BKK
+- confirmedOn: 2026-09-15
+- evidence: NW team PoE power-cycle at 18:00 caused cold reboot after 07:00. LGKioskMode BootCompleteReceiver found stored 07:00 schedule already passed → immediate alarm (~68s) → reboot → loop. Loop lasted ~20 hours.
+- root cause: LGKioskMode stores RB schedule in non-standard storage. Any cold reboot after 07:00 BKK causes it to fire immediately on next boot.
+- fix: `adb shell su -c pm clear com.lge.lgkioskmode` — wipes stored schedule. v5.99+ runs this on every boot automatically. v5.100 adds daily cold reboot at 06:00 (before stored schedule fires) to prevent accumulation.
+- agent action: If tablet shows boot loop (uptime < 90s repeatedly, no online status), flag for physical ADB intervention: `su -c pm clear com.lge.lgkioskmode`.
+
+### [2026-09-15] v5.100 — cold_boot replaces restart in alarm log
+- status: confirmed (from 2026-09-17 06:00 BKK onwards)
+- evidence: v5.100 changes ACTION_RESTART from soft restart to cold reboot. BootReceiver now posts `cold_boot` event on every BOOT_COMPLETED.
+- agent action: From v5.100, the expected daily alarm chain is `cold_boot` (❄️ ~06:01) → `wake` (☀️ 07:00) → `standby` (🌙 20:30). A missing `cold_boot` before 07:00 on a weekday may indicate cold reboot failed — check heartbeat uptime continuity. `restart` events will no longer appear.
+- agent action: Do NOT flag 06:00 cold reboots as incidents. `unexpected_reboot` is only posted if boot time is outside 05:45–06:15 BKK window.
+
 ---
 
 ## ADB Manual Investigation Runbook
@@ -70,17 +86,17 @@ Use when the agent flags a case as "needs ADB" — pattern not explainable from 
 **Known tablet IPs** (update if DHCP changes):
 
 Active — confirmed IPs after NW rearrangement on 2026-09-14:
-- Doppio:      10.0.54.101  (ADB authorized, v5.97+)
-- Cappuccino:  10.0.54.102  (ADB authorized, v5.97+)
+- Doppio:      10.0.54.101  (ADB authorized, v5.100 via CI/Update All)
+- Cappuccino:  10.0.54.102  (ADB authorized, v5.96 — OTA to 5.99/5.100 failing, investigate on-site 2026-09-17)
 - Americano:   10.0.54.103  (app NOT yet deployed — lobby tablet)
 - Lungo:       10.0.54.104  (app NOT yet deployed — lobby tablet)
 - Ristretto:   10.0.54.105  (app NOT yet deployed — lobby tablet)
-- Macchiato:   10.0.54.106  (boot looping since 2026-09-14 18:00 BKK — needs physical intervention)
-- Viennese:    10.0.54.107  (boot looping / offline — needs physical intervention)
-- Decaffinato: 10.0.54.108  (ADB unauthorized, v5.97+ via Update All)
-- Latte:       10.0.54.109  (ADB authorized, v5.97+)
-- Mocha:       10.0.54.110  (ADB authorized, v5.97+)
-- Affogato:    10.0.54.111  (ADB authorized, v5.97+)
+- Macchiato:   10.0.54.106  (RESOLVED 2026-09-15 — boot loop fixed via su -c pm clear com.lge.lgkioskmode; v5.100 via Update All)
+- Viennese:    10.0.54.107  (RESOLVED 2026-09-15 — boot loop fixed via physical USB install + pm clear; v5.100 via Update All)
+- Decaffinato: 10.0.54.108  (ADB unauthorized, v5.100 via Update All)
+- Latte:       10.0.54.109  (ADB authorized, v5.100 via Update All; Android 10 — Device Admin activation needed for DPM.reboot())
+- Mocha:       10.0.54.110  (ADB authorized, v5.100 via Update All)
+- Affogato:    10.0.54.111  (ADB authorized, v5.100 via Update All)
 - Espresso:    10.0.54.112  (app NOT yet deployed — lobby tablet)
 
 Note: All IPs changed by NW team on 2026-09-14. Old mapping is obsolete. Lobby tablets (.103–.105, .112) on separate VLAN with FortiGate HTTPS interception issue — not yet deployed. No LGKioskMode risk on lobby tablets.
