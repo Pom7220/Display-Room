@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin>
+    <uses-policies>
+        <!-- Required for DevicePolicyManager.reboot() on API 21+ -->
+    </uses-policies>
+</device-admin>

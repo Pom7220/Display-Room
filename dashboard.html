@@ -1178,7 +1178,7 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
 
     // Alarm chain row — today's events in BKK time, oldest→newest
     var _todayBkk = new Date(Date.now() + 7*3600000).toISOString().slice(0, 10);
-    var _alarmIcons = { restart: '🔄', wake: '☀️', wake_weekend: '⏭️', standby: '🌙' };
+    var _alarmIcons = { cold_boot: '❄️', restart: '🔄', wake: '☀️', wake_weekend: '⏭️', standby: '🌙' };
     var _todayAlarms = (r && r.alarmLog ? r.alarmLog : [])
       .filter(function(e) {
         return e.ts && new Date(new Date(e.ts).getTime() + 7*3600000).toISOString().startsWith(_todayBkk);

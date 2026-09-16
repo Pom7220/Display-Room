@@ -48,11 +48,24 @@ public class ScheduleReceiver extends BroadcastReceiver {
             if (!isWeekendR) {
                 final Context ctx = context;
                 new Thread(new Runnable() { @Override public void run() {
-                    logAlarmEventSync(ctx, "restart");
+                    // OTA check first — if a new APK installs, the process is killed here
+                    // and the reboot below never runs (acceptable — OTA itself restarts app).
                     UpdateChecker.silentInstall(ctx, null, null);
+                    // Cold reboot: Device Admin on API 21+ (Latte), su -c reboot elsewhere (LG).
+                    android.app.admin.DevicePolicyManager dpm =
+                        (android.app.admin.DevicePolicyManager) ctx.getSystemService(
+                            Context.DEVICE_POLICY_SERVICE);
+                    android.content.ComponentName admin =
+                        new android.content.ComponentName(ctx,
+                            BootLauncherDeviceAdminReceiver.class);
+                    if (Build.VERSION.SDK_INT >= 21 && dpm != null && dpm.isAdminActive(admin)) {
+                        dpm.reboot(admin);
+                    } else {
+                        try {
+                            Runtime.getRuntime().exec(new String[]{"su", "-c", "reboot"});
+                        } catch (Exception ignored) {}
+                    }
                 }}).start();
-            } else {
-                logAlarmEvent(context, "restart_weekend");
             }
             setExactAlarm(context, ACTION_RESTART, 3, 6, 0);
 

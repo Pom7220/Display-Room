@@ -36,6 +36,9 @@ public class BootReceiver extends BroadcastReceiver {
             } catch (Exception ignored) {}
         }
 
+        // Log cold boot so dashboard shows ❄️ chip in the daily alarm chain.
+        ScheduleReceiver.logAlarmEvent(context, "cold_boot");
+
         // Check current time to decide which activity to launch
         Calendar now = Calendar.getInstance();
         int hour = now.get(Calendar.HOUR_OF_DAY);

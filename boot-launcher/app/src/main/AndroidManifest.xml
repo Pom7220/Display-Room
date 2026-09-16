@@ -87,6 +87,20 @@
             </intent-filter>
         </receiver>
 
+        <!-- Device Admin — enables DevicePolicyManager.reboot() on API 21+ (Latte/Android 10).
+             One-time activation per tablet: Settings → Security → Device Administrators → Boot Launcher → Activate -->
+        <receiver
+            android:name=".BootLauncherDeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".ForegroundWatchService"
             android:exported="false" />
