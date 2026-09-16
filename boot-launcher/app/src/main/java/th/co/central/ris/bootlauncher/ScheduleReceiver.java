@@ -58,7 +58,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
                     android.content.ComponentName admin =
                         new android.content.ComponentName(ctx,
                             BootLauncherDeviceAdminReceiver.class);
-                    if (Build.VERSION.SDK_INT >= 21 && dpm != null && dpm.isAdminActive(admin)) {
+                    if (android.os.Build.VERSION.SDK_INT >= 21 && dpm != null && dpm.isAdminActive(admin)) {
                         dpm.reboot(admin);
                     } else {
                         try {
