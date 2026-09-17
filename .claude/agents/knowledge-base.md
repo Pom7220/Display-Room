@@ -86,20 +86,21 @@ Use when the agent flags a case as "needs ADB" — pattern not explainable from 
 **Known tablet IPs** (update if DHCP changes):
 
 Active — confirmed IPs after NW rearrangement on 2026-09-14:
-- Doppio:      10.0.54.101  (ADB authorized, v5.100 via CI/Update All)
-- Cappuccino:  10.0.54.102  (ADB authorized, v5.96 — OTA to 5.99/5.100 failing, investigate on-site 2026-09-17)
+- Doppio:      10.0.54.101  (ADB authorized, v5.101 ✅)
+- Cappuccino:  10.0.54.102  (ADB authorized, v5.101 ✅ — MEET IN TOUCH disabled; UID mismatch fixed 2026-09-17)
 - Americano:   10.0.54.103  (app NOT yet deployed — lobby tablet)
 - Lungo:       10.0.54.104  (app NOT yet deployed — lobby tablet)
 - Ristretto:   10.0.54.105  (app NOT yet deployed — lobby tablet)
-- Macchiato:   10.0.54.106  (RESOLVED 2026-09-15 — boot loop fixed via su -c pm clear com.lge.lgkioskmode; v5.100 via Update All)
-- Viennese:    10.0.54.107  (RESOLVED 2026-09-15 — boot loop fixed via physical USB install + pm clear; v5.100 via Update All)
-- Decaffinato: 10.0.54.108  (ADB unauthorized, v5.100 via Update All)
-- Latte:       10.0.54.109  (ADB authorized, v5.100 via Update All; Android 10 — Device Admin activation needed for DPM.reboot())
-- Mocha:       10.0.54.110  (ADB authorized, v5.100 via Update All)
-- Affogato:    10.0.54.111  (ADB authorized, v5.100 via Update All)
+- Macchiato:   10.0.54.106  (ADB authorized, v5.101 ✅ — MEET IN TOUCH disabled 2026-09-17)
+- Viennese:    10.0.54.107  (ADB authorized, v5.101 ✅)
+- Decaffinato: 10.0.54.108  (ADB unauthorized, v5.101 ✅)
+- Latte:       10.0.54.109  (ADB authorized, v5.101 ✅ — Android 10; MEET IN TOUCH disabled; plain reboot confirmed working)
+- Mocha:       10.0.54.110  (ADB authorized, v5.101 ✅)
+- Affogato:    10.0.54.111  (ADB authorized, v5.101 ✅)
 - Espresso:    10.0.54.112  (app NOT yet deployed — lobby tablet)
 
 Note: All IPs changed by NW team on 2026-09-14. Old mapping is obsolete. Lobby tablets (.103–.105, .112) on separate VLAN with FortiGate HTTPS interception issue — not yet deployed. No LGKioskMode risk on lobby tablets.
+NW confirmed: IP range 10.0.54.101–120 is whitelisted in FortiGate SSL bypass rule.
 
 **Step 1 — Connect:**
 ```
@@ -128,6 +129,42 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 ---
 
 ## Confirmed Patterns (continued)
+
+### [2026-09-17] MEET IN TOUCH force-lock black screen
+- status: confirmed
+- seenCount: 2 (Macchiato .106, Cappuccino .102)
+- firstSeen: 2026-09-17 09:50 BKK
+- confirmedOn: 2026-09-17
+- evidence: Macchiato black screen at 09:50 BKK — ADB `dumpsys device_policy` showed `me.exzy.meetingroom` registered as Device Admin with `force-lock` policy. Cappuccino same state. MEET IN TOUCH can call `lockNow()` at any time to darken screen, making tablet unreachable (no heartbeat, no ping).
+- root cause: MEET IN TOUCH registered as Device Admin with force-lock policy. It can lock the screen at will, displacing the kiosk WebView.
+- fix: `adb shell su -c "pm disable me.exzy.meetingroom"` — disables entire package, persists across reboots. On Android 10 (Latte): `adb shell pm disable-user --user 0 me.exzy.meetingroom` (no su needed).
+- fix outcome: Macchiato and Cappuccino screens restored immediately. v5.99+ BootReceiver runs `pm disable me.exzy.meetingroom/.SystemBroadcastReceiver` on every LG boot automatically — but full `pm disable` via ADB is more thorough for already-affected tablets.
+- agent action: If tablet shows black screen + no heartbeat + no ping, and has LGKioskMode (LG Android 4.4), check MEET IN TOUCH Device Admin. Run `dumpsys device_policy | grep -A5 meetingroom`. If force-lock listed → `pm disable me.exzy.meetingroom`.
+- note: Latte (Android 10) did NOT have MEET IN TOUCH as Device Admin. Disabled preventively via `pm disable-user`.
+
+### [2026-09-17] Latte (Android 10) cold reboot — DPM.reboot() requires Device Owner not Device Admin
+- status: confirmed
+- confirmedOn: 2026-09-17
+- evidence: v5.100 used `DevicePolicyManager.reboot()` requiring Device Owner privilege. Activating via Settings → Security → Device Administrators only grants Device Admin — not Device Owner. `dpm.reboot()` threw silent SecurityException. Fallback `su -c reboot` also fails on Android 10 (invalid uid/gid). Both paths silently failed — no cold reboot on Latte.
+- fix: v5.101 — use plain `Runtime.exec("reboot")` on API 21+ (works on Android 10 without root). Keep `su -c reboot` for API 19 (LG Android 4.4). `BootLauncherDeviceAdminReceiver` and `device_admin.xml` removed as dead code.
+- fix outcome: `adb shell reboot` confirmed working on Latte. ❄️ cold_boot at 10:49 BKK confirmed. v5.101 deployed to all 8 tablets.
+- agent action: If Latte shows no ❄️ cold_boot chip on a weekday, check APK version — must be ≥ v5.101 for cold reboot to work.
+
+### [2026-09-17] Cappuccino UID mismatch — prefs unreadable after APK reinstall
+- status: confirmed
+- confirmedOn: 2026-09-17
+- evidence: Cappuccino showed "Tap anywhere to continue" after every cold reboot. WebView URL missing `room=` and `roomname=` parameters. Prefs file `ris_kiosk_prefs.xml` existed with correct values but owned by `u0_a49` (UID 10049). App's current UID was 10048 (`dumpsys package | grep userId`). App could not read its own prefs file — `getSharedPreferences()` returned empty strings for room_email and room_name. Without room identity, web app shows fullscreen prompt instead of room display.
+- root cause: APK was reinstalled (sideload via `adb install`) which assigned a new UID (10048). Old prefs file remained owned by old UID (10049). Android app cannot read prefs owned by a different UID.
+- fix: `adb shell su -c "chown u0_a<N> /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml"` where N matches the current UID from `dumpsys package th.co.central.ris.bootlauncher | grep userId`. Tablet immediately launched correctly after reboot.
+- prevention: After every `adb install -r` sideload, verify UID matches prefs ownership. Get current UID: `dumpsys package th.co.central.ris.bootlauncher | findstr userId`. Rewrite prefs ownership with that UID.
+- agent action: If tablet shows no `room=` in WebView URL (visible in logcat chromium lines) but prefs file exists, check UID mismatch.
+
+### [2026-09-17] silentInstall hangs when network unavailable — blocks cold reboot
+- status: confirmed
+- confirmedOn: 2026-09-17
+- evidence: ACTION_RESTART broadcast sent to Cappuccino (LG Android 4.4) — no reboot after 10+ minutes. Direct `adb shell su -c "reboot"` worked immediately. Root cause: `UpdateChecker.silentInstall()` makes OkHttp call to `/api/version` with no timeout configured. If network is unavailable (or slow), the thread hangs indefinitely — `su -c reboot` never executes. Same mechanism explains 5 consecutive days of OTA failure on Cappuccino at 06:00 BKK (network not ready).
+- fix needed: Add connect + read timeout to OkHttpClient in `silentInstall()` — target v5.102.
+- agent action: If cold_boot missing at 06:00 on LG tablet despite v5.101+, suspect silentInstall network hang. Cannot self-recover — physical reboot or PoE cycle needed.
 
 ### [2026-09-12] Heartbeat watchdog restart (APK ≥ 5.90)
 - status: confirmed
