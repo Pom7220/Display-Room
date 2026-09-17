@@ -51,20 +51,15 @@ public class ScheduleReceiver extends BroadcastReceiver {
                     // OTA check first — if a new APK installs, the process is killed here
                     // and the reboot below never runs (acceptable — OTA itself restarts app).
                     UpdateChecker.silentInstall(ctx, null, null);
-                    // Cold reboot: Device Admin on API 21+ (Latte), su -c reboot elsewhere (LG).
-                    android.app.admin.DevicePolicyManager dpm =
-                        (android.app.admin.DevicePolicyManager) ctx.getSystemService(
-                            Context.DEVICE_POLICY_SERVICE);
-                    android.content.ComponentName admin =
-                        new android.content.ComponentName(ctx,
-                            BootLauncherDeviceAdminReceiver.class);
-                    if (android.os.Build.VERSION.SDK_INT >= 21 && dpm != null && dpm.isAdminActive(admin)) {
-                        dpm.reboot(admin);
-                    } else {
-                        try {
+                    // Cold reboot: plain "reboot" on Android 10+ (no root needed),
+                    // su -c reboot on Android 4.4 LG (requires root via su).
+                    try {
+                        if (android.os.Build.VERSION.SDK_INT >= 21) {
+                            Runtime.getRuntime().exec(new String[]{"reboot"});
+                        } else {
                             Runtime.getRuntime().exec(new String[]{"su", "-c", "reboot"});
-                        } catch (Exception ignored) {}
-                    }
+                        }
+                    } catch (Exception ignored) {}
                 }}).start();
             }
             setExactAlarm(context, ACTION_RESTART, 3, 6, 0);
