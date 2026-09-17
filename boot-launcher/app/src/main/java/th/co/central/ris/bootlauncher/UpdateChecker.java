@@ -83,6 +83,8 @@ public class UpdateChecker {
             c = new OkHttpClient.Builder()
                 .sslSocketFactory(sf, TRUST_ALL)
                 .hostnameVerifier(hv)
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .build();
             // Separate client for large APK downloads — Worker cold-start + GitHub Pages
             // fetch can exceed the default 10s read timeout before first byte arrives.
