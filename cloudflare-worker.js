@@ -317,6 +317,7 @@ async function handleHeartbeat(request, env) {
       }
       // Delete pointer so future heartbeats don't re-check
       await env.RIS_KV.delete('standby_open:' + data.room);
+      await env.RIS_KV.delete('incident_active:' + data.room);
     }
 
     return jsonResponse({
@@ -744,6 +745,14 @@ async function handleIncidentReport(request, env) {
     // Uses a separate key so it survives the 2h room-record TTL.
     if (data.type === 'standby_failure' && data.room) {
       await env.RIS_KV.put('standby_open:' + data.room, incidentKey, { expirationTtl: 172800 });
+      await env.RIS_KV.put('incident_active:' + data.room, '1');
+      // Snapshot hbHist at incident open so last-known-good timestamp is preserved
+      var hbSnapKey = 'hb_history:' + data.room;
+      var hbSnapRaw = await env.RIS_KV.get(hbSnapKey);
+      var hbSnap = hbSnapRaw ? JSON.parse(hbSnapRaw) : [];
+      hbSnap.unshift({ timestamp: new Date().toISOString(), status: 'incident_open' });
+      if (hbSnap.length > 20) hbSnap = hbSnap.slice(0, 20);
+      await env.RIS_KV.put(hbSnapKey, JSON.stringify(hbSnap), { expirationTtl: 604800 });
     }
 
     // Update index (last 200 incidents)
