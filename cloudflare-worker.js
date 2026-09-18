@@ -320,6 +320,11 @@ async function handleHeartbeat(request, env) {
       await env.RIS_KV.delete('incident_active:' + data.room);
     }
 
+    // Safety: if standby_open expired naturally but incident_active was never cleared, clear it now
+    if (incidentActive && !openIncidentKey) {
+      await env.RIS_KV.delete('incident_active:' + data.room);
+    }
+
     return jsonResponse({
       ok: true,
       command: pendingCmd ? JSON.parse(pendingCmd) : null,
@@ -732,6 +737,8 @@ async function handleIncidentReport(request, env) {
             (now.getTime() - new Date(record.reportedAt).getTime()) / 60000
           );
           await env.RIS_KV.put(existingKey, JSON.stringify(record), { expirationTtl: 1209600 }); // 14 days
+          await env.RIS_KV.delete('incident_active:' + data.room);
+          await env.RIS_KV.delete('standby_open:' + data.room);
           return jsonResponse({ ok: true, incident: record });
         }
       }
