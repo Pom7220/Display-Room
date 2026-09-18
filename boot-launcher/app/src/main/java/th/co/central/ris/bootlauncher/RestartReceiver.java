@@ -1,10 +1,12 @@
 package th.co.central.ris.bootlauncher;
 
 import android.app.AlarmManager;
+import android.app.admin.DevicePolicyManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -22,9 +24,10 @@ import androidx.core.app.NotificationManagerCompat;
  * launches — immediate startActivity() from MY_PACKAGE_REPLACED prevents
  * IMMERSIVE_STICKY from engaging on LG Android 4.4.
  *
- * Android 10+ (API 29+): background activity launch is restricted — uses a
- * full-screen notification with USE_FULL_SCREEN_INTENT. Screen off/locked →
- * auto-launches. Screen on → shows as persistent heads-up (tap to launch).
+ * Android 10+ (API 29+): background activity launch is blocked by the OS.
+ * Full-screen notification is also unreliable (intent gets silently suppressed).
+ * Instead, reboot via DevicePolicyManager.reboot() — Device Admin is active on
+ * Latte. BootReceiver handles clock correction and activity launch on the cold boot.
  */
 public class RestartReceiver extends BroadcastReceiver {
 
@@ -42,8 +45,19 @@ public class RestartReceiver extends BroadcastReceiver {
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
         if (Build.VERSION.SDK_INT >= 29) {
-            // Android 10+: startActivity() blocked in background — use notification
-            postFullScreenNotification(context, launch);
+            // Android 10+: background startActivity() blocked; full-screen notification
+            // also unreliable (OS silently drops the intent). Reboot via Device Admin —
+            // BootReceiver then handles clock correction and launches the activity correctly.
+            try {
+                DevicePolicyManager dpm = (DevicePolicyManager)
+                    context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+                ComponentName admin = new ComponentName(
+                    context, BootLauncherDeviceAdminReceiver.class);
+                dpm.reboot(admin);
+            } catch (Exception e) {
+                // Device Admin not active — fall back to notification
+                postFullScreenNotification(context, launch);
+            }
         } else {
             // Android 4.4–9: schedule launch 5 s later via AlarmManager so the package
             // manager fully settles before we start the activity. Immediate startActivity()
