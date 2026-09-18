@@ -1,12 +1,10 @@
 package th.co.central.ris.bootlauncher;
 
 import android.app.AlarmManager;
-import android.app.admin.DevicePolicyManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -26,8 +24,8 @@ import androidx.core.app.NotificationManagerCompat;
  *
  * Android 10+ (API 29+): background activity launch is blocked by the OS.
  * Full-screen notification is also unreliable (intent gets silently suppressed).
- * Instead, reboot via DevicePolicyManager.reboot() — Device Admin is active on
- * Latte. BootReceiver handles clock correction and activity launch on the cold boot.
+ * Instead, reboot via root shell — Latte has su access. BootReceiver handles
+ * clock correction and activity launch on the cold boot.
  */
 public class RestartReceiver extends BroadcastReceiver {
 
@@ -46,16 +44,12 @@ public class RestartReceiver extends BroadcastReceiver {
 
         if (Build.VERSION.SDK_INT >= 29) {
             // Android 10+: background startActivity() blocked; full-screen notification
-            // also unreliable (OS silently drops the intent). Reboot via Device Admin —
+            // also unreliable (OS silently drops the intent). Reboot via root shell —
+            // confirmed working on Latte (same path as clock correction in BootReceiver).
             // BootReceiver then handles clock correction and launches the activity correctly.
             try {
-                DevicePolicyManager dpm = (DevicePolicyManager)
-                    context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-                ComponentName admin = new ComponentName(
-                    context, BootLauncherDeviceAdminReceiver.class);
-                dpm.reboot(admin);
+                Runtime.getRuntime().exec(new String[]{"su", "0", "reboot"}).waitFor();
             } catch (Exception e) {
-                // Device Admin not active — fall back to notification
                 postFullScreenNotification(context, launch);
             }
         } else {
