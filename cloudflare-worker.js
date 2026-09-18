@@ -244,11 +244,13 @@ async function handleHeartbeat(request, env) {
     var roomKey = 'room:' + data.room;
     var cmdKey  = 'cmd:'  + data.room;
 
-    // Read existing record and pending command in parallel (reads are cheap)
-    var [existingRaw, pendingCmd] = await Promise.all([
+    // Read existing record, pending command, and incident_active flag in parallel
+    var [existingRaw, pendingCmd, incidentActiveRaw] = await Promise.all([
       env.RIS_KV.get(roomKey),
-      env.RIS_KV.get(cmdKey)
+      env.RIS_KV.get(cmdKey),
+      env.RIS_KV.get('incident_active:' + data.room)
     ]);
+    var incidentActive = !!incidentActiveRaw;
 
     var prev = existingRaw ? JSON.parse(existingRaw) : null;
     var newStatus      = data.status  || 'unknown';
@@ -257,16 +259,8 @@ async function handleHeartbeat(request, env) {
     var newRefresh     = !!data.hasRefreshToken;
     var newMiddayReload = data.middayReload || null;
 
-    // Only write if operationally critical state changed (status/auth), or >55 min since last write.
-    // apkVersion and version are display-only — they update on the next scheduled write.
-    var msSinceLast = prev ? Date.now() - new Date(prev.timestamp).getTime() : Infinity;
-    var criticalChange = !prev
-      || prev.status          !== newStatus
-      || prev.hasRefreshToken !== newRefresh
-      || data.restarted === true;  // first heartbeat after any page load — always write
-    var staleEnough = msSinceLast > 55 * 60 * 1000;
-
-    if (criticalChange || staleEnough) {
+    // Only write KV when an incident is active — skip writes during healthy state to reduce KV costs.
+    if (incidentActive) {
       var record = {
         room: data.room,
         roomname: data.roomname || '',
@@ -286,11 +280,10 @@ async function handleHeartbeat(request, env) {
         timestamp: new Date().toISOString(),
         ip: request.headers.get('CF-Connecting-IP') || ''
       };
-      // TTL 2 hours — covers up to 55-min write interval with headroom
+      // TTL 2 hours — covers the 20-min heartbeat interval with headroom
       await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
 
-      // Heartbeat history ring buffer — gives agent the same timeline view a human
-      // gets from Cloudflare log view. Written on same gate as the heartbeat record.
+      // Heartbeat history ring buffer — written on same gate as the heartbeat record.
       var hbHistKey = 'hb_history:' + data.room;
       var hbHistRaw = await env.RIS_KV.get(hbHistKey);
       var hbHist = hbHistRaw ? JSON.parse(hbHistRaw) : [];
@@ -330,7 +323,8 @@ async function handleHeartbeat(request, env) {
 
     return jsonResponse({
       ok: true,
-      command: pendingCmd ? JSON.parse(pendingCmd) : null
+      command: pendingCmd ? JSON.parse(pendingCmd) : null,
+      heartbeatIntervalMs: incidentActive ? 1200000 : 1800000
     });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
