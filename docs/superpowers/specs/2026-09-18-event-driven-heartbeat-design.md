@@ -128,6 +128,6 @@ Zero KV writes. Cleared on reboot — for live sessions only, not post-mortem.
 
 ## Out of Scope
 
-- Changing heartbeat POST frequency from the tablet (tablet always posts every 30 min; Worker decides what to write)
+- No APK changes needed for heartbeat interval switching — tablet JS already reads `heartbeatIntervalMs` from the Worker response and adjusts automatically; only Worker changes required
 - Maintenance mode (no longer needed given ~71 writes/day baseline)
 - Cloudflare plan upgrade
