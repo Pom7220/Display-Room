@@ -244,46 +244,44 @@ async function handleHeartbeat(request, env) {
     var roomKey = 'room:' + data.room;
     var cmdKey  = 'cmd:'  + data.room;
 
-    // Read existing record, pending command, and incident_active flag in parallel
-    var [existingRaw, pendingCmd, incidentActiveRaw] = await Promise.all([
-      env.RIS_KV.get(roomKey),
+    // Read pending command and incident_active flag in parallel
+    var [pendingCmd, incidentActiveRaw] = await Promise.all([
       env.RIS_KV.get(cmdKey),
       env.RIS_KV.get('incident_active:' + data.room)
     ]);
     var incidentActive = !!incidentActiveRaw;
 
-    var prev = existingRaw ? JSON.parse(existingRaw) : null;
     var newStatus      = data.status  || 'unknown';
     var newVersion     = data.version || '';
     var newApk         = data.apkVersion || '';
     var newRefresh     = !!data.hasRefreshToken;
     var newMiddayReload = data.middayReload || null;
 
-    // Only write KV when an incident is active — skip writes during healthy state to reduce KV costs.
-    if (incidentActive) {
-      var record = {
-        room: data.room,
-        roomname: data.roomname || '',
-        status: newStatus,
-        tokenExpiry: data.tokenExpiry || null,
-        hasRefreshToken: newRefresh,
-        version: newVersion,
-        apkVersion: newApk,
-        lastCal: data.lastCal || null,
-        meetingCount: data.meetingCount || 0,
-        uptime: data.uptime || 0,
-        log: (data.log || []).slice(-10),
-        qrAvgPerDay: data.qrAvgPerDay || 0,
-        qrPeakDay: data.qrPeakDay || 0,
-        middayReload: newMiddayReload,
-        pollStats: data.pollStats || null,
-        timestamp: new Date().toISOString(),
-        ip: request.headers.get('CF-Connecting-IP') || ''
-      };
-      // TTL 2 hours — covers the 20-min heartbeat interval with headroom
-      await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
+    // Always write room record — keeps key alive and dashboard current
+    var record = {
+      room: data.room,
+      roomname: data.roomname || '',
+      status: newStatus,
+      tokenExpiry: data.tokenExpiry || null,
+      hasRefreshToken: newRefresh,
+      version: newVersion,
+      apkVersion: newApk,
+      lastCal: data.lastCal || null,
+      meetingCount: data.meetingCount || 0,
+      uptime: data.uptime || 0,
+      log: (data.log || []).slice(-10),
+      qrAvgPerDay: data.qrAvgPerDay || 0,
+      qrPeakDay: data.qrPeakDay || 0,
+      middayReload: newMiddayReload,
+      pollStats: data.pollStats || null,
+      timestamp: new Date().toISOString(),
+      ip: request.headers.get('CF-Connecting-IP') || ''
+    };
+    // TTL 2 hours — covers 30-min normal heartbeat interval with headroom
+    await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
 
-      // Heartbeat history ring buffer — written on same gate as the heartbeat record.
+    // Only write hbHist during incidents — granular trail when needed
+    if (incidentActive) {
       var hbHistKey = 'hb_history:' + data.room;
       var hbHistRaw = await env.RIS_KV.get(hbHistKey);
       var hbHist = hbHistRaw ? JSON.parse(hbHistRaw) : [];
