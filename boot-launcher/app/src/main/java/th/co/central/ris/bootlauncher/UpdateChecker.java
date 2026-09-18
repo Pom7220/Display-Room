@@ -264,15 +264,14 @@ public class UpdateChecker {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
-                    debugStep(context, "1_start", "");
                     Request req = new Request.Builder().url(VERSION_URL).build();
                     Response resp = CLIENT.newCall(req).execute();
                     if (!resp.isSuccessful()) {
-                        debugStep(context, "ERR_version_http", String.valueOf(resp.code()));
+                        android.util.Log.e("UpdateChecker", "ERR_version_http: " + resp.code());
                         runCb(onFailure); return;
                     }
                     if (resp.body() == null) {
-                        debugStep(context, "ERR_version_nobody", "");
+                        android.util.Log.e("UpdateChecker", "ERR_version_nobody");
                         runCb(onFailure); return;
                     }
                     JSONObject json = new JSONObject(resp.body().string());
@@ -281,23 +280,22 @@ public class UpdateChecker {
                     int localCode = context.getPackageManager()
                         .getPackageInfo(context.getPackageName(), 0).versionCode;
                     if (remoteCode <= localCode) {
-                        debugStep(context, "2_noupdate", remoteCode + "<=" + localCode);
                         runCb(onNoUpdate); return;
                     }
-                    debugStep(context, "3_download_start", "remote=" + remoteCode + " local=" + localCode + " url=" + apkUrl);
+                    android.util.Log.d("UpdateChecker", "3_download_start: remote=" + remoteCode + " local=" + localCode);
 
                     File apkFile = getApkFile(context);
                     Response dlResp = DOWNLOAD_CLIENT.newCall(
                         new Request.Builder().url(apkUrl).build()).execute();
                     if (!dlResp.isSuccessful()) {
-                        debugStep(context, "ERR_download_http", String.valueOf(dlResp.code()));
+                        android.util.Log.e("UpdateChecker", "ERR_download_http: " + dlResp.code());
                         runCb(onFailure); return;
                     }
                     if (dlResp.body() == null) {
-                        debugStep(context, "ERR_download_nobody", "");
+                        android.util.Log.e("UpdateChecker", "ERR_download_nobody");
                         runCb(onFailure); return;
                     }
-                    debugStep(context, "4_download_ok", "writing to " + apkFile.getAbsolutePath());
+                    android.util.Log.d("UpdateChecker", "4_download_ok: writing to " + apkFile.getAbsolutePath());
                     try (InputStream is = dlResp.body().byteStream();
                          FileOutputStream fos = new FileOutputStream(apkFile)) {
                         byte[] buf = new byte[4096]; int n;
@@ -320,10 +318,10 @@ public class UpdateChecker {
                             + " && cp " + apkFile.getAbsolutePath()
                             + " /data/local/tmp/" + APK_FILENAME
                             + " && pm install -r /data/local/tmp/" + APK_FILENAME;
-                        debugStep(context, "5_su_start", suPath + " 0 sh -c");
+                        android.util.Log.d("UpdateChecker", "5_su_start: " + suPath + " 0 sh -c");
                         proc = Runtime.getRuntime().exec(new String[]{suPath, "0", "sh", "-c", cmd});
                     } else {
-                        debugStep(context, "5_su_start", suPath + " -c");
+                        android.util.Log.d("UpdateChecker", "5_su_start: " + suPath + " -c");
                         proc = Runtime.getRuntime().exec(new String[]{
                             suPath, "-c", "pm install -r " + apkFile.getAbsolutePath()
                         });
@@ -337,7 +335,7 @@ public class UpdateChecker {
                     waiter.join(60000);
                     if (waiter.isAlive()) {
                         proc.destroy();
-                        debugStep(context, "ERR_su_timeout", "60s");
+                        android.util.Log.e("UpdateChecker", "ERR_su_timeout: 60s");
                         runCb(onFailure); return;
                     }
                     // Read stdout — pm install prints "Success" or "Failure [REASON]".
@@ -355,60 +353,19 @@ public class UpdateChecker {
 
                     int exitCode = proc.exitValue();
                     if (exitCode != 0) {
-                        debugStep(context, "ERR_su_exit", exitCode + " pm=" + pmOut);
+                        android.util.Log.e("UpdateChecker", "ERR_su_exit: " + exitCode + " pm=" + pmOut);
                         runCb(onFailure); return;
                     }
                     if (!pmOut.isEmpty() && !pmOut.contains("Success")) {
-                        debugStep(context, "ERR_pm_output", pmOut);
+                        android.util.Log.e("UpdateChecker", "ERR_pm_output: " + pmOut);
                         runCb(onFailure); return;
                     }
-                    debugStep(context, "6_su_ok", "exit=0 pm=" + pmOut);
+                    android.util.Log.d("UpdateChecker", "6_su_ok: exit=0 pm=" + pmOut);
                     // Exit 0: package manager will kill and restart this process.
                 } catch (Exception e) {
-                    debugStep(context, "ERR_exception", e.getClass().getSimpleName() + ":" + e.getMessage());
+                    android.util.Log.e("UpdateChecker", "ERR_exception: " + e.getClass().getSimpleName() + ":" + e.getMessage());
                     runCb(onFailure);
                 } finally { sInstallInProgress = false; }
-            }
-        }).start();
-    }
-
-    // Fire-and-forget: POST the current step to /api/ota-debug for remote diagnostics.
-    private static void debugStep(final Context context, final String step, final String detail) {
-        new Thread(new Runnable() {
-            @Override public void run() {
-                try {
-                    android.content.SharedPreferences p =
-                        context.getSharedPreferences("ris_kiosk_prefs",
-                            android.content.Context.MODE_PRIVATE);
-                    String room     = p.getString("room_email", "");
-                    String roomname = p.getString("room_name",  "");
-                    if (room.isEmpty()) return;
-                    String ver = "";
-                    try { ver = context.getPackageManager()
-                        .getPackageInfo(context.getPackageName(), 0).versionName;
-                    } catch (Exception ignored) {}
-                    String body = "{\"room\":\"" + room
-                        + "\",\"roomname\":\"" + roomname
-                        + "\",\"step\":\"" + step
-                        + "\",\"detail\":\"" + detail.replace("\"", "'")
-                        + "\",\"apkVersion\":\"" + ver + "\"}";
-                    okhttp3.OkHttpClient dbgClient = new okhttp3.OkHttpClient.Builder()
-                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                        .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                        .sslSocketFactory(
-                            ((javax.net.ssl.SSLSocketFactory) CLIENT.sslSocketFactory()),
-                            TRUST_ALL)
-                        .hostnameVerifier(new javax.net.ssl.HostnameVerifier() {
-                            @Override public boolean verify(String h, javax.net.ssl.SSLSession s) { return true; }
-                        })
-                        .build();
-                    okhttp3.Request req = new okhttp3.Request.Builder()
-                        .url("https://ris-display.ris-display.workers.dev/api/ota-debug")
-                        .post(okhttp3.RequestBody.create(
-                            okhttp3.MediaType.parse("application/json"), body))
-                        .build();
-                    dbgClient.newCall(req).execute().close();
-                } catch (Exception ignored) {}
             }
         }).start();
     }
