@@ -3696,14 +3696,9 @@ try{
       // action — auto-resolve immediately so they don't clutter the
       // incident list as perpetually "OPEN".
       if(rr.reason==='auto_update_reload'){
-        reportIncident('auto_update_reload',
-          'Auto-update v'+rr.fromVersion+' \u2192 v'+rr.toVersion,true,function(key){
-            resolveIncident(key,'Self-triggered version update — informational only');
-          });
+        dbg('Auto-update reload v'+rr.fromVersion+' \u2192 v'+rr.toVersion+' — informational, no incident');
       } else if(rr.reason==='admin_reload'){
-        reportIncident('admin_reload','Admin-triggered reload command',true,function(key){
-          resolveIncident(key,'Admin-requested — informational only');
-        });
+        dbg('Admin-triggered reload — informational, no incident');
       } else if(rr.reason==='midday_reload'){
         dbg('Midday reload (12:30 BKK) — expected, no incident');
       }
