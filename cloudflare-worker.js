@@ -372,6 +372,24 @@ async function handleAlarmLog(request, env) {
       await env.RIS_KV.put(roomKey, JSON.stringify(standbyRecord), { expirationTtl: 43200 });
     }
 
+    // cold_boot / wake — stamp room record so dashboard shows correct state after reboot.
+    // Healthy-state heartbeats no longer write roomKey, so this ensures the key is refreshed
+    // immediately on boot/wake rather than waiting for the next scheduled heartbeat (up to 30 min).
+    // TTL 7200s (2h) — same as heartbeat; next heartbeat will overwrite with full record.
+    if (data.event === 'cold_boot' || data.event === 'wake') {
+      var roomKey = 'room:' + data.room;
+      var prevRaw = await env.RIS_KV.get(roomKey);
+      var prev = prevRaw ? JSON.parse(prevRaw) : {};
+      var eventRecord = Object.assign({}, prev, {
+        room:       data.room,
+        roomname:   data.roomname || prev.roomname || '',
+        status:     'live',
+        apkVersion: data.apkVersion || prev.apkVersion || '',
+        timestamp:  new Date().toISOString()
+      });
+      await env.RIS_KV.put(roomKey, JSON.stringify(eventRecord), { expirationTtl: 7200 });
+    }
+
     return jsonResponse({ ok: true });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
