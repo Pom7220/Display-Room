@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.util.Log;
 import java.security.Security;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -100,11 +101,15 @@ public class BootReceiver extends BroadcastReceiver {
 
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
+                if (attempt == 0) {
+                    Log.d("BootReceiver", "clock before fix: " + new java.util.Date(System.currentTimeMillis()));
+                }
                 if (attempt > 0) Thread.sleep(10000);
                 Response resp = new OkHttpClient().newCall(new Request.Builder()
                     .url("https://ris-display.ris-display.workers.dev/api/alarm")
                     .post(body).build()).execute();
                 String dateHeader = resp.header("Date");
+                Log.d("BootReceiver", "server Date header: " + dateHeader);
                 resp.close();
                 if (dateHeader == null) return;
 
@@ -123,9 +128,13 @@ public class BootReceiver extends BroadcastReceiver {
                     bkk.get(Calendar.MINUTE),
                     bkk.get(Calendar.YEAR),
                     bkk.get(Calendar.SECOND));
+                Log.d("BootReceiver", "setting clock to BKK: " + dateStr);
                 Runtime.getRuntime().exec(new String[]{"su", "0", "date", dateStr}).waitFor();
+                Log.d("BootReceiver", "clock after fix: " + new java.util.Date(System.currentTimeMillis()));
                 return;
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                Log.e("BootReceiver", "fixClockAndLogBoot attempt " + attempt + " failed: " + e.getMessage());
+            }
         }
     }
 
