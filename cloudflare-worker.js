@@ -266,51 +266,57 @@ async function handleHeartbeat(request, env) {
       ip: request.headers.get('CF-Connecting-IP') || ''
     };
     // TTL 2 hours — covers 30-min normal heartbeat interval with headroom
-    await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
+    // KV writes are best-effort — if daily limit is exhausted, swallow the error
+    // and return 200 so tablets keep heartbeating normally.
+    try {
+      await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
 
-    // Only write hbHist during incidents — granular trail when needed
-    if (incidentActive) {
-      var hbHistKey = 'hb_history:' + data.room;
-      var hbHistRaw = await env.RIS_KV.get(hbHistKey);
-      var hbHist = hbHistRaw ? JSON.parse(hbHistRaw) : [];
-      hbHist.unshift({ timestamp: new Date().toISOString(), status: newStatus });
-      if (hbHist.length > 20) hbHist = hbHist.slice(0, 20);
-      await env.RIS_KV.put(hbHistKey, JSON.stringify(hbHist), { expirationTtl: 604800 });
-    }
-
-    // Auto-resolve any open standby_failure incident on first heartbeat after recovery.
-    // standby_open key has 2-day TTL — survives room record expiry (2h) across the whole night.
-    var openIncidentKey = await env.RIS_KV.get('standby_open:' + data.room);
-    if (openIncidentKey) {
-      var openIncRaw = await env.RIS_KV.get(openIncidentKey);
-      if (openIncRaw) {
-        var openInc = JSON.parse(openIncRaw);
-        if (!openInc.resolvedAt) {
-          var resolvedAtMs  = Date.now();
-          var reportedAtMs  = new Date(openInc.reportedAt).getTime();
-          var durMs         = resolvedAtMs - reportedAtMs;
-          var durHrs        = Math.floor(durMs / 3600000);
-          var durMins       = Math.floor((durMs % 3600000) / 60000);
-          var bkkNow        = new Date(resolvedAtMs + 7 * 3600000);
-          var bkkHHMM       = bkkNow.toISOString().slice(11, 16);
-          var bkkDays       = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-          var bkkDay        = bkkDays[bkkNow.getUTCDay()];
-          openInc.resolvedAt      = new Date(resolvedAtMs).toISOString();
-          openInc.resolvedBy      = 'auto_heartbeat';
-          openInc.resolution      = 'Back online ' + bkkDay + ' ' + bkkHHMM + ' BKK'
-            + ' — standby failed for ' + durHrs + 'h ' + durMins + 'm';
-          openInc.durationMinutes = Math.round(durMs / 60000);
-          await env.RIS_KV.put(openIncidentKey, JSON.stringify(openInc), { expirationTtl: 2592000 });
-        }
+      // Only write hbHist during incidents — granular trail when needed
+      if (incidentActive) {
+        var hbHistKey = 'hb_history:' + data.room;
+        var hbHistRaw = await env.RIS_KV.get(hbHistKey);
+        var hbHist = hbHistRaw ? JSON.parse(hbHistRaw) : [];
+        hbHist.unshift({ timestamp: new Date().toISOString(), status: newStatus });
+        if (hbHist.length > 20) hbHist = hbHist.slice(0, 20);
+        await env.RIS_KV.put(hbHistKey, JSON.stringify(hbHist), { expirationTtl: 604800 });
       }
-      // Delete pointer so future heartbeats don't re-check
-      await env.RIS_KV.delete('standby_open:' + data.room);
-      await env.RIS_KV.delete('incident_active:' + data.room);
-    }
 
-    // Safety: if standby_open expired naturally but incident_active was never cleared, clear it now
-    if (incidentActive && !openIncidentKey) {
-      await env.RIS_KV.delete('incident_active:' + data.room);
+      // Auto-resolve any open standby_failure incident on first heartbeat after recovery.
+      // standby_open key has 2-day TTL — survives room record expiry (2h) across the whole night.
+      var openIncidentKey = await env.RIS_KV.get('standby_open:' + data.room);
+      if (openIncidentKey) {
+        var openIncRaw = await env.RIS_KV.get(openIncidentKey);
+        if (openIncRaw) {
+          var openInc = JSON.parse(openIncRaw);
+          if (!openInc.resolvedAt) {
+            var resolvedAtMs  = Date.now();
+            var reportedAtMs  = new Date(openInc.reportedAt).getTime();
+            var durMs         = resolvedAtMs - reportedAtMs;
+            var durHrs        = Math.floor(durMs / 3600000);
+            var durMins       = Math.floor((durMs % 3600000) / 60000);
+            var bkkNow        = new Date(resolvedAtMs + 7 * 3600000);
+            var bkkHHMM       = bkkNow.toISOString().slice(11, 16);
+            var bkkDays       = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            var bkkDay        = bkkDays[bkkNow.getUTCDay()];
+            openInc.resolvedAt      = new Date(resolvedAtMs).toISOString();
+            openInc.resolvedBy      = 'auto_heartbeat';
+            openInc.resolution      = 'Back online ' + bkkDay + ' ' + bkkHHMM + ' BKK'
+              + ' — standby failed for ' + durHrs + 'h ' + durMins + 'm';
+            openInc.durationMinutes = Math.round(durMs / 60000);
+            await env.RIS_KV.put(openIncidentKey, JSON.stringify(openInc), { expirationTtl: 2592000 });
+          }
+        }
+        // Delete pointer so future heartbeats don't re-check
+        await env.RIS_KV.delete('standby_open:' + data.room);
+        await env.RIS_KV.delete('incident_active:' + data.room);
+      }
+
+      // Safety: if standby_open expired naturally but incident_active was never cleared, clear it now
+      if (incidentActive && !openIncidentKey) {
+        await env.RIS_KV.delete('incident_active:' + data.room);
+      }
+    } catch (kvErr) {
+      console.log('heartbeat KV write failed (limit?): ' + kvErr.message + ' room=' + data.room);
     }
 
     return jsonResponse({
