@@ -227,6 +227,7 @@ async function handleHeartbeat(request, env) {
     if (!data.room) {
       return jsonResponse({ error: 'Missing room' }, 400);
     }
+    console.log('heartbeat room=' + data.room + ' status=' + (data.status || '') + ' v=' + (data.version || ''));
 
     var roomKey = 'room:' + data.room;
     var cmdKey  = 'cmd:'  + data.room;
