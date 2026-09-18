@@ -88,19 +88,19 @@ Use when the agent flags a case as "needs ADB" — pattern not explainable from 
 Active — confirmed IPs after NW rearrangement on 2026-09-14:
 - Doppio:      10.0.54.101  (ADB authorized, v5.101 ✅)
 - Cappuccino:  10.0.54.102  (ADB authorized, v5.101 ✅ — MEET IN TOUCH disabled; UID mismatch fixed 2026-09-17)
-- Americano:   10.0.54.103  (app NOT yet deployed — lobby tablet)
-- Lungo:       10.0.54.104  (app NOT yet deployed — lobby tablet)
-- Ristretto:   10.0.54.105  (app NOT yet deployed — lobby tablet)
+- Americano:   10.0.54.103  (deployed 2026-09-18, v5.106 ✅)
+- Lungo:       10.0.54.104  (deployed 2026-09-18, v5.106 ✅)
+- Ristretto:   10.0.54.105  (deployed 2026-09-18, v5.106 ✅)
 - Macchiato:   10.0.54.106  (ADB authorized, v5.101 ✅ — MEET IN TOUCH disabled 2026-09-17)
 - Viennese:    10.0.54.107  (ADB authorized, v5.101 ✅)
 - Decaffinato: 10.0.54.108  (ADB unauthorized, v5.101 ✅)
 - Latte:       10.0.54.109  (ADB authorized, v5.101 ✅ — Android 10; MEET IN TOUCH disabled; plain reboot confirmed working)
 - Mocha:       10.0.54.110  (ADB authorized, v5.101 ✅)
 - Affogato:    10.0.54.111  (ADB authorized, v5.101 ✅)
-- Espresso:    10.0.54.112  (app NOT yet deployed — lobby tablet)
+- Espresso:    10.0.54.112  (app NOT yet deployed — scheduled next week)
 
-Note: All IPs changed by NW team on 2026-09-14. Old mapping is obsolete. Lobby tablets (.103–.105, .112) on separate VLAN with FortiGate HTTPS interception issue — not yet deployed. No LGKioskMode risk on lobby tablets.
-NW confirmed: IP range 10.0.54.101–120 is whitelisted in FortiGate SSL bypass rule.
+Note: All IPs changed by NW team on 2026-09-14. Old mapping is obsolete. No LGKioskMode risk on lobby tablets.
+NW confirmed 2026-09-14 (Monday night): FortiGate SSL bypass rule covers entire IP range 10.0.54.101–120, including all lobby tablets. Network/FortiGate is NOT a blocker for any tablet deployment. Do NOT suspect network as a cause without direct evidence — this was a persistent false assumption that cost multiple debug sessions.
 
 **Step 1 — Connect:**
 ```
@@ -159,6 +159,17 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 - prevention: After every `adb install -r` sideload, verify UID matches prefs ownership. Get current UID: `dumpsys package th.co.central.ris.bootlauncher | findstr userId`. Rewrite prefs ownership with that UID.
 - agent action: If tablet shows no `room=` in WebView URL (visible in logcat chromium lines) but prefs file exists, check UID mismatch.
 
+### [2026-09-17] Latte device clock 7 hours ahead — standby fires at 13:30 instead of 20:30
+- status: candidate (root cause unconfirmed — watch tomorrow 06:00 cold_boot)
+- firstSeen: 2026-09-17 13:30 BKK
+- evidence: Latte `standby` event logged at 13:30 BKK (server-side timestamp). Device clock showed 21:04 when actual BKK was 14:04 — exactly +7h ahead. `persist.sys.timezone` = Asia/Bangkok (correct). `NTP cache age: Long.MAX_VALUE` — NTP has never successfully synced this boot session. `auto_time = 1` (enabled but not working). Standby at 13:30 = 20:30 − 7h → exact match for device clock being 7h ahead.
+- hypothesis: RTC stores local BKK time; Android reads it as UTC and adds +7 → clock shows UTC+14 effective. Every boot re-applies the double-offset. NTP either blocked (UDP 123 firewall) or returning wrong time.
+- workaround applied: Disabled `auto_time` (`settings put global auto_time 0`) and set clock to actual BKK time (`su 0 date 091714172026.00`). Latte restored via `am start -n .../MainActivity --ez auto_launch true`. Clock holds correctly within session but will revert on next cold reboot.
+- trigger: Manual cold reboot at 10:49 BKK (our test). Before that reboot the clock was presumably correct; NTP did not sync after boot to correct the RTC offset.
+- to-watch: Tomorrow 06:00 — if cold_boot logged at ~23:00 BKK tonight or ~06:00 correct → confirms/refutes RTC as persistent source. If clock wrong again after 06:00 reboot, permanent fix needed: either force NTP sync, correct RTC once via `su 0 date <UTC_as_local>`, or add clock check to BootReceiver.
+- recovery: `settings put global auto_time 0; su 0 date MMDDHHMMYYYY.ss` (use actual UTC time in BKK format, e.g. if actual BKK=14:17, actual UTC=07:17, run `su 0 date 091707172026.00`). Then `am start -n th.co.central.ris.bootlauncher/.MainActivity --ez auto_launch true`.
+- agent action: If Latte `standby` fires outside 20:20–20:40 BKK window, suspect device clock offset. Check `adb shell date` vs actual BKK time. If >10 min off, apply recovery above.
+
 ### [2026-09-17] silentInstall hangs when network unavailable — blocks cold reboot
 - status: confirmed
 - confirmedOn: 2026-09-17
@@ -190,6 +201,20 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 - fix required: Network engineer must identify what device on Lobby VLAN (gateway 10.0.54.11) intercepts HTTPS to Cloudflare (172.67.213.200:443) and configure it to allow traffic, same as Office VLAN. The "all 12 whitelisted" statement from network engineer is incorrect or refers only to SSL inspection — a separate URL/content filter is blocking Lobby VLAN traffic to Cloudflare Workers.
 - fix applies to: All 6 Lobby tablets (Doppio, Cappuccino, Americano, Lungo, Ristretto, Espresso) — same VLAN, same issue.
 - evidence to show NW engineer: "Cloudflare Worker logs show zero requests from Doppio (10.0.54.81) while all Office tablets appear. Request intercepted before leaving building. Device on Lobby VLAN gateway 10.0.54.11 must be configured to allow HTTPS to 172.67.213.200:443."
+
+## System Architecture — Current State (2026-09-18)
+
+### Deployment status (2026-09-18)
+- **10 tablets now live** (up from 8 as of this morning):
+  - Office (8): Doppio, Cappuccino, Macchiato, Viennese, Decaffinato, Mocha, Affogato, Latte
+  - Lobby (3, newly added today): Americano (.103), Lungo (.104), Ristretto (.105)
+  - Lobby pending: Espresso (.112) — scheduled next week
+- **APK**: v5.106 on all deployed tablets
+  - v5.106 fix: `su 0 reboot` after OTA on Android 10 (replaces DPM.reboot which requires Device Owner not just Device Admin). Confirmed working on Latte 2026-09-18.
+- **index.html**: v3.10.206 target (tablets updating via Reload All today)
+- **MEET IN TOUCH**: disabled on all lobby tablets via `pm disable me.exzy.meetingroom`. Latte disabled via `pm disable-user --user 0` (Android 10, no su needed).
+- **Network**: FortiGate SSL bypass covers 10.0.54.101–120 — no network blocker for any tablet.
+- **KV writes**: Event-driven heartbeat active (v3.10.206 worker) — writes only during incidents. ~576 writes/day at 10 tablets healthy.
 
 ## System Architecture — Current State (2026-09-12)
 
