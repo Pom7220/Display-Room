@@ -55,6 +55,7 @@ public class ForegroundWatchService extends Service {
         public void run() {
             checkHeartbeat();
             checkAndRestore();
+            checkEscalation();
             handler.postDelayed(this, CHECK_INTERVAL_MS);
         }
     };
@@ -105,6 +106,61 @@ public class ForegroundWatchService extends Service {
                 BootReceiver.launchWebView(getApplicationContext());
             }
         } catch (Exception ignored) {}
+    }
+
+    private void checkEscalation() {
+        android.content.SharedPreferences prefs =
+            getSharedPreferences("ris_kiosk_prefs", MODE_PRIVATE);
+        long firstRestartMs = prefs.getLong("escalation_first_restart_ms", 0L);
+        if (firstRestartMs == 0L) return; // no escalation in progress
+
+        // Standby / weekend gate — same bounds as checkAndHeal()
+        java.util.Calendar bkk = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        int timeBKK = bkk.get(java.util.Calendar.HOUR_OF_DAY) * 100
+                    + bkk.get(java.util.Calendar.MINUTE);
+        if (timeBKK < 730 || timeBKK >= 2030) return;
+        int day = bkk.get(java.util.Calendar.DAY_OF_WEEK);
+        if (day == java.util.Calendar.SATURDAY || day == java.util.Calendar.SUNDAY) return;
+
+        // 120-min threshold
+        if (System.currentTimeMillis() - firstRestartMs < 120 * 60 * 1000L) return;
+
+        fireEscalatedReboot(prefs);
+    }
+
+    private void fireEscalatedReboot(android.content.SharedPreferences prefs) {
+        // Daily cap check — resets by BKK calendar date, not on cold_boot
+        java.text.SimpleDateFormat sdf =
+            new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        String today = sdf.format(new java.util.Date());
+        String lastDate = prefs.getString("escalation_daily_reboot_date", "");
+        int dailyCount = today.equals(lastDate)
+            ? prefs.getInt("escalation_daily_reboot_count", 0) : 0;
+        if (dailyCount >= 3) return; // cap reached — wait for manual intervention
+
+        // Commit escalation state update before reboot (sync write is critical here)
+        prefs.edit()
+            .putString("escalation_daily_reboot_date", today)
+            .putInt("escalation_daily_reboot_count", dailyCount + 1)
+            .putLong("escalation_first_restart_ms", 0L)
+            .putInt("escalation_restart_count", 0)
+            .commit(); // commit() not apply() — process may die immediately after
+
+        final android.content.Context ctx = getApplicationContext();
+        new Thread(new Runnable() {
+            @Override public void run() {
+                ScheduleReceiver.logAlarmEventSync(ctx, "escalated_reboot");
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= 21) {
+                        Runtime.getRuntime().exec(new String[]{"reboot"});
+                    } else {
+                        Runtime.getRuntime().exec(new String[]{"su", "-c", "reboot"});
+                    }
+                } catch (Exception ignored) {}
+            }
+        }).start();
     }
 
     private void createNotificationChannel() {
