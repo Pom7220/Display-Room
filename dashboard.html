@@ -1134,11 +1134,15 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
       (!isOnline ? '#ff3333' :
        isSleep   ? '#4a5568' :
        '#00d68f');
+    var _upMins = r ? ((r.uptime || 0) + (r.lastSeenMinutes || 0)) : 0;
+    var _upHrs  = Math.floor(_upMins / 60);
+    var _upRem  = _upMins % 60;
+    var _upStr  = _upHrs > 0 ? _upHrs + 'h ' + _upRem + 'm' : _upRem + 'm';
     const statusText = !r ? 'No heartbeat' :
       (!isOnline  ? 'Offline (' + r.lastSeenMinutes + 'm ago)' :
        isSleep    ? '🌙 Standby' :
        r.status === 'needs_tap' ? '👆 Waiting for tap' :
-       'Online — ' + r.status);
+       'Online — ' + _upStr);
     const tokenText = ''; // removed: proxy auth — no token status needed
     const modeText = '';
     const versionText = r && r.version ? r.version : '';
