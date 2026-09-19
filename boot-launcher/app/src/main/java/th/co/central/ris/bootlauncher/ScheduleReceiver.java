@@ -73,7 +73,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
             } else {
                 logAlarmEvent(context, "wake_weekend");
             }
-            setExactAlarm(context, ACTION_WAKE, 2, 7, 0);
+            setExactAlarm(context, ACTION_WAKE, 2, 7, 30);
 
         } else if (ACTION_HEALTH_CHECK.equals(action)) {
             if (isBusinessHours() && !isWeekend()) {
@@ -105,7 +105,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
     static void schedule(Context context, boolean hasLgKioskMode) {
         setExactAlarm(context, ACTION_STANDBY, 1, 20, 30);
         setExactAlarm(context, ACTION_RESTART, 3,  6,  0);
-        setExactAlarm(context, ACTION_WAKE,    2,  7,  0);
+        setExactAlarm(context, ACTION_WAKE,    2,  7, 30);
         scheduleHealthCheck(context);
         scheduleWatchdog(context);
     }
@@ -168,6 +168,7 @@ public class ScheduleReceiver extends BroadcastReceiver {
         int timeBKK = bkk.get(java.util.Calendar.HOUR_OF_DAY) * 100
                     + bkk.get(java.util.Calendar.MINUTE);
         if (timeBKK < 730 || timeBKK >= 2030) return; // standby hours — nothing to heal
+        if (isWeekend()) return; // tablets stay in standby on weekends
 
         android.app.ActivityManager am =
             (android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
