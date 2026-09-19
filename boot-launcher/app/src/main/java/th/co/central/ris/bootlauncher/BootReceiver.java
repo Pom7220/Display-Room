@@ -51,6 +51,14 @@ public class BootReceiver extends BroadcastReceiver {
         // All post-boot logic on a background thread so we can make a blocking HTTP call
         // to fix the clock before deciding standby vs wake.
         new Thread(new Runnable() { @Override public void run() {
+            // Clear per-session escalation state — fresh boot resets the restart ladder.
+            // Note: escalation_daily_reboot_count is intentionally NOT cleared here;
+            // it resets by calendar date in fireEscalatedReboot() to enforce the daily cap.
+            context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE).edit()
+                .putLong("escalation_first_restart_ms", 0L)
+                .putInt("escalation_restart_count", 0)
+                .apply();
+
             // On API 21+ (Lenovo/Android 10): firmware writes LOCAL time to RTC on software
             // shutdown. Android reads it as UTC on next boot → clock is 7h ahead.
             // Fix: POST cold_boot to server, read the authoritative Date header, set clock.

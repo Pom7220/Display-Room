@@ -166,7 +166,55 @@ public class KioskWebViewActivity extends Activity {
 
     /** Schedule a fresh process launch 3 s from now, then kill this process. */
     private void scheduleProcessRestart(final String reason) {
+        // Persist escalation state before killing — static fields reset on process death.
+        final android.content.SharedPreferences prefs =
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        long firstRestartMs = prefs.getLong("escalation_first_restart_ms", 0L);
+        if (firstRestartMs == 0L) firstRestartMs = System.currentTimeMillis();
+        final int restartCount = prefs.getInt("escalation_restart_count", 0) + 1;
+        final long windowMs = System.currentTimeMillis() - firstRestartMs;
+        prefs.edit()
+            .putLong("escalation_first_restart_ms", firstRestartMs)
+            .putInt("escalation_restart_count", restartCount)
+            .commit(); // commit() — process may die immediately after
+
         logWebViewRestart(reason);
+
+        // Restart loop detected: 3+ restarts within 120 min → skip another restart, hard reboot.
+        if (restartCount >= 3 && windowMs < 120 * 60 * 1000L) {
+            // Check daily cap (same logic as ForegroundWatchService.fireEscalatedReboot)
+            java.text.SimpleDateFormat sdf =
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+            final String today = sdf.format(new java.util.Date());
+            String lastDate = prefs.getString("escalation_daily_reboot_date", "");
+            int dailyCount = today.equals(lastDate)
+                ? prefs.getInt("escalation_daily_reboot_count", 0) : 0;
+            if (dailyCount < 3) {
+                prefs.edit()
+                    .putString("escalation_daily_reboot_date", today)
+                    .putInt("escalation_daily_reboot_count", dailyCount + 1)
+                    .putLong("escalation_first_restart_ms", 0L)
+                    .putInt("escalation_restart_count", 0)
+                    .commit();
+                final android.content.Context ctx = getApplicationContext();
+                new Thread(new Runnable() {
+                    @Override public void run() {
+                        ScheduleReceiver.logAlarmEventSync(ctx, "escalated_reboot");
+                        try {
+                            if (android.os.Build.VERSION.SDK_INT >= 21) {
+                                Runtime.getRuntime().exec(new String[]{"reboot"});
+                            } else {
+                                Runtime.getRuntime().exec(new String[]{"su", "-c", "reboot"});
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }).start();
+                return; // reboot is coming — do not also kill the process
+            }
+        }
+
+        // Normal Level 1: schedule relaunch in 3 s then kill this process.
         android.app.AlarmManager am =
             (android.app.AlarmManager) getSystemService(ALARM_SERVICE);
         Intent relaunch = new Intent(this, KioskWebViewActivity.class);
@@ -413,13 +461,18 @@ public class KioskWebViewActivity extends Activity {
         }
     }
 
-    private static class HeartbeatBridge {
+    private class HeartbeatBridge {
         @JavascriptInterface
         public void recordHeartbeatSuccess(int intervalMins) {
             ScheduleReceiver.lastHeartbeatSuccessMs = System.currentTimeMillis();
             if (intervalMins > 0) {
                 ScheduleReceiver.heartbeatIntervalMs = intervalMins * 60 * 1000L;
             }
+            // Recovery confirmed — clear escalation state (daily cap intentionally kept)
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                .putLong("escalation_first_restart_ms", 0L)
+                .putInt("escalation_restart_count", 0)
+                .apply();
         }
     }
 
