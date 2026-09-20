@@ -410,7 +410,7 @@ function startClock(){
     el('clock-time').textContent=`${pad(n.getHours())}:${pad(n.getMinutes())}`;
     el('clock-date').textContent=n.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short'});
   };
-  tick();setInterval(tick,15000);
+  tick();setInterval(tick,300000);
 }
 
 function initMsal(){
@@ -472,7 +472,7 @@ function startDashboardKeepalive(){
 function initDashboard(){
   // Admin panel only — room display uses initMsal() separately
   refreshAdmin();
-  adminRefreshInterval = setInterval(refreshAdmin, 30000);
+  adminRefreshInterval = setInterval(refreshAdmin, 300000);
 }
 
 // Decode email from access token JWT — reliable on all browsers
