@@ -509,17 +509,10 @@ async function getToken(){
   if(_redirectInProgress)return null;
   // No account — attempt silent reauth with saved hint, or show sign-in bar
   if(!account){
-    const savedHint=localStorage.getItem('roomdisplay_loginhint')||'';
-    if(savedHint){
-      try{
-        _redirectInProgress=true;
-        // prompt:select_account avoids AADSTS50196 loop on Safari normal mode
-        // prompt:none caused loop when existing MS session cookie conflicted with loginHint
-        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'select_account'});
-      }catch(e){_redirectInProgress=false;showSignInBar();}
-    } else {
-      showSignInBar();
-    }
+    // Never auto-redirect here — callers like setInterval(fetchAllRooms) fire before
+    // account is set; auto-redirect causes picker loops on Safari. Show sign-in bar
+    // and let the user tap to initiate auth (doSignIn uses select_account).
+    showSignInBar();
     return null;
   }
   // Have account — try acquireTokenSilent first (no redirect at all)
@@ -529,16 +522,8 @@ async function getToken(){
     _tokenExp=r.expiresOn?.getTime()||(Date.now()+3600000);
     return _token;
   }catch(e){
-    // Silent token renewal failed — redirect with hint
-    const savedHint=localStorage.getItem('roomdisplay_loginhint')||'';
-    if(savedHint&&!_redirectInProgress){
-      try{
-        _redirectInProgress=true;
-        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'select_account'});
-      }catch(e2){_redirectInProgress=false;showSignInBar();}
-    } else {
-      showSignInBar();
-    }
+    // Silent token renewal failed — show sign-in bar, don't auto-redirect
+    showSignInBar();
     return null;
   }
 }
@@ -990,7 +975,7 @@ if(!account){
   fetchAllRooms();
   startDashboardKeepalive();
 }
-setInterval(fetchAllRooms, 60000);
+setInterval(function(){ if(account) fetchAllRooms(); }, 60000);
 
 initDashboard();  // Admin panel
 
