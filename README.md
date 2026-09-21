@@ -7,9 +7,9 @@ Meeting room kiosk display and mobile dashboard for the RIS floor at Central Sil
 - Dashboard: `https://ris-display.ris-display.workers.dev/dashboard.html`
 - GitHub Pages (direct): `https://pom7220.github.io/Display-Room/` *(update after corporate repo transfer)*
 
-**Current versions:** index v3.10.192 · boot-launcher APK v5.75 · cloudflare-worker (auto-deployed via GitHub Actions)
+**Current versions:** index v3.10.211 · boot-launcher APK v5.109 · cloudflare-worker (auto-deployed via GitHub Actions)
 
-**Deployment status:** 6 of 12 tablets live (office zone — Macchiato, Viennese, Decaffinato, Latte, Mocha, Affogato). Macchiato, Viennese, Decaffinato, Mocha, and Affogato run Android 4.4.2 (LG 10SM3TB). Latte runs Android 10 (Lenovo-style tablet).
+**Deployment status:** 12 of 12 tablets live (all rooms complete 2026-09-21). Office zone (8): Macchiato, Viennese, Decaffinato, Latte, Mocha, Affogato, Doppio, Cappuccino. Lobby zone (4): Americano, Lungo, Ristretto, Espresso. LG Android 4.4.2 (10SM3TB) × 11; Latte runs Android 10 (Lenovo-style tablet).
 
 ---
 
@@ -216,7 +216,7 @@ loadCfg() → initMsal() → handleRedirectCallback → launch()
 
 ---
 
-### boot-launcher/ (v5.75) — Android APK
+### boot-launcher/ (v5.109) — Android APK
 
 **Package:** `th.co.central.ris.bootlauncher`
 
@@ -230,7 +230,7 @@ loadCfg() → initMsal() → handleRedirectCallback → launch()
 | `MainActivity.java` | Setup screen — room email/name, saved to SharedPreferences |
 | `UpdateChecker.java` | Polls Worker `/api/version` on boot — downloads and silently installs APK via `su -c "pm install -r"` if newer version found. Reads `pm install` stdout to confirm success on Android 4.4 (exit code alone is unreliable — `su` always exits 0 on LG). Falls back to manual install dialog if root unavailable. |
 | `RestartReceiver.java` | Relaunches `KioskWebViewActivity` after silent OTA install via `MY_PACKAGE_REPLACED` broadcast. Uses a full-screen notification with `setFullScreenIntent()` on all Android versions to bypass Android 10 background activity launch restrictions. Registered in `AndroidManifest.xml`. |
-| `ForegroundWatchService.java` | Watchdog — checks every 5 min if WebView is foreground; relaunches if not |
+| `ForegroundWatchService.java` | Watchdog — checks every 5 min if WebView is foreground; relaunches if not. **Escalation ladder (v5.109):** Level 1 restarts JS process on ping_timeout; Level 2 triggers hard reboot after ≥3 restarts in 120 min or 120 min hung; Level 3 = daily 06:00 cold reboot |
 
 **Alarm chain (critical for daily restarts):**
 ```
@@ -302,12 +302,12 @@ Tablet powers on → BootReceiver fires
 
 | # | Name | Email | Seats | Zone | Approval | Tablet |
 |---|---|---|---|---|---|---|
-| 1 | Espresso | risespresso@central.co.th | 8–12 | Lobby | No | Pending |
-| 2 | Doppio | risdoppio@central.co.th | 6–8 | Lobby | No | Pending |
-| 3 | Cappuccino | riscappuccino@central.co.th | 6 | Lobby | No | Pending |
-| 4 | Americano | risamericano@central.co.th | 6 | Lobby | No | Pending |
-| 5 | Lungo | rislungo@central.co.th | 4 | Lobby | No | Pending |
-| 6 | Ristretto | risristretto@central.co.th | 4 | Lobby | No | Pending |
+| 1 | Espresso | risespresso@central.co.th | 8–12 | Lobby | No | ✅ Live |
+| 2 | Doppio | risdoppio@central.co.th | 6–8 | Lobby | No | ✅ Live |
+| 3 | Cappuccino | riscappuccino@central.co.th | 6 | Lobby | No | ✅ Live |
+| 4 | Americano | risamericano@central.co.th | 6 | Lobby | No | ✅ Live |
+| 5 | Lungo | rislungo@central.co.th | 4 | Lobby | No | ✅ Live |
+| 6 | Ristretto | risristretto@central.co.th | 4 | Lobby | No | ✅ Live |
 | 7 | Macchiato | rismacchiato@central.co.th | 5–8 | Office | **Yes** | ✅ Live |
 | 8 | Viennese | risviennese@central.co.th | 6 | Office | No | ✅ Live |
 | 9 | Decaffinato | risdecaffeinato@central.co.th | 6 | Office | No | ✅ Live |
@@ -366,9 +366,11 @@ grep -c "fetch(" index.html ris-shared.js
 1. Edit files under `boot-launcher/`
 2. Bump `versionCode` + `versionName` in `boot-launcher/app/build.gradle`
 3. Update `apk-version.json` to match
-4. `git push` → GitHub Actions builds APK and commits `ris-boot-launcher.apk` to repo root
-5. Download `ris-boot-launcher.apk` from repo root
-6. Sideload on each tablet via File Manager or `adb install -r ris-boot-launcher.apk`
+4. `git push` → GitHub Actions builds APK and commits `ris-boot-launcher.apk` to repo root (CI auto-commit — your local file becomes stale)
+5. `git pull` to get the CI-committed `ris-boot-launcher.apk` — use THIS file for sideloading, not any local build artifact
+6. Sideload via `adb install ris-boot-launcher.apk` (**never use `-r`** — reassigns UID, breaks SharedPreferences ownership; Cappuccino incident 2026-09-17)
+
+See `docs/ROLLOUT-RUNBOOK.md` for full per-tablet sideload steps.
 
 APK signing password: `a0000`
 
@@ -450,3 +452,10 @@ Commands are delivered via both heartbeat response (every 20 min) and command po
 | 2026-08-29 | APK v5.73 | Capture `pm install` stdout to detect false-positive `6_su_ok` on LG Android 4.4 (`su` exits 0 regardless of install result; stdout now read for "Success"/"Failure") |
 | 2026-08-31 | APK v5.74 | `postDelayed(300ms)` before re-applying immersive flags in `OnSystemUiVisibilityChangeListener`; fixes nav bar reappearing on Android 4.4 after system overlay dismisses without restoring window focus |
 | 2026-08-31 | APK v5.75 | `RestartReceiver` uses full-screen notification with `setFullScreenIntent()` instead of `startActivity()` directly; bypasses Android 10 background activity launch restrictions; works on Android 4.4 too |
+| 2026-09-01 | APK v5.89 | StandbyActivity lifecycle fix — activity finishes correctly after standby alarm |
+| 2026-09-14 | — | Network rearrangement: all tablets moved to 10.0.54.101–112 range; FortiGate rule updated to cover full range |
+| 2026-09-17 | — | Cappuccino UID mismatch incident: `adb install -r` reassigned UID, broke SharedPreferences; fixed by reinstalling without `-r` and restoring prefs ownership |
+| 2026-09-19 | v3.10.210 | Dashboard: escalated_reboot ⚡❄️ alarm chip added |
+| 2026-09-19 | APK v5.109 | Escalation ladder: Level 1 process restart on ping_timeout; Level 2 hard reboot after ≥3 restarts in 120 min or 120 min hung; Level 3 06:00 daily cold reboot |
+| 2026-09-20 | v3.10.211 | Dashboard auto-refresh 15s→5min to reduce KV read ops (was exceeding 100k/day limit with one open tab) |
+| 2026-09-21 | — | Rollout complete: all 12 tablets live (Espresso, 10.0.54.112, final room) |
