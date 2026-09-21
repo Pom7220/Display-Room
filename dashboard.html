@@ -1197,6 +1197,17 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
       card += '<div style="font-size:9px;color:var(--muted);margin:3px 0 4px;display:flex;flex-wrap:wrap;gap:2px 3px">' + _chips + '</div>';
     }
 
+    // JS error log row — show if any errors captured since last restart
+    if (r && r.lastErrors && r.lastErrors.length > 0) {
+      var _errChips = r.lastErrors.map(function(e) {
+        var t = e.ts ? new Date(new Date(e.ts).getTime() + 7*3600000).toISOString().slice(11, 16) : '?';
+        var msg = (e.msg || '').slice(0, 80);
+        return '<div style="color:var(--red);font-size:9px;margin:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+          '<span style="color:var(--muted)">' + t + '</span> ' + msg + '</div>';
+      }).join('');
+      card += '<div style="margin:3px 0 4px;border-left:2px solid var(--red);padding-left:4px">' + _errChips + '</div>';
+    }
+
     if (r && r.log && r.log.length > 0) {
       var filteredLog = r.log.filter(function(l) {
         return l.indexOf('Cal:') === -1 && l.indexOf('showAs') === -1;

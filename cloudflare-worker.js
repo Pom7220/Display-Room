@@ -262,6 +262,7 @@ async function handleHeartbeat(request, env) {
       qrPeakDay: data.qrPeakDay || 0,
       middayReload: newMiddayReload,
       pollStats: data.pollStats || null,
+      lastErrors: Array.isArray(data.lastErrors) ? data.lastErrors.slice(0, 5) : [],
       timestamp: new Date().toISOString(),
       ip: request.headers.get('CF-Connecting-IP') || ''
     };

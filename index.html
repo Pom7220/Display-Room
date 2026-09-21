@@ -818,8 +818,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 211,
-  date: '2026-09-20',
+  patch: 212,
+  date: '2026-09-21',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -902,6 +902,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.212 2026-09-21 - JS error log: window.onerror captures last 5 errors in _jsErrorLog, included in heartbeat payload; dashboard admin shows errors per room with red border-left indicator
 // v3.10.206 2026-09-18 - Fix false unexpected_reboot at 07:00 BKK: add 00:00 UTC ±10 min suppression window for tablets that boot into standby and load page at wake alarm
 // v3.10.205 2026-09-09 - First heartbeat after any page load sends restarted:true; Worker forces KV write on restarted flag — fixes dashboard showing stale offline after 06:00 restart when last write was <55m ago
 // v3.10.178 2026-07-31 - Standby diagnostics: pageHidden in heartbeat; visibilitychange after 19:00 BKK posts standby_resumed alarm event to diagnose StandbyActivity failures
@@ -1657,6 +1658,20 @@ function launch(){
 // ══════════════════════════════════════
 var _lastAndroidPingMs = 0;
 var _firstHeartbeat = true; // cleared after first send; tells Worker to force KV write
+var _jsErrorLog = []; // ring buffer of last 5 JS errors, included in heartbeat
+window.onerror = function(msg, src, line, col, err) {
+  try {
+    var entry = {
+      ts: new Date().toISOString(),
+      msg: String(msg).slice(0, 200),
+      src: String(src || '').replace(/^.*\//, '').slice(0, 60),
+      line: line || 0
+    };
+    _jsErrorLog.unshift(entry);
+    if (_jsErrorLog.length > 5) _jsErrorLog = _jsErrorLog.slice(0, 5);
+  } catch(e) {}
+  return false; // don't suppress error
+};
 
 function startMonitoring(){
   if(!cfg.roomemail)return;
@@ -1782,7 +1797,8 @@ function getMonitorStatus(){
       lastSlowMs: _lastSlowPollMs
     },
     lastAndroidPingMins: _lastAndroidPingMs ? Math.round((Date.now()-_lastAndroidPingMs)/60000) : -1,
-    pageHidden: document.hidden
+    pageHidden: document.hidden,
+    lastErrors: _jsErrorLog.slice()
   };
 }
 
