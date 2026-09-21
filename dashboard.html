@@ -513,9 +513,9 @@ async function getToken(){
     if(savedHint){
       try{
         _redirectInProgress=true;
-        // prompt:none = fully silent on modern browsers (Surface Pro etc)
-        // If it fails Azure returns interaction_required → handleRedirectCallback → showSignInBar
-        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});
+        // prompt:select_account avoids AADSTS50196 loop on Safari normal mode
+        // prompt:none caused loop when existing MS session cookie conflicted with loginHint
+        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'select_account'});
       }catch(e){_redirectInProgress=false;showSignInBar();}
     } else {
       showSignInBar();
@@ -534,7 +534,7 @@ async function getToken(){
     if(savedHint&&!_redirectInProgress){
       try{
         _redirectInProgress=true;
-        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'none'});
+        msalInst.loginRedirect({scopes:SCOPES,loginHint:savedHint,prompt:'select_account'});
       }catch(e2){_redirectInProgress=false;showSignInBar();}
     } else {
       showSignInBar();
