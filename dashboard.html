@@ -355,10 +355,6 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <div class="adm-empty">Loading incidents…</div>
   </div>
 
-  <div class="adm-section" style="display:flex;justify-content:space-between;align-items:center">Daily reports <button style="padding:3px 10px;background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="generateReport()">⚡ Now</button></div>
-  <div id="adm-reports">
-    <div class="adm-empty">Loading reports…</div>
-  </div>
 </div>
 
 <!-- SCHEDULE POPUP — white alert style -->
@@ -1053,7 +1049,6 @@ async function refreshAdmin() {
     renderSmartActions(statusData.rooms || []);
     renderAdminStats(statusData.rooms || [], latestApkVersion);
     renderAdminIncidents(incData.incidents || []);
-    fetchReports();
 
     document.getElementById('adm-last-refresh').textContent =
       'Updated: ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -1247,8 +1242,8 @@ function renderAdminIncidents(incidents) {
     byDay[day].push(inc);
   });
 
-  // Sort days newest first, show last 7 days
-  const days = Object.keys(byDay).sort().reverse().slice(0, 7);
+  // Sort days newest first, show last 3 days
+  const days = Object.keys(byDay).sort().reverse().slice(0, 3);
   let html = '';
 
   days.forEach(function(day) {
@@ -1451,47 +1446,6 @@ async function showOtaDebug() {
   alert('OTA Debug — last step per tablet:\n\n' + lines.join('\n'));
 }
 
-async function fetchReports() {
-  try {
-    const resp = await fetch(MONITOR_URL + 'reports?limit=7', {headers: {'X-Admin-Key': adminKey}});
-    if (!resp.ok) return;
-    const data = await resp.json();
-    const container = document.getElementById('adm-reports');
-    if (!container) return;
-    const reports = data.reports || [];
-    if (!reports.length) {
-      container.innerHTML = '<div class="adm-empty">No reports yet — first generates at 19:30</div>';
-      return;
-    }
-    let html = '';
-    reports.forEach(function(rpt) {
-      const inc = rpt.incidents || {};
-      const allGood = (inc.open || 0) === 0;
-      html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px">' +
-        '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
-        '<span style="font-weight:700">' + rpt.date + '</span>' +
-        '<span style="font-size:11px;padding:2px 8px;border-radius:10px;' +
-        (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">✓ OK' : 'background:rgba(255,149,0,.15);color:var(--amber)">⚠ Issues') + '</span></div>' +
-        '<div style="font-size:11px;color:var(--muted)">Tablets: ' + (rpt.tabletsOnline||0) + '/' + (rpt.tabletsDeployed||0) +
-        ' · Incidents: ' + (inc.total||0) + ' · Open: ' + (inc.open||0) + '</div></div>';
-    });
-    container.innerHTML = html;
-  } catch(e) {}
-}
-
-
-async function generateReport() {
-  try {
-    const resp = await fetch(MONITOR_URL + 'reports/generate', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey}
-    });
-    const data = await resp.json();
-    if (data.ok) { showToast('✓ Report generated'); setTimeout(fetchReports, 1000); }
-    else showToast('✗ ' + (data.error||'Failed'), 'error');
-  } catch(e) { showToast('✗ ' + e.message, 'error'); }
-}
-
 
 const _pendingCmds = {};
 
@@ -1567,52 +1521,6 @@ function analyzeRooms(rooms) {
   });
 
   return issues;
-}
-
-
-function renderReports(reports) {
-  const container = document.getElementById('adm-reports');
-  if (!container) return;
-
-  if (!reports.length) {
-    container.innerHTML = '<div class="adm-empty">No reports yet — first report generates at 20:00 today</div>';
-    return;
-  }
-
-  let html = '';
-  reports.forEach(rpt => {
-    const online = rpt.tabletsOnline || 0;
-    const deployed = rpt.tabletsDeployed || 0;
-    const inc = rpt.incidents || {};
-    const uptimeList = (rpt.rooms || []).map(r => 
-      (r.roomname || r.room.split('@')[0]) + ': ' + (r.uptime || 0) + 'm'
-    ).join(' · ');
-
-    html += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-    html += '<span style="font-size:14px;font-weight:700;color:#fff">' + rpt.date + '</span>';
-    
-    const allGood = (inc.open || 0) === 0 && online === deployed;
-    html += '<span style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600;' + 
-      (allGood ? 'background:rgba(0,214,143,.15);color:var(--green)">' + '✓ ALL GOOD' : 
-      'background:rgba(255,149,0,.15);color:var(--amber)">' + '⚠ ISSUES') + '</span>';
-    html += '</div>';
-
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;font-size:11px">';
-    html += '<div style="color:var(--muted)">Tablets: <span style="color:#fff;font-weight:600">' + online + '/' + deployed + '</span></div>';
-    html += '<div style="color:var(--muted)">Incidents: <span style="color:#fff;font-weight:600">' + (inc.total || 0) + '</span></div>';
-    html += '<div style="color:var(--muted)">Auto-fixed: <span style="color:var(--green);font-weight:600">' + (inc.autoResolved || 0) + '</span></div>';
-    html += '<div style="color:var(--muted)">Open: <span style="color:' + ((inc.open || 0) > 0 ? 'var(--red)' : 'var(--green)') + ';font-weight:600">' + (inc.open || 0) + '</span></div>';
-    html += '</div>';
-
-    if (uptimeList) {
-      html += '<div style="font-size:10px;color:var(--hint);margin-top:6px">Uptime: ' + uptimeList + '</div>';
-    }
-
-    html += '</div>';
-  });
-
-  container.innerHTML = html;
 }
 
 
