@@ -339,8 +339,8 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .mhead-txt{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:0;}
 .mhead-qr{-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:96px;height:96px;background:#fff;-webkit-border-radius:8px;border-radius:8px;padding:4px;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .mhead-qr canvas,.mhead-qr img{display:block;width:88px;height:88px;}
-.mqr-hint{font-size:15px;color:#8fa3c4;margin-bottom:16px;line-height:1.35;}
-.appr-banner{background:#2a1a00;border:2px solid #664400;-webkit-border-radius:10px;border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:16px;color:#ffaa33;line-height:1.6;}
+.mqr-hint{font-size:15px;color:#8fa3c4;margin-bottom:12px;line-height:1.3;}
+.appr-banner{background:#2a1a00;border:2px solid #664400;-webkit-border-radius:10px;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:15px;color:#ffaa33;line-height:1.4;}
 .appr-banner strong{display:block;font-size:17px;margin-bottom:4px;}
 .mfield{margin-bottom:14px;}
 .mfield label{display:block;font-size:14px;font-weight:700;color:#8899bb;margin-bottom:8px;letter-spacing:.07em;text-transform:uppercase;}
@@ -845,7 +845,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 220,
+  patch: 221,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -929,6 +929,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.221 2026-09-22 - Compress approval banner + QR hint margin. Approval rooms (Macchiato) measured ~878px against the 869px usable height above the 395px keyboard — would have scrolled. Banner 132px -> ~108px brings it under budget
 // v3.10.220 2026-09-22 - Booking sheet: room-specific QR beside the title (opens that room availability on phone) + "Continue here, or scan to finish on your phone". Measured on tablet: keyboard 395px, window never resizes under FLAG_FULLSCREEN, leaving 869px; sheet was 809px so QR had to cost ~zero height. Padding trimmed, max-height 82vh->67vh so overflow scrolls instead of hiding under the keyboard. dashboard.html reads ?room= and opens that room availability
 // v3.10.219 2026-09-22 - Pilot: +30 min becomes a pill matched to End early (was a circle beside a pill — the <br> meant to stack them is inert inside flex, so they always rendered side by side mismatched). QR label "Scan to see all rooms" at 15px, was 10px and near-unreadable
 // v3.10.218 2026-09-22 - A/B pilot: dial back Check In 360x112 -> 300x92 (too dominant on real panel) and add 22px gap above the action row, which was crowding the countdown text
