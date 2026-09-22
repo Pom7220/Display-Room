@@ -281,7 +281,7 @@ Tablet should appear with heartbeat and correct room name within ~5 minutes of r
 - **APK**: v5.109 on all deployed tablets
   - v5.109: Level 2 escalated reboot — after ≥3 failed process restarts or 120 min hung, fires hard reboot. Daily cap 3 reboots. Weekend guard on checkAndHeal(). Dashboard ⚡❄️ chip for escalated_reboot events.
 - **index.html**: v3.10.211 target (dashboard auto-refresh reduced 15s→5min to stay within KV read limit)
-- **MEET IN TOUCH**: disabled on all lobby tablets via `pm disable me.exzy.meetingroom`. Latte disabled via `pm disable-user --user 0` (Android 10, no su needed).
+- **MEET IN TOUCH**: NOT disabled fleet-wide — this line previously claimed it was, and that was wrong. Verified by ADB 2026-09-22, see the inventory in the MEET IN TOUCH hypothesis entry below. Disable command: `pm disable me.exzy.meetingroom` (LG), `pm disable-user --user 0 me.exzy.meetingroom` (Latte/Android 10, no su needed). Runbook §9 exists but was skipped on 5 tablets during rollout — verify state, never assume.
 - **Network**: FortiGate SSL bypass covers 10.0.54.101–120 — no network blocker for any tablet.
 - **KV reads**: Dashboard auto-refresh 5min (was 15s) — ~30k reads/day per open tab, well within 100k free limit.
 
@@ -406,6 +406,31 @@ Tablet should appear with heartbeat and correct room name within ~5 minutes of r
 - confirmedOn: 2026-09-22
 - evidence: `renderAdminIncidents` sliced `inc.reportedAt` (UTC) but compared against a BKK-derived `today`. Everything 00:00–07:00 BKK was filed under the previous day. The `Resolve all` filter had the same bug and silently skipped those incidents.
 - fix: both call sites shift to BKK before slicing. The incident KEY stays UTC-sliced — that is how the Worker builds it (`now.toISOString().slice(0,10)`). Do not "fix" the key.
+
+### [2026-09-22] MEET IN TOUCH force-lock as the standby displacement trigger — HYPOTHESIS, test pending
+- status: candidate (strong correlation + documented mechanism, not yet proven)
+- firstSeen: 2026-09-22 00:05 BKK
+- hypothesis: `me.exzy.meetingroom` holds Device Admin with `force-lock` and calls `lockNow()`, taking the foreground from StandbyActivity. `checkAndRestore()` then sees a foreign top package and relaunches the kiosk. This is the missing 00:05 trigger from the false-`unexpected_reboot` entry above. The mechanism was already documented on 2026-09-17 (black-screen entry) but remediation was only applied to the two tablets showing black screens.
+- verified state 2026-09-22 by ADB (`pm list packages -d/-e`, `dumpsys device_policy`):
+
+| Tablet | Package | Device Admin | Fired 00:05 |
+|---|---|---|---|
+| Viennese .107 | ENABLED | force-lock | YES (3 retries, failed) |
+| Decaffinato .108 | ENABLED | force-lock | YES |
+| Mocha .110 | ENABLED | force-lock | YES |
+| Affogato .111 | ENABLED | force-lock | no |
+| Doppio .101 | ENABLED | none | no |
+| Cappuccino .102, Americano .103, Lungo .104, Ristretto .105, Macchiato .106, Espresso .112 | disabled | — | no |
+
+- correlation: 3 of 4 force-lock tablets fired; 0 of 6 disabled tablets fired. Affogato has force-lock but did not fire, so force-lock is necessary-but-not-sufficient — it also requires MEET IN TOUCH to actually fire a lock that night.
+- deliberate decision 2026-09-22: state left UNCHANGED overnight as a natural experiment. Do not "fix" this before the 2026-09-23 morning analysis — the whole point is to let it recur under observation.
+- falsifiable predictions for 2026-09-23 (recorded in advance):
+  1. Any `kiosk_displaced` event should carry detail naming `me.exzy.meetingroom`.
+  2. `kiosk_displaced` should appear ONLY on .107/.108/.110/.111. Any event on the 6 disabled tablets falsifies the hypothesis.
+  3. Doppio .101 should stay clean (package enabled but no Device Admin → cannot call lockNow).
+  4. ADB `ris-night-top.log` on .107/.108/.110 should show `mFocusedActivity` leaving the kiosk, and `mScreenOn=false`, at the event timestamp.
+  5. No 25-min false-reboot cascade on 5.111 — the standby gate should restore StandbyActivity instead.
+- if confirmed: `pm disable me.exzy.meetingroom` on .107/.108/.110/.111 (+ .101 for consistency), then reboot. Add a verification step to runbook §9.
 
 ---
 
