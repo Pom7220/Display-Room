@@ -451,7 +451,11 @@ Tablet should appear with heartbeat and correct room name within ~5 minutes of r
 - root cause: the ADB RSA handshake does not complete (stale/unaccepted authorization), so adbd accepts the socket but never reaches `device` state.
 - **`adb connect` printing "already connected" proves nothing** — it only means the host server holds an entry. `adb devices` is the honest check; look for `device` vs `offline`.
 - **ADB reachability is not a health signal.** Do not infer a tablet is faulty because ADB is offline, and do not escalate to PoE cycle on that basis alone. Check heartbeat/`/api/status` first.
-- fix: expected to clear on the next 06:00 cold reboot. If it persists, needs physical re-authorization (Settings → Developer Options, tap "Always allow from this computer").
+- **fix (confirmed 2026-09-22 17:20 on Macchiato): on the tablet, Settings → Developer Options → toggle USB debugging OFF then ON.** That restarts adbd and clears the wedged state. Then `adb connect <ip>:5555` from the host — it comes back as `device` immediately, shell and `su` both working.
+- **No "Allow from this computer" dialog appears and none is needed** — the host RSA key is still authorized; only the daemon was stuck. Do not expect the dialog, and do not conclude the fix failed when it does not appear. `service.adb.tcp.port` stays 5555 through the toggle, so TCP ADB is not lost.
+- host-side recovery does NOT work: `adb disconnect`/`connect` and a full `adb kill-server` were both tried and failed. The alternating "failed to connect" then "already connected" output is the signature of this state — the socket opens, the handshake does not, and adb caches the entry as offline.
+- a 06:00 cold reboot would likely also clear it, so if nobody is near the tablet it is reasonable to just wait.
+- note: `persist.adb.tcp.port` is NOT set on these tablets; TCP ADB is held by the volatile `service.adb.tcp.port`. Setting `su -c "setprop persist.adb.tcp.port 5555"` would make it survive reboots — proposed 2026-09-22, not yet applied, needs user approval as it touches 11 production tablets.
 
 ### [2026-09-22] Web A/B pilot mechanism — runtime gate, not a separate build
 - status: confirmed
