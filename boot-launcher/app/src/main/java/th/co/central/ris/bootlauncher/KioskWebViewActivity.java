@@ -459,6 +459,14 @@ public class KioskWebViewActivity extends Activity {
         public void performUpdate() {
             UpdateChecker.silentInstall(KioskWebViewActivity.this, null, null);
         }
+
+        // Milliseconds since device boot. Lets the web app tell a real reboot
+        // (uptime near zero) from an activity recreation, which also produces a
+        // fresh WebView with no reload flag.
+        @JavascriptInterface
+        public long getDeviceUptimeMs() {
+            return android.os.SystemClock.elapsedRealtime();
+        }
     }
 
     private class HeartbeatBridge {

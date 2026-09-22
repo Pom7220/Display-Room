@@ -103,9 +103,24 @@ public class ForegroundWatchService extends Service {
 
             String topPackage = tasks.get(0).topActivity.getPackageName();
             if (!getPackageName().equals(topPackage)) {
-                BootReceiver.launchWebView(getApplicationContext());
+                // During standby hours StandbyActivity owns the screen. Relaunching the
+                // kiosk here wakes the display and, because launchWebView CLEAR_TASKs,
+                // reloads the page — which the web app reports as a device reboot.
+                if (isInStandbyWindow()) {
+                    ScheduleReceiver.launchStandby(getApplicationContext());
+                } else {
+                    BootReceiver.launchWebView(getApplicationContext());
+                }
             }
         } catch (Exception ignored) {}
+    }
+
+    private boolean isInStandbyWindow() {
+        java.util.Calendar bkk = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        int h = bkk.get(java.util.Calendar.HOUR_OF_DAY);
+        int m = bkk.get(java.util.Calendar.MINUTE);
+        return (h > 20 || (h == 20 && m >= 30) || h < 6);
     }
 
     private void checkEscalation() {

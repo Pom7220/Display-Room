@@ -1237,7 +1237,11 @@ function renderAdminIncidents(incidents) {
   incidents.forEach(function(inc) {
     if (inc.type === 'noshow') return; // noshow tracked in weekly report only
     if (inc.type === 'auto_update_reload') return; // shown in Version Rollout panel instead
-    const day = (inc.reportedAt || '').slice(0, 10);
+    // reportedAt is UTC — shift to BKK before slicing, or everything between
+    // 00:00 and 07:00 BKK lands in the previous day's group.
+    const day = inc.reportedAt
+      ? new Date(new Date(inc.reportedAt).getTime() + 7*3600000).toISOString().slice(0, 10)
+      : '';
     if (!byDay[day]) byDay[day] = [];
     byDay[day].push(inc);
   });
@@ -1315,7 +1319,10 @@ async function resolveAllIncidents() {
   });
   const incData = await incResp.json();
   const todayBKK = new Date(Date.now() + 7*60*60*1000).toISOString().slice(0, 10);
-  const open = (incData.incidents || []).filter(i => !i.resolvedAt && (i.reportedAt || '').slice(0, 10) === todayBKK);
+  // Compare in BKK — reportedAt is UTC, so a raw slice misses 00:00–07:00 BKK.
+  // The incident KEY below stays UTC-sliced: that is how the Worker builds it.
+  const open = (incData.incidents || []).filter(i => !i.resolvedAt && i.reportedAt &&
+    new Date(new Date(i.reportedAt).getTime() + 7*3600000).toISOString().slice(0, 10) === todayBKK);
   let resolved = 0;
   for (const inc of open) {
     const key = 'incident:' + (inc.reportedAt || '').slice(0,10) + ':' + (inc.id || '');
