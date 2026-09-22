@@ -107,11 +107,42 @@ public class ForegroundWatchService extends Service {
                 // kiosk here wakes the display and, because launchWebView CLEAR_TASKs,
                 // reloads the page — which the web app reports as a device reboot.
                 if (isInStandbyWindow()) {
+                    // Relaunching StandbyActivity silently would hide the fact that
+                    // something took the foreground. Record the offending package so the
+                    // trigger is visible in KV without needing ADB.
+                    reportDisplacement(topPackage);
                     ScheduleReceiver.launchStandby(getApplicationContext());
                 } else {
                     BootReceiver.launchWebView(getApplicationContext());
                 }
             }
+        } catch (Exception ignored) {}
+    }
+
+    // Capped at 6 per BKK day per tablet: enough samples to identify the culprit,
+    // but it cannot run away and eat the 1000 writes/day KV budget.
+    private static final int DISPLACE_LOG_CAP = 6;
+
+    private void reportDisplacement(final String topPackage) {
+        try {
+            android.content.SharedPreferences p =
+                getSharedPreferences("ris_displace_log", MODE_PRIVATE);
+            java.text.SimpleDateFormat sdf =
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+            final String key = "n_" + sdf.format(new java.util.Date());
+            int n = p.getInt(key, 0);
+            if (n >= DISPLACE_LOG_CAP) return;
+            p.edit().putInt(key, n + 1).apply();
+
+            final android.content.Context ctx = getApplicationContext();
+            final int seq = n + 1;
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    ScheduleReceiver.logAlarmEventSync(ctx, "kiosk_displaced",
+                        topPackage + " (" + seq + "/" + DISPLACE_LOG_CAP + ")");
+                }
+            }).start();
         } catch (Exception ignored) {}
     }
 

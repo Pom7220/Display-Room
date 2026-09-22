@@ -347,6 +347,7 @@ async function handleAlarmLog(request, env) {
       apkVersion: data.apkVersion || '',
       ts: new Date().toISOString()
     };
+    if (data.detail) entry.detail = String(data.detail).slice(0, 120);
 
     // Append to per-room alarm log (last 50 events)
     var key = 'alarm_log:' + data.room;

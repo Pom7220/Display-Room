@@ -818,7 +818,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 214,
+  patch: 215,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -902,6 +902,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.215 2026-09-22 - kiosk_displaced telemetry: watchdog records which package took the foreground during standby (capped 6/day/tablet); Worker alarm log accepts detail field; dashboard shows it inline
 // v3.10.214 2026-09-22 - APK 5.110: fix false unexpected_reboot. Wake suppression window moved 07:00→07:30 BKK (matches v5.108 alarm); device uptime via Android.getDeviceUptimeMs() distinguishes activity recreation (kiosk_relaunch) from real reboot; dashboard groups incidents by BKK not UTC date
 // v3.10.213 2026-09-21 - Dashboard: remove Daily Reports section; reduce Recent Incidents window from 7 to 3 days
 // v3.10.212 2026-09-21 - JS error log: window.onerror captures last 5 errors in _jsErrorLog, included in heartbeat payload; dashboard admin shows errors per room with red border-left indicator

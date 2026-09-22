@@ -1162,7 +1162,8 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
 
     // Alarm chain row — today's events in BKK time, oldest→newest
     var _todayBkk = new Date(Date.now() + 7*3600000).toISOString().slice(0, 10);
-    var _alarmIcons = { cold_boot: '❄️', restart: '🔄', wake: '☀️', wake_weekend: '⏭️', standby: '🌙', escalated_reboot: '⚡❄️' };
+    var _alarmIcons = { cold_boot: '❄️', restart: '🔄', wake: '☀️', wake_weekend: '⏭️', standby: '🌙', escalated_reboot: '⚡❄️',
+                        standby_retry: '🔁', kiosk_displaced: '⚠️', ota_install: '⬆️', watchdog_relaunch: '🐕' };
     var _todayAlarms = (r && r.alarmLog ? r.alarmLog : [])
       .filter(function(e) {
         return e.ts && new Date(new Date(e.ts).getTime() + 7*3600000).toISOString().startsWith(_todayBkk);
@@ -1172,9 +1173,23 @@ function renderAdminRooms(rooms, latestVersion, latestWebVersion) {
       var _chips = _todayAlarms.map(function(e) {
         var icon = _alarmIcons[e.event] || '•';
         var t = new Date(new Date(e.ts).getTime() + 7*3600000).toISOString().slice(11, 16);
-        return '<span style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;white-space:nowrap">' + icon + ' ' + t + '</span>';
+        var tip = e.event + (e.detail ? ' — ' + e.detail : '');
+        return '<span title="' + tip.replace(/"/g, '&quot;') + '"' +
+          ' style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;white-space:nowrap">' + icon + ' ' + t + '</span>';
       }).join('');
       card += '<div style="font-size:9px;color:var(--muted);margin:3px 0 4px;display:flex;flex-wrap:wrap;gap:2px 3px">' + _chips + '</div>';
+
+      // kiosk_displaced carries the package that took the foreground — the whole
+      // point of the event, so render it inline rather than hiding it in a tooltip.
+      var _disp = _todayAlarms.filter(function(e) { return e.event === 'kiosk_displaced' && e.detail; });
+      if (_disp.length) {
+        card += '<div style="margin:2px 0 4px;border-left:2px solid var(--amber);padding-left:4px">' +
+          _disp.map(function(e) {
+            var t = new Date(new Date(e.ts).getTime() + 7*3600000).toISOString().slice(11, 16);
+            return '<div style="color:var(--amber);font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+              '<span style="color:var(--muted)">' + t + '</span> displaced by ' + e.detail + '</div>';
+          }).join('') + '</div>';
+      }
     }
 
     // JS error log row — show if any errors captured since last restart

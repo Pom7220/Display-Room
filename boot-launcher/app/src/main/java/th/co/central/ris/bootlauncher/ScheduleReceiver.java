@@ -239,6 +239,10 @@ public class ScheduleReceiver extends BroadcastReceiver {
     // Blocking version — call from a background thread before silentInstall so the POST
     // completes before pm install kills this process.
     static void logAlarmEventSync(Context context, String event) {
+        logAlarmEventSync(context, event, null);
+    }
+
+    static void logAlarmEventSync(Context context, String event, String detail) {
         try { Security.insertProviderAt(Conscrypt.newProvider(), 1); } catch (Throwable ignored) {}
         SharedPreferences prefs = context.getSharedPreferences("ris_kiosk_prefs", Context.MODE_PRIVATE);
         String room = prefs.getString("room_email", "");
@@ -252,7 +256,9 @@ public class ScheduleReceiver extends BroadcastReceiver {
         String json = "{\"room\":\"" + room
             + "\",\"roomname\":\"" + roomName
             + "\",\"event\":\"" + event
-            + "\",\"apkVersion\":\"" + apkVer + "\"}";
+            + "\",\"apkVersion\":\"" + apkVer + "\""
+            + (detail == null ? "" : ",\"detail\":\"" + detail.replace("\"", "'") + "\"")
+            + "}";
         RequestBody body = RequestBody.create(MediaType.parse("application/json"), json);
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
