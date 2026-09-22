@@ -434,6 +434,30 @@ Tablet should appear with heartbeat and correct room name within ~5 minutes of r
   5. No 25-min false-reboot cascade on 5.111 — the standby gate should restore StandbyActivity instead.
 - if confirmed: `pm disable me.exzy.meetingroom` on .107/.108/.110/.111 (+ .101 for consistency), then reboot. Add a verification step to runbook §9.
 
+### [2026-09-22] Tablet UI geometry — measured, use these instead of guessing
+- status: confirmed (measured on Espresso .112 via ADB)
+- screen: 1280x800 physical, density 160 → **dpr 1.0**, so 1 CSS px = 1 physical px = 0.159mm. Mounted portrait, so the canvas is **800 wide x 1280 tall**. Window is fullscreen 800x1280 — no status/nav bar inset.
+- **soft keyboard is 395px tall** (occupies y 885→1280). Usable height above it, allowing a 16px top margin, is **869px**.
+- **the window does NOT resize when the keyboard appears** — it stays 800x1280. `FLAG_FULLSCREEN` is set in KioskWebViewActivity (line ~78) plus immersive-sticky flags, and Android ignores `adjustResize` for fullscreen windows. Setting `windowSoftInputMode` will not help while the activity is fullscreen. Any modal must fit in 869px by design.
+- booking sheet: 520px wide (max-width), measured 815-829px tall on Espresso. `max-height` was 82vh (1050px) which is ABOVE the keyboard line — content between 869 and 1050 did not scroll, it sat invisibly under the keyboard. Cut to 67vh (858px) in v3.10.220 so overflow becomes visible scrolling.
+- **Macchiato is the ONLY room with `approval:true`** — it shows `.appr-banner` instead of `.book-note`, and is therefore the tallest booking sheet in the fleet. Any modal change must be checked against Macchiato, not a typical room. After the v3.10.221 banner compression the two blocks are within 2px of each other, so Macchiato ≈ 831px, ~27px under the cap.
+- agent action: before adding anything to the booking sheet, measure. The budget is 869px and it was already 829px used.
+
+### [2026-09-22] ADB "offline" with port 5555 open is a handshake failure, NOT a tablet fault
+- status: confirmed (Macchiato .106, 2026-09-22 afternoon)
+- evidence: `adb devices` showed `10.0.54.106:5555 offline` while all other tablets showed `device`. Ping 12ms/0% loss, TCP port 5555 OPEN, tablet heartbeating normally on the current web version with meetings rendering correctly. `adb disconnect`+`connect` and a full `adb kill-server` did not recover it; after the server restart even the TCP connect was refused intermittently.
+- root cause: the ADB RSA handshake does not complete (stale/unaccepted authorization), so adbd accepts the socket but never reaches `device` state.
+- **`adb connect` printing "already connected" proves nothing** — it only means the host server holds an entry. `adb devices` is the honest check; look for `device` vs `offline`.
+- **ADB reachability is not a health signal.** Do not infer a tablet is faulty because ADB is offline, and do not escalate to PoE cycle on that basis alone. Check heartbeat/`/api/status` first.
+- fix: expected to clear on the next 06:00 cold reboot. If it persists, needs physical re-authorization (Settings → Developer Options, tap "Always allow from this computer").
+
+### [2026-09-22] Web A/B pilot mechanism — runtime gate, not a separate build
+- status: confirmed
+- `index.html` is one file served to all 12 tablets via the Worker, which proxies `https://pom7220.github.io/Display-Room`. There is no per-room build, so **every tablet reports the same web version regardless of pilot membership** — a matching version number does NOT mean a tablet is in the pilot.
+- mechanism: `AB_BIG_CHECKIN` (a room-email list in index.html) adds an `ab-big-checkin` class to `<body>` via `applyAbFlags()`. Currently Macchiato + Ristretto (enlarged action buttons).
+- gotcha found and fixed: `loadCfg()` runs BEFORE the URL-param block that sets `cfg.roomemail`, so on a first boot with empty localStorage the class never applied. `applyAbFlags()` is now called again after the injection. Any future gate reading `cfg` at startup has the same trap.
+- **verifying a deploy from the office network**: `curl` to `pom7220.github.io` returns `http=000` — the corporate network blocks it. Check the Worker URL instead; Cloudflare reaches Pages fine.
+
 ---
 
 ## Retired Patterns
