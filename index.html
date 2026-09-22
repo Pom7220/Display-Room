@@ -228,6 +228,8 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .abtn-checkin{touch-action:manipulation;background:#1db954;color:#fff;border:2px solid #17a844;min-height:64px;font-size:22px;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
 .abtn-checkin.checked{background:#178a3e;color:#fff;border:2px solid #117733;-webkit-animation:none;animation:none;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
+.ab-big-checkin .abtn-checkin{min-width:360px;min-height:112px;font-size:32px;padding:14px 40px;border-width:3px;}
+.ab-big-checkin .abtn-checkin.off{min-width:360px;min-height:112px;}
 @-webkit-keyframes ci-fadein{0%{opacity:0;-webkit-transform:scale(.88);}100%{opacity:1;-webkit-transform:scale(1);}}
 @keyframes ci-fadein{0%{opacity:0;transform:scale(.88);}100%{opacity:1;transform:scale(1);}}
 #checkin-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:999;background:rgba(0,0,0,.72);display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;pointer-events:none;}
@@ -818,7 +820,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 215,
+  patch: 216,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -902,6 +904,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.216 2026-09-22 - A/B pilot (Macchiato + Ristretto only): enlarged Check In button 151x64 -> 360x112px, font 22 -> 32px. Current pill is smaller than the 31px text instructing it, and 10.2mm is handheld-minimum on a wall panel tapped at arm length
 // v3.10.215 2026-09-22 - kiosk_displaced telemetry: watchdog records which package took the foreground during standby (capped 6/day/tablet); Worker alarm log accepts detail field; dashboard shows it inline
 // v3.10.214 2026-09-22 - APK 5.110: fix false unexpected_reboot. Wake suppression window moved 07:00→07:30 BKK (matches v5.108 alarm); device uptime via Android.getDeviceUptimeMs() distinguishes activity recreation (kiosk_relaunch) from real reboot; dashboard groups incidents by BKK not UTC date
 // v3.10.213 2026-09-21 - Dashboard: remove Daily Reports section; reduce Recent Incidents window from 7 to 3 days
@@ -1106,7 +1109,25 @@ function startBurnIn(){}
 // ══════════════════════════════════════
 
 
-function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');}catch(e){cfg={};}}
+// A/B pilot: enlarged Check In button. The current 151x64px pill is smaller than
+// the 31px text instructing you to press it, and 10.2mm is handheld-minimum on a
+// wall panel tapped at arm's length. Piloted on two rooms before fleet rollout.
+// Deliberately excludes Viennese/Decaffinato/Mocha — those carry the standby
+// investigation and are kept free of unrelated variables.
+var AB_BIG_CHECKIN=['rismacchiato@central.co.th','risristretto@central.co.th'];
+
+function applyAbFlags(){
+  try{
+    var on=cfg.roomemail&&AB_BIG_CHECKIN.indexOf(String(cfg.roomemail).toLowerCase())>-1;
+    var b=document.body;
+    if(!b)return;
+    var c=' '+b.className+' ';
+    if(on&&c.indexOf(' ab-big-checkin ')<0)b.className=(b.className+' ab-big-checkin').replace(/^\s+/,'');
+    else if(!on&&c.indexOf(' ab-big-checkin ')>-1)b.className=c.replace(' ab-big-checkin ',' ').replace(/^\s+|\s+$/g,'');
+  }catch(e){}
+}
+
+function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');}catch(e){cfg={};}applyAbFlags();}
 
 function saveConfig(){
   dbg('saveConfig called');
