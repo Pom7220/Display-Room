@@ -574,8 +574,26 @@ async function fetchAllRooms(){
   el('ref-txt').textContent=`Updated ${ft(now)}`;
   if(refBtn)refBtn.textContent='↻ Refresh';
   renderRooms(); updateSummary();
-  if(!selectedRoom) selectDefaultRoom();
+  if(!selectedRoom) selectDeepLinkedRoom() || selectDefaultRoom();
   else updateDetailCard();
+}
+
+// ?room=<email> — scanned from a tablet's booking sheet QR, so the phone opens
+// on that room's availability instead of the generic list. Availability only:
+// it deliberately does NOT auto-open the booking sheet, which would have to
+// survive the sign-in round-trip and risks the redirect loop fixed in 2f11794.
+// Runs only when nothing is selected yet, so the 5-min refresh cannot yank the
+// user back to the deep-linked room after they have picked another.
+function selectDeepLinkedRoom(){
+  try{
+    const m=(location.search||'').match(/[?&]room=([^&]*)/);
+    if(!m) return false;
+    const want=decodeURIComponent(m[1]).toLowerCase();
+    const room=ROOMS.find(r=>(r.email||'').toLowerCase()===want);
+    if(!room) return false;
+    selectRoom(room);
+    return true;
+  }catch(e){ return false; }
 }
 
 function showSignInBar(){

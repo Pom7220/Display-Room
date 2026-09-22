@@ -326,19 +326,29 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 /* ── BOOKING MODAL ── */
 #booking-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:200;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;padding-top:16px;}
 #booking-modal.hidden{display:none;}
-.msheet{background:#13132a;border:2px solid #2a2a5a;-webkit-border-radius:24px;border-radius:24px;padding:28px 24px 36px;width:100%;max-width:520px;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.mdrag{width:48px;height:5px;background:#333355;-webkit-border-radius:3px;border-radius:3px;margin:0 auto 22px;}
+.msheet{background:#13132a;border:2px solid #2a2a5a;-webkit-border-radius:24px;border-radius:24px;padding:20px 24px 24px;width:100%;max-width:520px;max-height:67vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.mdrag{width:48px;height:5px;background:#333355;-webkit-border-radius:3px;border-radius:3px;margin:0 auto 12px;}
 .mtitle{font-size:28px;font-weight:900;color:#ffffff;margin-bottom:4px;}
-.msub{font-size:16px;color:#7788aa;margin-bottom:22px;}
+.msub{font-size:16px;color:#7788aa;margin-bottom:0;}
+/* The QR sits BESIDE the title, not below it. Measured on the tablet: the
+   keyboard is 395px tall and the window never resizes (FLAG_FULLSCREEN makes
+   adjustResize a no-op), leaving 869px above it. The sheet already uses ~809px,
+   and ~879px on an approval room, so a full-width QR row would push Confirm
+   booking under the keyboard. Beside the title it costs almost no height. */
+.mhead{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;gap:16px;margin-bottom:10px;}
+.mhead-txt{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:0;}
+.mhead-qr{-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:96px;height:96px;background:#fff;-webkit-border-radius:8px;border-radius:8px;padding:4px;-webkit-box-sizing:border-box;box-sizing:border-box;}
+.mhead-qr canvas,.mhead-qr img{display:block;width:88px;height:88px;}
+.mqr-hint{font-size:15px;color:#8fa3c4;margin-bottom:16px;line-height:1.35;}
 .appr-banner{background:#2a1a00;border:2px solid #664400;-webkit-border-radius:10px;border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:16px;color:#ffaa33;line-height:1.6;}
 .appr-banner strong{display:block;font-size:17px;margin-bottom:4px;}
-.mfield{margin-bottom:18px;}
+.mfield{margin-bottom:14px;}
 .mfield label{display:block;font-size:14px;font-weight:700;color:#8899bb;margin-bottom:8px;letter-spacing:.07em;text-transform:uppercase;}
 .mfield input{width:100%;padding:16px 18px;background:#0d0d1a;border:2px solid #333355;-webkit-border-radius:10px;border-radius:10px;color:#ffffff;font-size:20px;outline:none;-webkit-box-sizing:border-box;box-sizing:border-box;}
 .mfield input:focus{border-color:#2979ff;}
-.tprev{font-size:18px;color:#aabbcc;margin-bottom:18px;padding:14px 18px;background:#0d0d1a;-webkit-border-radius:10px;border-radius:10px;}
+.tprev{font-size:18px;color:#aabbcc;margin-bottom:12px;padding:14px 18px;background:#0d0d1a;-webkit-border-radius:10px;border-radius:10px;}
 .tprev span{color:#ffffff;font-weight:700;}
-.dur-grid{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;margin-bottom:24px;}
+.dur-grid{display:-webkit-box;display:-webkit-flex;display:flex;gap:10px;margin-bottom:16px;}
 .dchip{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:16px 4px;text-align:center;background:#1a1a2e;border:2px solid #2a2a4a;-webkit-border-radius:10px;border-radius:10px;cursor:pointer;}
 .dchip-lbl{font-size:20px;font-weight:700;color:#ccddee;}
 .dchip-end{font-size:13px;color:#7788aa;margin-top:4px;}
@@ -791,8 +801,14 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 <div id="booking-modal" class="hidden">
   <div class="msheet">
     <div class="mdrag"></div>
-    <div class="mtitle" id="modal-title">Book Room</div>
-    <div class="msub" id="modal-sub"></div>
+    <div class="mhead">
+      <div class="mhead-txt">
+        <div class="mtitle" id="modal-title">Book Room</div>
+        <div class="msub" id="modal-sub"></div>
+      </div>
+      <div class="mhead-qr" id="mhead-qr"><div id="qr-book-canvas"></div></div>
+    </div>
+    <div class="mqr-hint">Continue here, or scan to finish on your phone</div>
     <div class="appr-banner" id="appr-banner" style="display:none"><strong>&#9993; Approval required</strong> An email will be sent to the room owner before confirming.</div>
     <div class="mfield"><label>Your Email <span style="color:#ff4444">*</span></label><input type="text" id="book-email" placeholder="yourname@central.co.th" autocomplete="off"></div>
     <div class="mfield"><label>Meeting Title <span style="color:#ff4444">*</span></label><input type="text" id="book-title" placeholder="What is this meeting about?" autocomplete="off"></div>
@@ -829,7 +845,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 219,
+  patch: 220,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -913,6 +929,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.220 2026-09-22 - Booking sheet: room-specific QR beside the title (opens that room availability on phone) + "Continue here, or scan to finish on your phone". Measured on tablet: keyboard 395px, window never resizes under FLAG_FULLSCREEN, leaving 869px; sheet was 809px so QR had to cost ~zero height. Padding trimmed, max-height 82vh->67vh so overflow scrolls instead of hiding under the keyboard. dashboard.html reads ?room= and opens that room availability
 // v3.10.219 2026-09-22 - Pilot: +30 min becomes a pill matched to End early (was a circle beside a pill — the <br> meant to stack them is inert inside flex, so they always rendered side by side mismatched). QR label "Scan to see all rooms" at 15px, was 10px and near-unreadable
 // v3.10.218 2026-09-22 - A/B pilot: dial back Check In 360x112 -> 300x92 (too dominant on real panel) and add 22px gap above the action row, which was crowding the countdown text
 // v3.10.217 2026-09-22 - A/B pilot: enlarge ALL action buttons not just Check In. End early was 36px (5.7mm) — below Material 48dp floor and smaller than Check In. Destructive actions sized adequately but kept visually secondary. Fix: applyAbFlags re-run after URL-param room injection (class never applied on first boot after clear_config)
@@ -3015,6 +3032,20 @@ function openModal(){
   _bookingName='';el('book-email').value='';el('book-title').value='';
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
+  // Room-specific QR — opens THIS room's availability on the phone rather than
+  // the generic all-rooms list. Rebuilt per open because activeRoom can change.
+  try{
+    var qb=el('qr-book-canvas');
+    if(qb&&typeof QRCode!=='undefined'&&activeRoom&&activeRoom.email){
+      var bookUrl=window.location.origin+window.location.pathname.replace('index.html','')
+        +'dashboard.html?room='+encodeURIComponent(activeRoom.email);
+      if(qb.getAttribute('data-room')!==activeRoom.email){
+        qb.innerHTML='';
+        new QRCode(qb,{text:bookUrl,width:88,height:88,correctLevel:QRCode.CorrectLevel.M});
+        qb.setAttribute('data-room',activeRoom.email);
+      }
+    }
+  }catch(e){dbg('book QR err: '+e);}
   var na=cfg.booking&&cfg.approval;
   el('appr-banner').style.display=na?'block':'none';
   el('mconfirm').className='mconfirm '+(na?'appr':'inst');
