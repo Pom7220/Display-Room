@@ -97,7 +97,7 @@ Active — confirmed IPs after NW rearrangement on 2026-09-14:
 - Latte:       10.0.54.109  (ADB authorized, v5.101 ✅ — Android 10; MEET IN TOUCH disabled; plain reboot confirmed working)
 - Mocha:       10.0.54.110  (ADB authorized, v5.101 ✅)
 - Affogato:    10.0.54.111  (ADB authorized, v5.101 ✅)
-- Espresso:    10.0.54.112  (app NOT yet deployed — scheduled next week)
+- Espresso:    10.0.54.112  (ADB authorized, v5.109 ✅ — deployed 2026-09-21, userId=10048, risespresso@central.co.th)
 
 Note: All IPs changed by NW team on 2026-09-14. Old mapping is obsolete. No LGKioskMode risk on lobby tablets.
 NW confirmed 2026-09-14 (Monday night): FortiGate SSL bypass rule covers entire IP range 10.0.54.101–120, including all lobby tablets. Network/FortiGate is NOT a blocker for any tablet deployment. Do NOT suspect network as a cause without direct evidence — this was a persistent false assumption that cost multiple debug sessions.
@@ -125,6 +125,76 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 ```
 
 **After investigation:** Update this knowledge base with findings before closing the session.
+
+---
+
+## New Tablet Rollout Runbook
+
+Use for first-time APK install on a fresh tablet. After initial install, all future updates go via OTA ("Update all" on dashboard).
+
+**Prerequisites:**
+- ADB platform tools: `C:\TEMP\platform-tools\adb.exe`
+- APK file: `D:\OneDrive - Central Group\Claude.AI project\Room-Display\ris-boot-launcher-VORUTCHAPON.apk`
+- Tablet IP address and room email/name confirmed
+- USB debugging enabled on tablet (Settings → Developer Options → USB Debugging)
+
+**⚠️ NEVER use `adb install -r`** — the `-r` flag reassigns a new UID, which breaks prefs ownership (Cappuccino bug, 2026-09-17). Use plain `adb install` for fresh installs.
+
+**Step 1 — Connect:**
+```
+C:\TEMP\platform-tools\adb.exe connect <ip>:5555
+```
+On the tablet: tap **"Always allow from this computer"** (not just "Allow once" — loses auth on reboot).
+
+**Step 2 — Record current UID (before install):**
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell dumpsys package th.co.central.ris.bootlauncher | findstr userId
+```
+Note the `userId=XXXXX` value.
+
+**Step 3 — Install APK (no -r flag):**
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 install "D:\OneDrive - Central Group\Claude.AI project\Room-Display\ris-boot-launcher-VORUTCHAPON.apk"
+```
+
+**Step 4 — Verify UID unchanged after install:**
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell dumpsys package th.co.central.ris.bootlauncher | findstr userId
+```
+If UID changed from Step 2 → fix prefs ownership before rebooting:
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell su -c "chown u0_a<N> /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml"
+```
+(Replace `<N>` with new UID suffix, e.g. userId=10048 → u0_a48)
+
+**Step 5 — Set room prefs:**
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell su -c "am broadcast -a th.co.central.ris.ACTION_SET_PREFS --es room_email <room>@central.co.th --es room_name <RoomName> -n th.co.central.ris.bootlauncher/.SettingsReceiver"
+```
+
+**Step 6 — Disable MEET IN TOUCH:**
+
+LG Android 4.4 (all lobby/office tablets except Latte):
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell su -c "pm disable me.exzy.meetingroom"
+```
+Android 10 (Latte only):
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell pm disable-user --user 0 me.exzy.meetingroom
+```
+
+**Step 7 — Clear LGKioskMode (LG tablets only):**
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell su -c "pm clear com.lge.lgkioskmode"
+```
+
+**Step 8 — Reboot:**
+```
+C:\TEMP\platform-tools\adb.exe -s <ip>:5555 shell su -c "reboot"
+```
+
+**Step 9 — Verify on dashboard:**
+Tablet should appear with heartbeat and correct room name within ~5 minutes of reboot.
 
 ---
 
@@ -205,16 +275,15 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 ## System Architecture — Current State (2026-09-18)
 
 ### Deployment status (2026-09-18)
-- **10 tablets now live** (up from 8 as of this morning):
+- **12 tablets now live** (all rooms complete as of 2026-09-21):
   - Office (8): Doppio, Cappuccino, Macchiato, Viennese, Decaffinato, Mocha, Affogato, Latte
-  - Lobby (3, newly added today): Americano (.103), Lungo (.104), Ristretto (.105)
-  - Lobby pending: Espresso (.112) — scheduled next week
-- **APK**: v5.106 on all deployed tablets
-  - v5.106 fix: `su 0 reboot` after OTA on Android 10 (replaces DPM.reboot which requires Device Owner not just Device Admin). Confirmed working on Latte 2026-09-18.
-- **index.html**: v3.10.206 target (tablets updating via Reload All today)
+  - Lobby (4): Americano (.103), Lungo (.104), Ristretto (.105), Espresso (.112, deployed 2026-09-21)
+- **APK**: v5.109 on all deployed tablets
+  - v5.109: Level 2 escalated reboot — after ≥3 failed process restarts or 120 min hung, fires hard reboot. Daily cap 3 reboots. Weekend guard on checkAndHeal(). Dashboard ⚡❄️ chip for escalated_reboot events.
+- **index.html**: v3.10.211 target (dashboard auto-refresh reduced 15s→5min to stay within KV read limit)
 - **MEET IN TOUCH**: disabled on all lobby tablets via `pm disable me.exzy.meetingroom`. Latte disabled via `pm disable-user --user 0` (Android 10, no su needed).
 - **Network**: FortiGate SSL bypass covers 10.0.54.101–120 — no network blocker for any tablet.
-- **KV writes**: Event-driven heartbeat active (v3.10.206 worker) — writes only during incidents. ~576 writes/day at 10 tablets healthy.
+- **KV reads**: Dashboard auto-refresh 5min (was 15s) — ~30k reads/day per open tab, well within 100k free limit.
 
 ## System Architecture — Current State (2026-09-12)
 
@@ -304,6 +373,39 @@ C:\TEMP\platform-tools\adb.exe disconnect <ip>:5555
 - Mocha-specific: continues its pre-existing candidate pattern ("network failover at restart-alarm window", first logged 2026-09-14) — another `restart` gap this morning, no new ADB evidence collected this run.
 - hypothesis: Unconfirmed. A same-second, fleet-wide gap in one event (`restart`) plus a fleet-wide 30-min-early shift in another event (`wake`) on the same morning suggests a shared cause — e.g. a Cloudflare Worker/KV write hiccup at 2026-09-15T23:00Z, or an upstream time-sync/AlarmManager scheduling change pushed to all tablets around the same OTA cycle — rather than 6 independent per-device faults. Possibly related to the same scheduling irregularity noted in the "Scheduled runs firing at wrong BKK wall-clock time" candidate above (unconfirmed link — both are timing anomalies observed the same day, no causal evidence connects the Claude Code task scheduler to the tablets' own AlarmManager).
 - agent action: No OTA sent (all 6 already on target 5.99). No reload sent (per self-heal philosophy). Flagged for user review / ADB investigation per the runbook — check `dumpsys alarm` on any of the 6 for the ACTION_RESTART registration, and Cloudflare Worker logs around 2026-09-15T23:00Z for write errors on the alarm-log endpoint.
+
+### [2026-09-21] Incident reports — KV write cost and OTA relationship
+- status: confirmed
+- confirmedOn: 2026-09-21
+- evidence: Worker code audited — `handleIncidentReport` and `handleAdminUpdate` are independent paths; no incident type sets `cmd:perform_update:*` keys.
+- KV writes per incident type:
+  - `standby_failure`: 5 writes — incident record, `standby_open:room`, `incident_active:room`, `hb_history:room` snapshot, `incidents_index`
+  - `unexpected_reboot`: 2 writes — incident record, `incidents_index`
+  - All other types: 2 writes — incident record, `incidents_index`
+- OTA trigger path: `perform_update` is ONLY set by (a) dashboard "Update all" button → `handleAdminUpdate`, or (b) health agent version-comparison logic. Zero incident types trigger OTA. Incidents are write-and-log only.
+- `incident_active` flag: read on every heartbeat to gate `hb_history` writes during active incidents. Does NOT trigger OTA or any agent action.
+- Weekend flood risk: `unexpected_reboot` fires for every boot outside 05:45–06:15 BKK window (Level 2 escalation reboots). With 12 tablets this can spike writes. Decision (2026-09): these are informative only — Worker logs them, health agent takes no action. Already implemented — no code change needed.
+- agent action: Do NOT expect incident reports to trigger OTA. Track unexpected_reboot clusters to identify which rooms are escalating excessively.
+
+### [2026-09-22] False `unexpected_reboot` — activity recreation misread as device reboot
+- status: confirmed
+- seenCount: 1 severe (Viennese, 11 events) + 6/day fleet-wide at 07:30
+- firstSeen: 2026-09-22 01:15 BKK (severe); 07:30 variant daily since 2026-09-19
+- confirmedOn: 2026-09-22
+- evidence: Viennese logged 11 `unexpected_reboot` 01:15–05:20 BKK. `/data/system/dropbox/` held only TWO `SYSTEM_BOOT` entries (Sep 21 06:01, Sep 22 06:01) — the scheduled cold reboots. Zero `cold_boot` alarm events between 00:52 and 06:01. No tombstones. Device never rebooted.
+- root cause: `ForegroundWatchService.checkAndRestore()` had no standby-window gate (unlike `checkHeartbeat()` and `checkEscalation()`, which both gate on `timeBKK < 730 || >= 2030`). When StandbyActivity left the foreground it called `BootReceiver.launchWebView()`, whose `FLAG_ACTIVITY_CLEAR_TASK` destroys and recreates the activity → fresh WebView → page load with no `ris_reload_reason` flag → JS boot detector reported a device reboot.
+- second root cause: JS wake-suppression window was `_mb<=10` (07:00–07:10 BKK) but the WAKE alarm moved to 07:30 BKK in APK v5.108 (2026-09-19). Every tablet loading the page at wake filed a false incident — 6 rooms/day.
+- why only LG: `checkAndRestore()` returns early on API 21+, so Latte (Android 10) is immune.
+- retry interaction: during `standby_retry` 1–3, `launchStandby()` CLEAR_TASKs the kiosk away before the page finishes loading, so no incident posts. Once the 3-retry budget is spent, the kiosk page survives and starts posting. That is why false reboots began at 01:15, 23 min after the 00:52 `standby_failure`.
+- fix: APK 5.110 — `checkAndRestore()` relaunches StandbyActivity during standby; `Android.getDeviceUptimeMs()` added. Web 3.10.214 — reports `kiosk_relaunch` when uptime > 5 min; wake window moved to 00:30 UTC ±15.
+- agent action: Treat `unexpected_reboot` as real ONLY if a matching `cold_boot` alarm event exists within ~2 min. Otherwise it is an activity recreation. `kiosk_relaunch` (v3.10.214+) is the correctly-labelled version and is informational.
+- open question: what displaced StandbyActivity at 00:05:03/05/07 BKK on Viennese, Decaffinato and Mocha simultaneously (3 of 12, all LG). Decaf and Mocha recovered on retry 1; Viennese did not. Not explained by any Worker cron (crons are 01:00/14:00 UTC and the handler is a no-op). Also unexplained: the ~25-min spacing of the false reboots when the service loop is 5 min.
+
+### [2026-09-22] Dashboard grouped incidents by UTC date
+- status: confirmed
+- confirmedOn: 2026-09-22
+- evidence: `renderAdminIncidents` sliced `inc.reportedAt` (UTC) but compared against a BKK-derived `today`. Everything 00:00–07:00 BKK was filed under the previous day. The `Resolve all` filter had the same bug and silently skipped those incidents.
+- fix: both call sites shift to BKK before slicing. The incident KEY stays UTC-sliced — that is how the Worker builds it (`now.toISOString().slice(0,10)`). Do not "fix" the key.
 
 ---
 
