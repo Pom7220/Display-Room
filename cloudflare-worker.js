@@ -232,12 +232,17 @@ async function handleHeartbeat(request, env) {
     var roomKey = 'room:' + data.room;
     var cmdKey  = 'cmd:'  + data.room;
 
-    // Read pending command and incident_active flag in parallel
-    var [pendingCmd, incidentActiveRaw] = await Promise.all([
+    // Read pending command, incident flag and the previous record in parallel.
+    // The extra read costs ~576/day against a 100k read budget; it buys a large
+    // cut in writes, which are the scarce resource at 1000/day.
+    var [pendingCmd, incidentActiveRaw, prevRaw] = await Promise.all([
       env.RIS_KV.get(cmdKey),
-      env.RIS_KV.get('incident_active:' + data.room)
+      env.RIS_KV.get('incident_active:' + data.room),
+      env.RIS_KV.get(roomKey)
     ]);
     var incidentActive = !!incidentActiveRaw;
+    var prev = null;
+    try { prev = prevRaw ? JSON.parse(prevRaw) : null; } catch (e) { prev = null; }
 
     var newStatus      = data.status  || 'unknown';
     var newVersion     = data.version || '';
@@ -245,7 +250,12 @@ async function handleHeartbeat(request, env) {
     var newRefresh     = !!data.hasRefreshToken;
     var newMiddayReload = data.middayReload || null;
 
-    // Always write room record — keeps key alive and dashboard current
+    // Room record is NOT written on every heartbeat. isOnline below assumes
+    // "writes every ~55min" (70-min threshold), but the heartbeat defaults to 30
+    // min and used to write unconditionally — 12 tablets x 48 = 576 writes/day
+    // against a 1000/day cap, which is what exhausted the budget on 2026-09-23.
+    // Write when something material changed, or when the last write is old enough
+    // that skipping would risk the 70-min isOnline threshold or the 2h key TTL.
     var record = {
       room: data.room,
       roomname: data.roomname || '',
@@ -269,8 +279,26 @@ async function handleHeartbeat(request, env) {
     // TTL 2 hours — covers 30-min normal heartbeat interval with headroom
     // KV writes are best-effort — if daily limit is exhausted, swallow the error
     // and return 200 so tablets keep heartbeating normally.
+    var prevAgeMs = (prev && prev.timestamp)
+      ? (Date.now() - new Date(prev.timestamp).getTime())
+      : Infinity;
+    var materialChange = !prev
+      || prev.status          !== newStatus
+      || prev.version         !== newVersion
+      || prev.apkVersion      !== newApk
+      || prev.hasRefreshToken !== newRefresh
+      || !!data.restarted
+      || incidentActive
+      || (record.lastErrors.length !== ((prev.lastErrors || []).length));
+    // 50 min: with a 30-min heartbeat this writes on alternate beats, so the
+    // record is never older than ~60 min — inside the 70-min isOnline threshold
+    // and well inside the 2h TTL, with one missed heartbeat of slack.
+    var writeDue = prevAgeMs > 50 * 60 * 1000;
+
     try {
-      await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
+      if (materialChange || writeDue) {
+        await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
+      }
 
       // Only write hbHist during incidents — granular trail when needed
       if (incidentActive) {
