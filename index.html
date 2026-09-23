@@ -228,9 +228,16 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .abtn-checkin{touch-action:manipulation;background:#1db954;color:#fff;border:2px solid #17a844;min-height:64px;font-size:22px;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
 .abtn-checkin.checked{background:#178a3e;color:#fff;border:2px solid #117733;-webkit-animation:none;animation:none;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
-.ab-big-checkin .action-row{margin-top:22px;}
+/* "or" separator — hidden unless the pilot class is on, so control rooms are
+   unchanged. It makes +30 min / End early read as a choice rather than two
+   adjacent actions, and the wider gap stops them looking like one control. */
+.abtn-or{display:none;}
+.ab-big-checkin .abtn-or{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:#8899bb;font-size:20px;font-weight:600;padding:0 2px;}
+.ab-big-checkin .action-row{margin-top:22px;gap:18px;}
 .ab-big-checkin .abtn{min-height:64px;font-size:22px;padding:16px 30px;}
-.ab-big-checkin .abtn-checkin,.ab-big-checkin .abtn-checkin.off{min-width:300px;min-height:92px;font-size:28px;padding:14px 36px;border-width:3px;}
+/* Check In matched to the +30 min / End early pills (184x70 and 163x70) rather
+   than towering over them — 300x92 read as oversized on the wall. */
+.ab-big-checkin .abtn-checkin,.ab-big-checkin .abtn-checkin.off{min-width:200px;min-height:70px;font-size:24px;padding:10px 32px;border-width:2px;}
 .ab-big-checkin .abtn-end{min-height:80px;font-size:24px;}
 .ab-big-checkin .abtn-end-early{min-height:56px;font-size:21px;padding:10px 32px;margin-top:0;}
 /* Option C: +30 min and End early as matched pills, not a circle beside a pill.
@@ -845,7 +852,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 223,
+  patch: 224,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -929,6 +936,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.224 2026-09-23 - A/B pilot: Check In resized to match the +30 min / End early pills (200x70 vs 184x70 and 163x70) — 300x92 read as oversized on the wall; "or" separator between +30 min and End early with an 18px gap so they read as a choice
 // v3.10.223 2026-09-23 - Booking-sheet QR now deep-links straight into the room booking sheet (&book=1) instead of availability. Scanning from inside the booking flow and landing on availability made the user tap Book again to return where they already were
 // v3.10.222 2026-09-23 - Fix false kiosk_relaunch at the 07:30 wake. The uptime test ran BEFORE the scheduled-window suppression, so every wake (uptime ~90m) reported an incident — 6 across the fleet on 2026-09-23. Window check now runs first
 // v3.10.221 2026-09-22 - Compress approval banner + QR hint margin. Approval rooms (Macchiato) measured ~878px against the 869px usable height above the 395px keyboard — would have scrolled. Banner 132px -> ~108px brings it under budget
@@ -2552,7 +2560,7 @@ function updateCurrentCard(){
       if(nxtRelEarly&&!checkedIn){
         releasedActionHtml+='<div class="action-row"><button class="abtn abtn-checkin" id="checkin-btn">Check In</button></div>';
       } else if(nxtRelEarly&&checkedIn){
-        releasedActionHtml+='<div class="action-row"><button class="abtn abtn-extend" id="ext-btn">+30 <br>min</button><br><button class="abtn abtn-end-early" id="end-btn">End early</button></div>';
+        releasedActionHtml+='<div class="action-row"><button class="abtn abtn-extend" id="ext-btn">+30 <br>min</button><span class="abtn-or">or</span><button class="abtn abtn-end-early" id="end-btn">End early</button></div>';
       }
       el('action-row-outer').innerHTML=releasedActionHtml;
       el('nav-book-btn').style.display=cfg.booking!==false?'':'none';
@@ -2664,7 +2672,7 @@ function updateCurrentCard(){
         btns='<button class="abtn abtn-checkin" id="checkin-btn">Check In</button>';
       } else if(!isAllDay(cur)){
         btns='<button class="abtn abtn-extend" id="ext-btn">+30 <br>min</button>';
-        btns+='<br><button class="abtn abtn-end-early" id="end-btn">End early</button>';
+        btns+='<span class="abtn-or">or</span><button class="abtn abtn-end-early" id="end-btn">End early</button>';
       }
     }
     var warn='';
@@ -2695,7 +2703,7 @@ function updateCurrentCard(){
         '<div class="meet-time-lg" style="color:#ff6666">'+ft(nxt.start)+' &ndash; '+ft(nxt.end)+'</div>'+
         (nxt.organizer?'<div class="meet-org">'+svgUser(13)+esc(nxt.organizer)+'</div>':'');
       var earlyBtns='<button class="abtn abtn-extend" id="ext-btn">+30 <br>min</button>';
-      earlyBtns+='<br><button class="abtn abtn-end-early" id="end-btn">End early</button>';
+      earlyBtns+='<span class="abtn-or">or</span><button class="abtn abtn-end-early" id="end-btn">End early</button>';
       el('action-row-outer').innerHTML='<div class="action-row">'+earlyBtns+'</div>';
     } else if(earlyCheckin){
       // ── UPCOMING ≤15min — check-in open ──
