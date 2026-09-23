@@ -97,15 +97,47 @@ Replace `<roomname>` (lowercase) and `<RoomName>` (display name) with the room's
 
 ### 9. Disable MEET IN TOUCH
 
-LG Android 4.4 (all tablets except Latte):
+**This step is not optional.** `me.exzy.meetingroom` registers Device Admin with the
+`force-lock` policy. It wakes on a ~25-minute timer, fails to launch its own MainActivity,
+times out, then calls `lockNow()` and puts the screen to sleep. The kiosk watchdog wakes
+the screen and relaunches the WebView, which surfaces as a `kiosk_relaunch` incident.
+Confirmed from logcat on Viennese 2026-09-23: 11 "Going to sleep due to device
+administration policy" events in a single morning. Doppio, which had the package but no
+Device Admin, produced zero — it is the admin privilege that causes this, not the app
+merely being installed.
+
+This step was skipped on 5 tablets during the original rollout and was not noticed for
+weeks, because the symptom looks like a display fault rather than a missing setup step.
+
+**Fleet-wide (preferred).** Idempotent — skips tablets already done, so it is safe to run
+any time, including as a post-rollout check:
+
+```bash
+bash scripts/disable-meetintouch.sh --dry-run   # show what would change
+bash scripts/disable-meetintouch.sh             # apply
+bash scripts/disable-meetintouch.sh 10.0.54.107 # one or more specific IPs
+```
+
+Run it in **Git Bash, not PowerShell** — bash loop syntax fails silently in PowerShell.
+The script verifies by re-reading package state rather than trusting the exit code, and
+names any tablet it could not change.
+
+**Single tablet, manual.** LG Android 4.4 (all except Latte):
 ```
 C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell su -c "pm disable me.exzy.meetingroom"
 ```
 
-Android 10 (Latte only):
+Android 10 (Latte only — no `su` needed):
 ```
 C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell pm disable-user --user 0 me.exzy.meetingroom
 ```
+
+Verify (should list the package; empty output means it is still enabled):
+```
+C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell pm list packages -d me.exzy.meetingroom
+```
+
+No reboot is required — `pm disable` force-stops the package immediately.
 
 ### 10. Clear LGKioskMode (LG tablets only — all except Latte)
 
