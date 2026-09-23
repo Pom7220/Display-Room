@@ -297,7 +297,9 @@ async function handleHeartbeat(request, env) {
 
     try {
       if (materialChange || writeDue) {
-        await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 7200 });
+        // TTL 3h, not 2h: with hourly writes a 2h TTL expires the key after a
+        // single missed write, making a healthy tablet vanish from the dashboard.
+        await env.RIS_KV.put(roomKey, JSON.stringify(record), { expirationTtl: 10800 });
       }
 
       // Only write hbHist during incidents — granular trail when needed
@@ -444,7 +446,11 @@ async function handleStatus(env) {
           (Date.now() - new Date(record.timestamp).getTime()) / 60000
         );
         record.lastSeenMinutes = lastSeen;
-        record.isOnline = lastSeen < 70; // writes every ~55min, so 70min gives safe headroom
+        // 95 min, not 70. The record is written hourly (gated), so a single missed
+      // heartbeat puts lastSeen at ~90 min on a perfectly healthy tablet. The old
+      // 70 assumed ~55-min writes; keeping it after the write gate landed would
+      // have turned every transient blip into a false offline.
+      record.isOnline = lastSeen < 95;
         // Include recent alarm events for this room
         var alarmRaw = await env.RIS_KV.get('alarm_log:' + record.room);
         record.alarmLog = alarmRaw ? JSON.parse(alarmRaw).slice(0, 10) : [];
