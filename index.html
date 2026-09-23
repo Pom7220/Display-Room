@@ -845,7 +845,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 221,
+  patch: 222,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -929,6 +929,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.222 2026-09-23 - Fix false kiosk_relaunch at the 07:30 wake. The uptime test ran BEFORE the scheduled-window suppression, so every wake (uptime ~90m) reported an incident — 6 across the fleet on 2026-09-23. Window check now runs first
 // v3.10.221 2026-09-22 - Compress approval banner + QR hint margin. Approval rooms (Macchiato) measured ~878px against the 869px usable height above the 395px keyboard — would have scrolled. Banner 132px -> ~108px brings it under budget
 // v3.10.220 2026-09-22 - Booking sheet: room-specific QR beside the title (opens that room availability on phone) + "Continue here, or scan to finish on your phone". Measured on tablet: keyboard 395px, window never resizes under FLAG_FULLSCREEN, leaving 869px; sheet was 809px so QR had to cost ~zero height. Padding trimmed, max-height 82vh->67vh so overflow scrolls instead of hiding under the keyboard. dashboard.html reads ?room= and opens that room availability
 // v3.10.219 2026-09-22 - Pilot: +30 min becomes a pill matched to End early (was a circle beside a pill — the <br> meant to stack them is inert inside flex, so they always rendered side by side mismatched). QR label "Scan to see all rooms" at 15px, was 10px and near-unreadable
@@ -3812,10 +3813,15 @@ try{
     var _nb=new Date();var _mb=_nb.getUTCHours()*60+_nb.getUTCMinutes();
     var _upMs=-1;
     try{if(typeof Android!=='undefined'&&Android.getDeviceUptimeMs)_upMs=Android.getDeviceUptimeMs();}catch(e){}
-    if(_upMs>300000){
-      reportIncident('kiosk_relaunch','Activity recreated without reboot (device up '+Math.round(_upMs/60000)+'m)',false);
-    }else if(Math.abs(_mb-1380)<=15||Math.abs(_mb-30)<=15){
+    // Scheduled windows are checked FIRST. The 07:30 wake alarm legitimately
+    // relaunches the kiosk via launchWebView (CLEAR_TASK), so uptime is ~90 min
+    // and an uptime-first test reported every wake as a kiosk_relaunch — 6 false
+    // incidents across the fleet on 2026-09-23, replacing the false
+    // unexpected_reboot this was meant to fix. Suppress the window, then classify.
+    if(Math.abs(_mb-1380)<=15||Math.abs(_mb-30)<=15){
       dbg('Boot within scheduled window (UTC min='+_mb+') — expected, no incident');
+    }else if(_upMs>300000){
+      reportIncident('kiosk_relaunch','Activity recreated without reboot (device up '+Math.round(_upMs/60000)+'m)',false);
     }else{
       reportIncident('unexpected_reboot','Unexpected device reboot at '+_nb.toISOString(),false);
     }
