@@ -290,7 +290,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.15 (2026-09-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.16 (2026-09-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -452,6 +452,10 @@ function initMsal(){
       }
       if(resp&&resp.account){
         account=resp.account;
+        // Clear the forced-login latch only once a sign-in actually succeeds.
+        // Clearing it on use would mean cancelling the forced prompt drops the
+        // next attempt back to silent select_account — the hole this closes.
+        try{ localStorage.removeItem('ris_force_login'); }catch(e){}
         var hint=getEmailFromJWT(resp.accessToken)||account.userName||account.username||'';
         if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
         if(resp.accessToken){
@@ -512,7 +516,7 @@ function doSignIn(){
   initMsal();
   try{
     _redirectInProgress=true;
-    msalInst.loginRedirect({scopes:SCOPES,prompt:'select_account'});
+    msalInst.loginRedirect({scopes:SCOPES,prompt:signInPrompt()});
   }catch(e){_redirectInProgress=false;el('auth-error').textContent=e.message;}
 }
 
@@ -674,8 +678,25 @@ function signOutLocal(){
   }catch(e){}
   account=null;_token=null;_tokenExp=0;
   adminKey='';adminVisible=false;
+  // Local sign-out leaves the browser's Microsoft session alive, so the next
+  // sign-in with prompt:'select_account' would hand out a token the instant the
+  // account is picked — no password, no MFA. On a shared phone that means
+  // signing out protects nothing. Latch a one-shot prompt:'login' so the next
+  // sign-in has to re-authenticate. Set AFTER the clear loop above, or it would
+  // be wiped by it.
+  try{ localStorage.setItem('ris_force_login','1'); }catch(e){}
   // Reload to the bare dashboard so no deep link re-triggers auto sign-in.
   location.replace(location.pathname);
+}
+
+// 'login' forces credential re-entry (and MFA, where Conditional Access applies)
+// instead of silently reusing the browser's Microsoft session. Only used for the
+// one sign-in that follows an explicit sign-out; every other sign-in keeps
+// 'select_account' so normal use is not made tedious. Never 'none' — that is
+// what produced AADSTS50196.
+function signInPrompt(){
+  try{ return localStorage.getItem('ris_force_login') ? 'login' : 'select_account'; }
+  catch(e){ return 'select_account'; }
 }
 
 function updateAccountChip(){
@@ -717,7 +738,7 @@ function showSignInBar(){
           msalInst.loginRedirect({
             scopes:SCOPES,
             loginHint:hint||undefined,
-            prompt:'select_account'
+            prompt:signInPrompt()
           });
         }catch(e){_redirectInProgress=false;console.warn(e);}
       }
@@ -1111,7 +1132,7 @@ if(!account){
       msalInst.loginRedirect({
         scopes:SCOPES,
         loginHint:localStorage.getItem('roomdisplay_loginhint')||undefined,
-        prompt:'select_account'
+        prompt:signInPrompt()
       });
     }catch(e){ _redirectInProgress=false; console.warn(e); }
   },1600);
