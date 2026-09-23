@@ -290,7 +290,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.14 (2026-09-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.15 (2026-09-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -663,13 +663,17 @@ function signOutLocal(){
     var kill=[];
     for(var i=0;i<localStorage.length;i++){
       var k=localStorage.key(i);
-      if(k&&(k.indexOf('msal.')===0||k.indexOf('msal|')===0||k==='roomdisplay_loginhint'))kill.push(k);
+      // ris_admin_key must go too. Admin access belongs to the person, not the
+      // device — leaving it behind means the next person to pick up this phone
+      // taps ADMIN and is straight into the monitoring panel with no challenge.
+      if(k&&(k.indexOf('msal.')===0||k.indexOf('msal|')===0||k==='roomdisplay_loginhint'||k==='ris_admin_key'))kill.push(k);
     }
     kill.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
     sessionStorage.removeItem('ris_signin_tried');
     sessionStorage.removeItem('ris_deeplink');
   }catch(e){}
   account=null;_token=null;_tokenExp=0;
+  adminKey='';adminVisible=false;
   // Reload to the bare dashboard so no deep link re-triggers auto sign-in.
   location.replace(location.pathname);
 }
