@@ -269,7 +269,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.6 (2026-09-22)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.7 (2026-09-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -578,12 +578,16 @@ async function fetchAllRooms(){
   else updateDetailCard();
 }
 
-// ?room=<email> — scanned from a tablet's booking sheet QR, so the phone opens
-// on that room's availability instead of the generic list. Availability only:
-// it deliberately does NOT auto-open the booking sheet, which would have to
-// survive the sign-in round-trip and risks the redirect loop fixed in 2f11794.
+// ?room=<email>        — open that room's availability (scanned from a tablet)
+// ?room=<email>&book=1 — also open its booking sheet, prefilled
+//
+// Called from fetchAllRooms AFTER the data fetch succeeds, so auth has already
+// completed and openBookModal can prefill name/email from the signed-in account.
+// That is why this no longer risks the sign-in round-trip that kept it to
+// availability-only in f1e7ae2 — there is no redirect left to survive.
+//
 // Runs only when nothing is selected yet, so the 5-min refresh cannot yank the
-// user back to the deep-linked room after they have picked another.
+// user back to the deep-linked room, nor reopen the sheet after they cancel it.
 function selectDeepLinkedRoom(){
   try{
     const m=(location.search||'').match(/[?&]room=([^&]*)/);
@@ -592,6 +596,10 @@ function selectDeepLinkedRoom(){
     const room=ROOMS.find(r=>(r.email||'').toLowerCase()===want);
     if(!room) return false;
     selectRoom(room);
+    if(/[?&]book=1(&|$)/.test(location.search||'')){
+      // Defer so selectRoom's scrollIntoView settles before the sheet covers it.
+      setTimeout(function(){ try{ openBookModal(); }catch(e){} },300);
+    }
     return true;
   }catch(e){ return false; }
 }

@@ -845,7 +845,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 222,
+  patch: 223,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -929,6 +929,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.223 2026-09-23 - Booking-sheet QR now deep-links straight into the room booking sheet (&book=1) instead of availability. Scanning from inside the booking flow and landing on availability made the user tap Book again to return where they already were
 // v3.10.222 2026-09-23 - Fix false kiosk_relaunch at the 07:30 wake. The uptime test ran BEFORE the scheduled-window suppression, so every wake (uptime ~90m) reported an incident — 6 across the fleet on 2026-09-23. Window check now runs first
 // v3.10.221 2026-09-22 - Compress approval banner + QR hint margin. Approval rooms (Macchiato) measured ~878px against the 869px usable height above the 395px keyboard — would have scrolled. Banner 132px -> ~108px brings it under budget
 // v3.10.220 2026-09-22 - Booking sheet: room-specific QR beside the title (opens that room availability on phone) + "Continue here, or scan to finish on your phone". Measured on tablet: keyboard 395px, window never resizes under FLAG_FULLSCREEN, leaving 869px; sheet was 809px so QR had to cost ~zero height. Padding trimmed, max-height 82vh->67vh so overflow scrolls instead of hiding under the keyboard. dashboard.html reads ?room= and opens that room availability
@@ -3039,8 +3040,11 @@ function openModal(){
   try{
     var qb=el('qr-book-canvas');
     if(qb&&typeof QRCode!=='undefined'&&activeRoom&&activeRoom.email){
+      // book=1 opens the booking sheet directly — this QR is scanned from inside
+      // the booking flow, so dropping the user on availability made them tap Book
+      // again to get back where they already were.
       var bookUrl=window.location.origin+window.location.pathname.replace('index.html','')
-        +'dashboard.html?room='+encodeURIComponent(activeRoom.email);
+        +'dashboard.html?room='+encodeURIComponent(activeRoom.email)+'&book=1';
       if(qb.getAttribute('data-room')!==activeRoom.email){
         qb.innerHTML='';
         new QRCode(qb,{text:bookUrl,width:88,height:88,correctLevel:QRCode.CorrectLevel.M});
