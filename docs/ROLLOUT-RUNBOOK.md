@@ -149,13 +149,35 @@ This prevents the LGKioskMode boot loop (if cold reboot happens after 07:00 BKK,
 
 ### 11. Reboot
 
+LG Android 4.4 (all tablets except Latte):
 ```
 C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell su -c "reboot"
 ```
 
+Android 10 (Latte only) — `su -c reboot` fails there with `invalid uid/gid`,
+because that build's `su` does not accept `-c`. Use plain `reboot`:
+```
+C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell reboot
+```
+(The APK makes the same split: `ScheduleReceiver` calls plain `reboot` on
+API 21+ and `su -c reboot` below that.)
+
 ### 12. Verify heartbeat on dashboard
 
 Check the dashboard — the new room should appear with a fresh heartbeat within ~5 minutes of reboot.
+
+Then confirm the two settings that are easy to skip and hard to spot later:
+
+```
+C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell pm list packages -d me.exzy.meetingroom
+```
+Must print the package. Empty output means MEET IN TOUCH is still enabled — see
+Step 9 for why that matters.
+
+```
+C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell dumpsys package th.co.central.ris.bootlauncher | findstr userId
+```
+Must match the UID recorded in Step 5.
 
 ### 13. ADB disconnect
 
@@ -196,3 +218,5 @@ C:\TEMP\platform-tools\adb.exe disconnect <IP>:5555
 | MEET IN TOUCH black screen, no heartbeat | MEET IN TOUCH registered as Device Admin with force-lock | `pm disable me.exzy.meetingroom` then reboot |
 | Boot loop (uptime < 90s repeatedly) | LGKioskMode schedule firing immediately after off-hours reboot | `su -c "pm clear com.lge.lgkioskmode"` |
 | OTA not firing after "Update all" | Command TTL (30 min) expired before tablet heartbeated | Resend "Update all" while tablet is awake (07:00–20:30 BKK on weekdays) |
+| `adb devices` shows `offline` but the display works fine | adbd handshake wedged. Port 5555 is open and the tablet is healthy — this is NOT a tablet fault, do not PoE cycle it | On the tablet: Settings → Developer Options → toggle USB debugging OFF then ON, then reconnect. No authorisation dialog appears and none is needed. `adb disconnect`/`connect` and `kill-server` do NOT fix it. A 06:00 cold reboot also clears it |
+| `adb connect` says "already connected" but commands fail | That message only means the host holds an entry, not that the device responds | Check `adb devices` — look for `device` vs `offline` |
