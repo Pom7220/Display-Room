@@ -76,6 +76,12 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .ref-bar{display:none;} /* merged into hint-bar */
 .ref-btn{font-size:14px;font-weight:700;color:#44bb66;background:none;border:none;cursor:pointer;padding:0 0 0 4px;font-family:var(--font);line-height:1;}
 .ref-btn:active{opacity:.7;}
+/* Account chip: without it there is no way to see WHICH account you are signed
+   in as, and no way to change it — a wrong sign-in meant bookings went out under
+   the wrong name with no in-app escape. Shows the mailbox local part to stay
+   narrow on a 375px phone; full address is in the title attribute. */
+.acct-chip{display:none;align-items:center;gap:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:3px 8px;font-size:10px;font-weight:600;color:#7d90ab;font-family:var(--font);cursor:pointer;max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.acct-chip:active{opacity:.6;}
 /* Sign in is the only thing a signed-out visitor can usefully do, and people
    arriving from a QR scan do not know to look for it. The base .ref-btn has no
    border, padding or background, so the old inline amber only tinted the text —
@@ -258,6 +264,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
     <span style="font-size:13px" id="hint-icon">👇</span>
     <span style="flex:1" id="hint-tap">Tap any room to select &amp; book</span>
     <span class="ref-txt" id="ref-txt" style="font-size:10px;color:#2a6a3a;margin-right:6px">Loading…</span>
+    <button class="acct-chip" id="acct-chip" onclick="signOutLocal()" title=""></button>
     <button class="ref-btn" onclick="refreshAll()">↻</button>
   </div>
 
@@ -280,7 +287,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.11 (2026-09-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.12 (2026-09-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -448,6 +455,7 @@ function initMsal(){
           _token=resp.accessToken;
           _tokenExp=resp.expiresOn?resp.expiresOn.getTime():(Date.now()+3600000);
         }
+        updateAccountChip();
         fetchAllRooms();
         startDashboardKeepalive();
       }
@@ -456,6 +464,7 @@ function initMsal(){
     if(account){
       var hint=account.userName||account.username||'';
       if(hint)try{localStorage.setItem('roomdisplay_loginhint',hint);}catch(e){}
+      updateAccountChip();
     }
   }catch(e){console.warn('MSAL init:',e);}
 }
@@ -638,12 +647,49 @@ function applyDeepLink(full){
   return true;
 }
 
+// Local sign-out only. msalInst.logout() would end the Microsoft session for
+// the whole browser, signing the user out of Outlook Web and Teams in other
+// tabs — a room-booking page has no business doing that. Clearing MSAL's
+// localStorage cache forgets this app only; the next sign-in uses
+// prompt:'select_account', so the account picker appears and a wrong account
+// can actually be corrected.
+function signOutLocal(){
+  var who=(localStorage.getItem('roomdisplay_loginhint')||'this account');
+  if(!confirm('Sign out '+who+' on this device?
+
+You stay signed in to other Microsoft apps.'))return;
+  try{
+    var kill=[];
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(k&&(k.indexOf('msal.')===0||k.indexOf('msal|')===0||k==='roomdisplay_loginhint'))kill.push(k);
+    }
+    kill.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+    sessionStorage.removeItem('ris_signin_tried');
+    sessionStorage.removeItem('ris_deeplink');
+  }catch(e){}
+  account=null;_token=null;_tokenExp=0;
+  // Reload to the bare dashboard so no deep link re-triggers auto sign-in.
+  location.replace(location.pathname);
+}
+
+function updateAccountChip(){
+  var chip=el('acct-chip');
+  if(!chip)return;
+  var email=(account&&(account.userName||account.username))||localStorage.getItem('roomdisplay_loginhint')||'';
+  if(!account||!email){ chip.style.display='none'; return; }
+  chip.textContent='⏻ '+email.split('@')[0];
+  chip.title='Signed in as '+email+' — tap to sign out on this device';
+  chip.style.display='inline-flex';
+}
+
 function showSignInBar(){
   // 'Session expired' is wrong for someone arriving fresh from a QR scan — they
   // never had a session. Neutral copy reads correctly in both cases.
   el('ref-txt').textContent='Sign in to view and book rooms';
   // Hide the tap hint: it contradicts the prompt (nothing is bookable until you
   // sign in) and squeezed this message into a four-line column on mobile.
+  var _ac=el('acct-chip'); if(_ac)_ac.style.display='none';
   var _hi=el('hint-icon'), _ht=el('hint-tap');
   if(_hi)_hi.style.display='none';
   if(_ht)_ht.style.display='none';
