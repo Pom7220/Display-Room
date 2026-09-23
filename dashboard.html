@@ -269,7 +269,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.7 (2026-09-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.8 (2026-09-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -574,34 +574,54 @@ async function fetchAllRooms(){
   el('ref-txt').textContent=`Updated ${ft(now)}`;
   if(refBtn)refBtn.textContent='↻ Refresh';
   renderRooms(); updateSummary();
-  if(!selectedRoom) selectDeepLinkedRoom() || selectDefaultRoom();
-  else updateDetailCard();
+  // Deep link wins even if a default was already picked pre-auth — otherwise the
+  // startup default permanently blocks it for anyone not already signed in.
+  if(!applyDeepLink(true)){
+    if(!selectedRoom) selectDefaultRoom();
+    else updateDetailCard();
+  }
 }
 
 // ?room=<email>        — open that room's availability (scanned from a tablet)
 // ?room=<email>&book=1 — also open its booking sheet, prefilled
 //
-// Called from fetchAllRooms AFTER the data fetch succeeds, so auth has already
-// completed and openBookModal can prefill name/email from the signed-in account.
-// That is why this no longer risks the sign-in round-trip that kept it to
-// availability-only in f1e7ae2 — there is no redirect left to survive.
-//
-// Runs only when nothing is selected yet, so the 5-min refresh cannot yank the
-// user back to the deep-linked room, nor reopen the sheet after they cancel it.
-function selectDeepLinkedRoom(){
+// Captured once at load, BEFORE anything can pick a default room, and mirrored
+// into sessionStorage because the MSAL redirect drops the query string. Without
+// that, a staff member who is not already signed in gets: fetchAllRooms bails at
+// getToken, the startup path selects a default room, and after sign-in the intent
+// is gone — they land on the wrong room. Observed 2026-09-23.
+var _deepLink = (function(){
   try{
-    const m=(location.search||'').match(/[?&]room=([^&]*)/);
-    if(!m) return false;
-    const want=decodeURIComponent(m[1]).toLowerCase();
-    const room=ROOMS.find(r=>(r.email||'').toLowerCase()===want);
-    if(!room) return false;
-    selectRoom(room);
-    if(/[?&]book=1(&|$)/.test(location.search||'')){
-      // Defer so selectRoom's scrollIntoView settles before the sheet covers it.
-      setTimeout(function(){ try{ openBookModal(); }catch(e){} },300);
+    var s = location.search || '';
+    var m = s.match(/[?&]room=([^&]*)/);
+    if(m){
+      var d = { email: decodeURIComponent(m[1]).toLowerCase(),
+                book: /[?&]book=1(&|$)/.test(s) };
+      try{ sessionStorage.setItem('ris_deeplink', JSON.stringify(d)); }catch(e){}
+      return d;
     }
-    return true;
-  }catch(e){ return false; }
+    var saved = sessionStorage.getItem('ris_deeplink');
+    return saved ? JSON.parse(saved) : null;
+  }catch(e){ return null; }
+})();
+
+// full=false: pre-auth, just select the room so the right one is on screen; the
+// intent stays pending. full=true: data has loaded, so also open the booking
+// sheet (which needs the signed-in account to prefill) and clear the intent.
+function applyDeepLink(full){
+  if(!_deepLink) return false;
+  var want = _deepLink.email, wantBook = _deepLink.book;
+  var room = ROOMS.find(function(r){ return (r.email||'').toLowerCase() === want; });
+  if(!room){ _deepLink = null; try{ sessionStorage.removeItem('ris_deeplink'); }catch(e){} return false; }
+  selectRoom(room);
+  if(!full) return true;
+  _deepLink = null;
+  try{ sessionStorage.removeItem('ris_deeplink'); }catch(e){}
+  if(wantBook){
+    // Defer so selectRoom's scrollIntoView settles before the sheet covers it.
+    setTimeout(function(){ try{ openBookModal(); }catch(e){} }, 300);
+  }
+  return true;
 }
 
 function showSignInBar(){
@@ -984,7 +1004,9 @@ initMsal();
 
 if(!account){
   renderRooms();
-  selectDefaultRoom();
+  // Show the deep-linked room if there is one; the intent stays pending so the
+  // booking sheet still opens once data loads after sign-in.
+  if(!applyDeepLink(false)) selectDefaultRoom();
   // Show sign-in bar — do NOT auto-redirect here.
   // Auto-redirect caused infinite loops: if handleRedirectCallback takes >400ms
   // (background tab, slow CPU), the timeout fires again before account is set,
