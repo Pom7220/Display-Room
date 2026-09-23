@@ -76,6 +76,14 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
 .ref-bar{display:none;} /* merged into hint-bar */
 .ref-btn{font-size:14px;font-weight:700;color:#44bb66;background:none;border:none;cursor:pointer;padding:0 0 0 4px;font-family:var(--font);line-height:1;}
 .ref-btn:active{opacity:.7;}
+/* Sign in is the only thing a signed-out visitor can usefully do, and people
+   arriving from a QR scan do not know to look for it. The base .ref-btn has no
+   border, padding or background, so the old inline amber only tinted the text —
+   it read as a label, not a control. This makes it an actual button. */
+@keyframes signin-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,149,0,0);}50%{box-shadow:0 0 16px 5px rgba(255,149,0,.6);}}
+.ref-btn.signin{background:#ff9500;color:#241400;border:2px solid #ffc061;border-radius:22px;padding:10px 20px;font-size:15px;font-weight:800;letter-spacing:.01em;animation:signin-pulse 1.5s ease-in-out infinite;}
+.ref-btn.signin:active{transform:scale(.97);opacity:1;}
+@media (prefers-reduced-motion:reduce){.ref-btn.signin{animation:none;}}
 
 /* ZONES */
 .zone-wrap{padding:6px 12px 4px;}
@@ -269,7 +277,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.9 (2026-09-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.10 (2026-09-23)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -572,7 +580,7 @@ async function fetchAllRooms(){
   }
   const now=new Date();
   el('ref-txt').textContent=`Updated ${ft(now)}`;
-  if(refBtn)refBtn.textContent='↻ Refresh';
+  if(refBtn){ refBtn.textContent='↻ Refresh'; refBtn.classList.remove('signin'); }
   renderRooms(); updateSummary();
   // Deep link wins even if a default was already picked pre-auth — otherwise the
   // startup default permanently blocks it for anyone not already signed in.
@@ -625,13 +633,16 @@ function applyDeepLink(full){
 }
 
 function showSignInBar(){
-  el('ref-txt').textContent='Session expired — sign in to reload';
+  // 'Session expired' is wrong for someone arriving fresh from a QR scan — they
+  // never had a session. Neutral copy reads correctly in both cases.
+  el('ref-txt').textContent='Sign in to view and book rooms';
   var refBtn=document.querySelector('.ref-btn');
   if(refBtn){
     refBtn.textContent='🔐 Sign in';
-    refBtn.style.background='rgba(255,149,0,.15)';
-    refBtn.style.borderColor='rgba(255,149,0,.4)';
-    refBtn.style.color='#ffaa33';
+    refBtn.classList.add('signin');
+    refBtn.style.background='';
+    refBtn.style.borderColor='';
+    refBtn.style.color='';
     refBtn.onclick=function(){
       if(_redirectInProgress)return;
       initMsal();
@@ -657,6 +668,7 @@ function refreshAll(){
   var refBtn=document.querySelector('.ref-btn');
   if(refBtn){
     refBtn.textContent='↻ Refresh';
+    refBtn.classList.remove('signin');
     refBtn.style.background='';
     refBtn.style.borderColor='';
     refBtn.style.color='';
