@@ -228,24 +228,31 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 .abtn-checkin{touch-action:manipulation;background:#1db954;color:#fff;border:2px solid #17a844;min-height:64px;font-size:22px;-webkit-animation:checkin-pulse 1.6s ease-in-out infinite;animation:checkin-pulse 1.6s ease-in-out infinite;}
 .abtn-checkin.checked{background:#178a3e;color:#fff;border:2px solid #117733;-webkit-animation:none;animation:none;}
 .abtn-checkin.off{background:#1a1a2a;color:#445566;border:2px solid #223344;cursor:default;-webkit-animation:none;animation:none;}
-/* "or" separator — hidden unless the pilot class is on, so control rooms are
-   unchanged. It makes +30 min / End early read as a choice rather than two
-   adjacent actions, and the wider gap stops them looking like one control. */
-.abtn-or{display:none;}
-.ab-big-checkin .abtn-or{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:#8899bb;font-size:20px;font-weight:600;padding:0 2px;}
-.ab-big-checkin .action-row{margin-top:22px;gap:18px;}
-.ab-big-checkin .abtn{min-height:64px;font-size:22px;padding:16px 30px;}
-/* Check In matched to the +30 min / End early pills (184x70 and 163x70) rather
-   than towering over them — 300x92 read as oversized on the wall. */
-.ab-big-checkin .abtn-checkin,.ab-big-checkin .abtn-checkin.off{min-width:200px;min-height:70px;font-size:24px;padding:10px 32px;border-width:2px;}
-.ab-big-checkin .abtn-end{min-height:80px;font-size:24px;}
-.ab-big-checkin .abtn-end-early{min-height:56px;font-size:21px;padding:10px 32px;margin-top:0;}
-/* Option C: +30 min and End early as matched pills, not a circle beside a pill.
-   The <br> in the markup never stacked them — .action-row is flex, where <br> is
-   inert — so they always rendered side by side as mismatched shapes. Collapsing
-   the <br> puts "+30 min" on one line; the markup carries a space before it. */
-.ab-big-checkin .abtn-extend{width:auto;height:auto;min-width:184px;min-height:70px;padding:10px 32px;-webkit-border-radius:50px;border-radius:50px;font-size:24px;line-height:1.2;}
-.ab-big-checkin .abtn-extend br{display:none;}
+/* ── Action button sizing — fleet-wide since 2026-09-23 ──────────────────────
+   Piloted on Macchiato + Ristretto, then rolled out. These override the base
+   .abtn rules above by source order (equal specificity, declared later).
+
+   Why the original sizes were wrong: at dpr 1.0 on these 1280x800 panels the
+   old End early was 36px = 5.7mm, below Material's own 48dp floor and smaller
+   than Check In. These are wall panels tapped at arm's length, not handhelds
+   braced in the hand, so every target is now ~70px = 11mm.
+
+   Check In is deliberately NOT the largest — an earlier 300x92 towered over the
+   pills and read as oversized on the wall. All three match at 70px tall.
+
+   The "or" separator makes +30 min / End early read as a choice. The <br> in
+   the markup never stacked them: .action-row is display:flex, where <br> is
+   inert, so they always rendered side by side as a circle beside a pill.
+   Collapsing the <br> puts "+30 min" on one line; the markup carries a space
+   before it so control-era rendering stayed intact during the pilot. */
+.abtn-or{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:#8899bb;font-size:20px;font-weight:600;padding:0 2px;}
+.action-row{margin-top:22px;gap:18px;}
+.abtn{min-height:64px;font-size:22px;padding:16px 30px;}
+.abtn-checkin,.abtn-checkin.off{min-width:200px;min-height:70px;font-size:24px;padding:10px 32px;border-width:2px;}
+.abtn-end{min-height:80px;font-size:24px;}
+.abtn-end-early{min-height:56px;font-size:21px;padding:10px 32px;margin-top:0;}
+.abtn-extend{width:auto;height:auto;min-width:184px;min-height:70px;padding:10px 32px;-webkit-border-radius:50px;border-radius:50px;font-size:24px;line-height:1.2;}
+.abtn-extend br{display:none;}
 @-webkit-keyframes ci-fadein{0%{opacity:0;-webkit-transform:scale(.88);}100%{opacity:1;-webkit-transform:scale(1);}}
 @keyframes ci-fadein{0%{opacity:0;transform:scale(.88);}100%{opacity:1;transform:scale(1);}}
 #checkin-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:999;background:rgba(0,0,0,.72);display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;pointer-events:none;}
@@ -852,7 +859,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 224,
+  patch: 225,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -936,6 +943,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.225 2026-09-23 - Roll out action-button sizing to all 12 tablets. Pilot CSS promoted from .ab-big-checkin scope to defaults; AB_BIG_CHECKIN emptied but the gate mechanism kept for future pilots
 // v3.10.224 2026-09-23 - A/B pilot: Check In resized to match the +30 min / End early pills (200x70 vs 184x70 and 163x70) — 300x92 read as oversized on the wall; "or" separator between +30 min and End early with an 18px gap so they read as a choice
 // v3.10.223 2026-09-23 - Booking-sheet QR now deep-links straight into the room booking sheet (&book=1) instead of availability. Scanning from inside the booking flow and landing on availability made the user tap Book again to return where they already were
 // v3.10.222 2026-09-23 - Fix false kiosk_relaunch at the 07:30 wake. The uptime test ran BEFORE the scheduled-window suppression, so every wake (uptime ~90m) reported an incident — 6 across the fleet on 2026-09-23. Window check now runs first
@@ -1149,12 +1157,16 @@ function startBurnIn(){}
 // ══════════════════════════════════════
 
 
-// A/B pilot: enlarged Check In button. The current 151x64px pill is smaller than
-// the 31px text instructing you to press it, and 10.2mm is handheld-minimum on a
-// wall panel tapped at arm's length. Piloted on two rooms before fleet rollout.
-// Deliberately excludes Viennese/Decaffinato/Mocha — those carry the standby
-// investigation and are kept free of unrelated variables.
-var AB_BIG_CHECKIN=['rismacchiato@central.co.th','risristretto@central.co.th'];
+// Per-room A/B mechanism. Adds the `ab-big-checkin` class to <body> for the
+// rooms listed here, so a change can be scoped to a few tablets before fleet
+// rollout — every tablet serves the same index.html, so this runtime gate is the
+// only way to differentiate. Version numbers will match across pilot and control.
+//
+// Empty since 2026-09-23: the button-sizing pilot (Macchiato + Ristretto) was
+// accepted and its CSS promoted to the defaults above, so nothing is gated now.
+// Kept in place for the next pilot — put room emails here and scope the CSS
+// under `.ab-big-checkin`.
+var AB_BIG_CHECKIN=[];
 
 function applyAbFlags(){
   try{
