@@ -464,6 +464,25 @@ Tablet should appear with heartbeat and correct room name within ~5 minutes of r
 - gotcha found and fixed: `loadCfg()` runs BEFORE the URL-param block that sets `cfg.roomemail`, so on a first boot with empty localStorage the class never applied. `applyAbFlags()` is now called again after the injection. Any future gate reading `cfg` at startup has the same trap.
 - **verifying a deploy from the office network**: `curl` to `pom7220.github.io` returns `http=000` — the corporate network blocks it. Check the Worker URL instead; Cloudflare reaches Pages fine.
 
+### [2026-09-23] KV write budget — where the 1000/day actually goes
+- status: confirmed (measured 2026-09-23 after hitting 90% of the write cap at 06:01 BKK)
+- **The heartbeat room record was the dominant consumer by a wide margin.** Measured write budget before the fix:
+
+| Source | Writes/day |
+|---|---|
+| heartbeat `room:` record — 12 tablets x 48 (30-min interval) | **576** |
+| `alarm_log` — standby + cold_boot + wake | 36 |
+| `room:` record rewritten by those same alarm events | 36 |
+| incidents (2 writes each, 5 for standby_failure) | ~22 |
+| each web version push — all 12 tablets reload and heartbeat | ~12 |
+
+- **heartbeat interval is 30 min, not 60.** `_hbMins` defaults to 30 in index.html and no tablet overrides it. The "⏱ 60m" on the dashboard card is `r.uptime`, NOT the heartbeat interval — a 2026-09-23 session misread it and had to correct mid-analysis. Verified from KV: all 12 rooms write in lockstep at :00 and :30.
+- root cause: the handler was commented "Always write room record", but `isOnline = lastSeen < 70` twelve lines below is annotated "writes every ~55min". The Worker was designed for a ~55-minute write cadence and the 30-minute heartbeat was writing on every beat — about double the intended rate.
+- fix (2026-09-23): the room record is written only on a material change (status, version, apkVersion, hasRefreshToken, `restarted` flag, active incident, error-count change) or when the previous record is >50 min old. Costs +1 read per heartbeat (~576/day against a 100k read budget) to buy back ~288 writes/day. Verified live: the 09:30 beat skipped on all 12 with `lastSeen=36m`, all still `isOnline`.
+- **if you change the heartbeat interval or the 50-min threshold, re-check against `isOnline`'s 70-min window and the room key's 2h TTL.** The three are coupled: writes must be frequent enough to stay inside both.
+- agent action: before adding any per-heartbeat or per-poll KV write, do the arithmetic against 1000/day. 12 tablets x 48 beats = 576, so ANY unconditional per-heartbeat write consumes over half the daily budget on its own.
+- note: reads are not the constraint — ~23.7k/day against 100k. `pollCommand` (12 x 960) and `/api/diagnostics` (up to 200 reads per call) are the main read consumers and both are fine.
+
 ---
 
 ## Retired Patterns
