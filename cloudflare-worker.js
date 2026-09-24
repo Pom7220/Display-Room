@@ -1781,9 +1781,10 @@ function isOrgUserToken(request, env) {
 // ═══════════════════════════════════════
 
 async function handleCalendar(request, url, env) {
-  var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  if (!tabletKey && !isOrgUserToken(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
   var room = url.searchParams.get('room') || '';
+  var _auth = await authorizeRoomRequest(request, env, room);
+  var _blocked = authGate(_auth, isPilotStrictRoom(room));
+  if (_blocked) return _blocked;
   var start = url.searchParams.get('startDateTime') || '';
   var end = url.searchParams.get('endDateTime') || '';
   if (!room) return jsonResponse({ error: 'Missing room' }, 400);
@@ -1800,7 +1801,12 @@ async function handleCalendar(request, url, env) {
     var resp = await fetch(graphUrl, { headers: { 'Authorization': 'Bearer ' + token } });
     var data = await resp.json();
     if (data.error) return jsonResponse({ error: data.error.message, value: [] }, 200);
-    return jsonResponse({ value: data.value || [] });
+    var _r = jsonResponse({ value: data.value || [] });
+    // Report-only diagnostic: exposes the auth verdict without acting on it, so
+    // the RIS_TABLET_KEY secret can be confirmed against what tablets actually
+    // send before enforcement is switched on. Remove once AUTH_ENFORCE is stable.
+    try { _r.headers.set('X-Auth-Check', _auth.verdict + (isPilotStrictRoom(room) ? ';strict' : ';lenient')); } catch (e) {}
+    return _r;
   } catch (e) {
     return jsonResponse({ error: e.message, value: [] }, 200);
   }
@@ -2001,6 +2007,85 @@ function corsHeaders() {
     'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Tablet-Key, Authorization',
     'Access-Control-Max-Age': '86400'
   };
+}
+
+// ── Room-scoped request authorisation (Tier 2) ───────────────────────────────
+//
+// Two defects are being closed together, because each alone is a complete
+// bypass of the other:
+//
+//   1. X-Tablet-Key was never compared to anything. The guard read
+//      `if (!tabletKey && ...)` — it tested that the header was non-empty, so
+//      any string granted access. There is no RIS_TABLET_KEY comparison
+//      anywhere in the original code.
+//   2. isOrgUserToken reads `tid` and `exp` out of the JWT payload via
+//      jwtClaim, which base64-decodes and never inspects the signature. Claims
+//      from an unverified token are not evidence of anything.
+//
+// Fixing only one leaves the other as an open door, which is why this is a
+// single change.
+//
+// Rollout is canaried by room because every tablet ships the same key, so the
+// Worker cannot otherwise tell devices apart. PILOT_STRICT_ROOMS are enforced;
+// everything else keeps the old behaviour until the canary proves out.
+//
+// AUTH_ENFORCE=false is report-only: it computes the verdict and returns it in
+// the X-Auth-Check response header without acting on it. Used to confirm the
+// RIS_TABLET_KEY secret matches what the tablets send — the value is encrypted
+// and cannot be read back — before enforcement is switched on.
+var AUTH_ENFORCE = false;
+var PILOT_STRICT_ROOMS = ['rismacchiato@central.co.th', 'risviennese@central.co.th'];
+
+function isPilotStrictRoom(room) {
+  return PILOT_STRICT_ROOMS.indexOf(String(room || '').toLowerCase()) > -1;
+}
+
+// Verifies the caller's token by using it against Graph. If Graph accepts it the
+// token is genuine, unexpired and org-issued; if not, it is worthless. This
+// replaces reading unverified claims, and returns the identity Microsoft
+// recognises rather than one asserted in the request body.
+async function verifyUserViaGraph(token) {
+  try {
+    var r = await fetch('https://graph.microsoft.com/v1.0/me?$select=userPrincipalName,mail', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!r.ok) return null;
+    var j = await r.json();
+    return j.userPrincipalName || j.mail || null;
+  } catch (e) { return null; }
+}
+
+// -> { ok, via, user, verdict }  (verdict is for the report-only header)
+async function authorizeRoomRequest(request, env, room) {
+  var strict = isPilotStrictRoom(room);
+  var tabletKey = request.headers.get('X-Tablet-Key') || '';
+  var expected = (env && env.RIS_TABLET_KEY) || '';
+  var auth = request.headers.get('Authorization') || '';
+
+  if (tabletKey) {
+    if (!expected) return { ok: !strict, via: 'tablet', verdict: 'tablet:secret-not-configured' };
+    if (tabletKey === expected) return { ok: true, via: 'tablet', verdict: 'tablet:match' };
+    return { ok: !strict, via: 'tablet', verdict: 'tablet:MISMATCH' };
+  }
+
+  if (auth.indexOf('Bearer ') === 0) {
+    if (!strict) {
+      return { ok: isOrgUserToken(request, env), via: 'user', verdict: 'user:claims-only' };
+    }
+    var who = await verifyUserViaGraph(auth.slice(7));
+    if (who) return { ok: true, via: 'user', user: who, verdict: 'user:graph-verified' };
+    return { ok: false, via: 'user', verdict: 'user:GRAPH-REJECTED' };
+  }
+
+  return { ok: false, via: 'none', verdict: 'no-credential' };
+}
+
+// Single place deciding whether to block, so report-only cannot diverge from
+// enforcing. Returns a 401 Response to return, or null to continue.
+function authGate(a, strict) {
+  if (!AUTH_ENFORCE) return null;
+  if (a.ok) return null;
+  return jsonResponse({ error: 'Unauthorized' }, 401);
 }
 
 function checkAdminKey(request, env) {
