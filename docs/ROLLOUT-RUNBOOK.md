@@ -82,6 +82,7 @@ $xml = @"
 <map>
     <string name="room_email">ris<roomname>@central.co.th</string>
     <string name="room_name"><RoomName></string>
+    <string name="tablet_key"><TABLET_KEY></string>
 </map>
 "@
 $xml | Out-File -FilePath "C:\TEMP\platform-tools\ris_kiosk_prefs.xml" -Encoding ascii
@@ -94,6 +95,13 @@ C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell "su -c 'cp /sdcard/ris_kiosk_p
 ```
 
 Replace `<roomname>` (lowercase) and `<RoomName>` (display name) with the room's values. Replace `u0_a49` with the actual UID suffix from Step 5/7.
+
+> Replace `<TABLET_KEY>` with the current tablet key. **Do not read it from this
+> repository** — the value in git history is the retired key. Get the live value
+> from the Cloudflare secret `RIS_TABLET_KEY`, or from the person who set it.
+> Omitting `tablet_key` entirely is safe on APK 5.112+ only while the retired
+> key is still accepted; after retirement the tablet will fail to load its
+> calendar.
 
 ### 9. Disable MEET IN TOUCH
 
@@ -220,3 +228,4 @@ C:\TEMP\platform-tools\adb.exe disconnect <IP>:5555
 | OTA not firing after "Update all" | Command TTL (30 min) expired before tablet heartbeated | Resend "Update all" while tablet is awake (07:00–20:30 BKK on weekdays) |
 | `adb devices` shows `offline` but the display works fine | adbd handshake wedged. Port 5555 is open and the tablet is healthy — this is NOT a tablet fault, do not PoE cycle it | On the tablet: Settings → Developer Options → toggle USB debugging OFF then ON, then reconnect. No authorisation dialog appears and none is needed. `adb disconnect`/`connect` and `kill-server` do NOT fix it. A 06:00 cold reboot also clears it |
 | `adb connect` says "already connected" but commands fail | That message only means the host holds an entry, not that the device responds | Check `adb devices` — look for `device` vs `offline` |
+| Calendar never loads, display shows an error, but heartbeat is fine | `tablet_key` missing or wrong in prefs | Re-run Step 8 with the live key from the Cloudflare secret, then restart the app |

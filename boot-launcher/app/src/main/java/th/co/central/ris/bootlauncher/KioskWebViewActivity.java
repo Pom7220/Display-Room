@@ -107,6 +107,19 @@ public class KioskWebViewActivity extends Activity {
             : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
     }
 
+    /**
+     * The tablet's API key. Read from prefs so it can be rotated per device
+     * without a build; falls back to the compiled-in constant so a tablet whose
+     * prefs have not been written keeps working during a rotation.
+     * Both injection sites must use this — loadDisplay() puts it in the URL and
+     * interceptNavigation() writes it into localStorage, and they must agree.
+     */
+    private String resolveTabletKey() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String k = prefs.getString("tablet_key", "");
+        return (k != null && k.length() > 0) ? k : TABLET_KEY;
+    }
+
     private void loadDisplay() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String roomEmail = prefs.getString("room_email", "");
@@ -114,7 +127,7 @@ public class KioskWebViewActivity extends Activity {
 
         StringBuilder url = new StringBuilder(BASE_URL);
         url.append("?nocache=").append(System.currentTimeMillis());
-        url.append("&tabletkey=").append(Uri.encode(TABLET_KEY));
+        url.append("&tabletkey=").append(Uri.encode(resolveTabletKey()));
         url.append("&webview=1");
         if (roomEmail.length() > 0)
             url.append("&room=").append(Uri.encode(roomEmail));
@@ -255,7 +268,7 @@ public class KioskWebViewActivity extends Activity {
             "(function(){try{" +
             "var k='roomdisplay_v5';" +
             "var c=JSON.parse(localStorage.getItem(k)||'{}');" +
-            "c.tabletKey='" + TABLET_KEY + "';" +
+            "c.tabletKey='" + resolveTabletKey() + "';" +
             "localStorage.setItem(k,JSON.stringify(c));" +
             "}catch(e){}})();",
             new ValueCallback<String>() {
