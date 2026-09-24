@@ -1817,14 +1817,19 @@ async function handleCalendar(request, url, env) {
 // ═══════════════════════════════════════
 
 async function handleBook(request, env) {
-  var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  var adminKey = request.headers.get('X-Admin-Key') || '';
-  var expectedAdmin = (env && env.RIS_ADMIN_KEY) || '';
-  var adminOk = expectedAdmin && adminKey === expectedAdmin;
-  if (!tabletKey && !adminOk && !isOrgUserToken(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
+  // Body is parsed before authorising because the room is only known from the
+  // body, and authorisation is room-scoped during the canary.
   var body;
   try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
   if (!body.room || !body.start || !body.end) return jsonResponse({ error: 'Missing room/start/end' }, 400);
+  var adminKey = request.headers.get('X-Admin-Key') || '';
+  var expectedAdmin = (env && env.RIS_ADMIN_KEY) || '';
+  var adminOk = expectedAdmin && adminKey === expectedAdmin;
+  if (!adminOk) {
+    var _auth = await authorizeRoomRequest(request, env, body.room);
+    var _blocked = authGate(_auth, isPilotStrictRoom(body.room));
+    if (_blocked) return _blocked;
+  }
 
   var token = await getServiceToken(env);
   if (!token) return jsonResponse({ error: 'Auth failed' }, 401);
@@ -1858,11 +1863,12 @@ async function handleBook(request, env) {
 // ═══════════════════════════════════════
 
 async function handleEventPatch(request, env) {
-  var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  if (!tabletKey && !isOrgUserToken(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
   var body;
   try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
   if (!body.room || !body.eventId || !body.end) return jsonResponse({ error: 'Missing room/eventId/end' }, 400);
+  var _authP = await authorizeRoomRequest(request, env, body.room);
+  var _blockedP = authGate(_authP, isPilotStrictRoom(body.room));
+  if (_blockedP) return _blockedP;
 
   var token = await getServiceToken(env);
   if (!token) return jsonResponse({ error: 'Auth failed' }, 401);
@@ -1975,11 +1981,12 @@ async function handleApk() {
 // ═══════════════════════════════════════
 
 async function handleEventDelete(request, env) {
-  var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  if (!tabletKey && !isOrgUserToken(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
   var body;
   try { body = await request.json(); } catch(e) { return jsonResponse({ error: 'Invalid JSON' }, 400); }
   if (!body.room || !body.eventId) return jsonResponse({ error: 'Missing room/eventId' }, 400);
+  var _authD = await authorizeRoomRequest(request, env, body.room);
+  var _blockedD = authGate(_authD, isPilotStrictRoom(body.room));
+  if (_blockedD) return _blockedD;
 
   var token = await getServiceToken(env);
   if (!token) return jsonResponse({ error: 'Auth failed' }, 401);
@@ -2033,7 +2040,7 @@ function corsHeaders() {
 // the X-Auth-Check response header without acting on it. Used to confirm the
 // RIS_TABLET_KEY secret matches what the tablets send — the value is encrypted
 // and cannot be read back — before enforcement is switched on.
-var AUTH_ENFORCE = false;
+var AUTH_ENFORCE = true;
 var PILOT_STRICT_ROOMS = ['rismacchiato@central.co.th', 'risviennese@central.co.th'];
 
 function isPilotStrictRoom(room) {
