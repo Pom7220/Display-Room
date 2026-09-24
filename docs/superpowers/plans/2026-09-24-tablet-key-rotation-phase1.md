@@ -474,36 +474,52 @@ Then repeat with the new key typed inline. Expected: `200` and `tablet:match:new
 
 If the new key returns `tablet:MISMATCH`, the secret did not save or was mistyped — re-run Step 2. Do not proceed.
 
-- [ ] **Step 4: Write prefs on Macchiato**
+- [ ] **Step 4: Write prefs on Macchiato — edit in place, app stopped**
 
-Create the prefs file on a scratch path (not in the repo), substituting the room's real values and the new key:
+**Do not write a fresh prefs file from a template.** The runbook's Step 8 template is for *fresh provisioning*. A live tablet's `ris_kiosk_prefs.xml` also holds runtime state the app itself writes — confirmed on Macchiato: `enforce_one_app`, `escalation_restart_count`, `escalation_first_restart_ms`, and on some tablets `screen_rotated` and watchdog counters. Replacing the file wholesale resets the escalation state machine and screen rotation on every tablet you touch.
 
-```powershell
-$xml = @"
-<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
-<map>
-    <string name="room_email">rismacchiato@central.co.th</string>
-    <string name="room_name">Macchiato</string>
-    <string name="tablet_key">PASTE_NEW_KEY_HERE</string>
-</map>
-"@
-$xml | Out-File -FilePath "$env:TEMP\ris_kiosk_prefs.xml" -Encoding ascii
-```
+**Stop the app before touching the file.** `KioskWebViewActivity` and `ForegroundWatchService` both write prefs at runtime, in one process with one cached in-memory map. Android rewrites the *entire* XML on every `commit()`. If a write lands after your copy, it rewrites the file from the stale map and your `tablet_key` silently disappears — and because the old key is still accepted, every functional check below would still pass. That is an invisible non-migration.
 
-First record the UID, because ownership must be restored:
+Record the UID first — ownership must be restored, and it differs per tablet:
 ```
 C:\TEMP\platform-tools\adb.exe -s 10.0.54.106:5555 shell dumpsys package th.co.central.ris.bootlauncher | findstr userId
 ```
 
-Push and install, replacing `u0_aNN` with the suffix from the UID above (`userId=10049` → `u0_a49`):
-```
-C:\TEMP\platform-tools\adb.exe -s 10.0.54.106:5555 push "$env:TEMP\ris_kiosk_prefs.xml" /sdcard/ris_kiosk_prefs.xml
-C:\TEMP\platform-tools\adb.exe -s 10.0.54.106:5555 shell "su -c 'cp /sdcard/ris_kiosk_prefs.xml /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml && chown u0_aNN /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml && chmod 660 /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml'"
+Then, in Git Bash:
+```bash
+cd /c/TEMP/platform-tools
+IP=10.0.54.106
+UID_SUFFIX=u0_aNN   # from the userId above: userId=10049 -> u0_a49
+
+# 1. Stop the app FIRST so nothing rewrites prefs underneath us
+MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'am force-stop th.co.central.ris.bootlauncher'"
+
+# 2. Pull the existing file, preserving everything already in it
+MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'cp /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml /sdcard/prefs-in.xml && chmod 644 /sdcard/prefs-in.xml'"
+MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 pull /sdcard/prefs-in.xml "$SCRATCH/prefs-$IP.xml"
+
+# 3. Confirm it has no tablet_key yet, and note what else is in there
+grep -c tablet_key "$SCRATCH/prefs-$IP.xml"    # expect 0
+cat "$SCRATCH/prefs-$IP.xml"
 ```
 
-Then delete the scratch file:
-```powershell
-Remove-Item "$env:TEMP\ris_kiosk_prefs.xml"
+Now insert the entry by hand, immediately before `</map>`, typing the new key directly into the file:
+```xml
+    <string name="tablet_key">THE_NEW_KEY</string>
+```
+
+Leave every other line untouched. Then:
+```bash
+# 4. Verify before pushing: one tablet_key, and the original entries still present
+grep -c tablet_key "$SCRATCH/prefs-$IP.xml"    # expect 1
+grep -c room_email "$SCRATCH/prefs-$IP.xml"    # expect 1
+
+# 5. Push back and restore ownership
+MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 push "$SCRATCH/prefs-$IP.xml" /sdcard/prefs-out.xml
+MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'cp /sdcard/prefs-out.xml /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml && chown $UID_SUFFIX /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml && chmod 660 /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml && rm /sdcard/prefs-in.xml /sdcard/prefs-out.xml'"
+
+# 6. Remove the scratch copy — it contains the live key
+rm "$SCRATCH/prefs-$IP.xml"
 ```
 
 Getting the UID wrong makes the prefs file unreadable to the app, which presents as "Tap anywhere to continue" on the display — see the runbook troubleshooting table.
@@ -512,17 +528,26 @@ Getting the UID wrong makes the prefs file unreadable to the app, which presents
 
 Identical to Step 4 with `10.0.54.107`, `risviennese@central.co.th`, `Viennese`, and that tablet's own UID. **Re-read the UID** — it is not necessarily the same as Macchiato's.
 
-- [ ] **Step 6: Restart the app on both and confirm the new key is in use**
+- [ ] **Step 6: Start the app on both and confirm the entry survived**
 
+The app was already stopped in Step 4, so this only starts it:
 ```bash
 cd /c/TEMP/platform-tools
 for IP in 10.0.54.106 10.0.54.107; do
-  MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'am force-stop th.co.central.ris.bootlauncher'"
   MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'am start -n th.co.central.ris.bootlauncher/.KioskWebViewActivity'"
 done
 ```
 
-Prefs are read in `loadDisplay()`, which runs at activity start, so a restart is required — the running WebView still holds the old key.
+Then re-read the file from the device and confirm `tablet_key` is still there after the app has started and written its own prefs at least once:
+```bash
+for IP in 10.0.54.106 10.0.54.107; do
+  N=$(MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'cat /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml'" | grep -c tablet_key)
+  echo "$IP tablet_key=$N"
+done
+```
+Expected `tablet_key=1` on both. A `0` means a runtime prefs write clobbered the entry — redo Step 4 and check the app really was stopped.
+
+Prefs are read in `loadDisplay()`, which runs at activity start, so the app must be restarted for a key change to take effect.
 
 - [ ] **Step 7: Run the full verification criteria on both tablets**
 
@@ -535,8 +560,11 @@ All of these must pass on **both** Macchiato and Viennese:
 | 3 | **+30 min extend persists** | Extend a meeting, then wait for the next `fetchCal()` (up to 60s) | the extension survives the refresh — a failed PATCH reverts silently |
 | 4 | **End early / auto-release** | End a meeting early on the tablet, then check the debug overlay | no `Auto-release delete HTTP 4xx` line. This path logs failures only to the overlay (`index.html:2651`) and looks fine on screen when broken |
 | 5 | Heartbeat continues | Dashboard | fresh heartbeat within 35 min |
+| 6 | **The tablet is actually on the new key** | The `tablet_key=1` check from Step 6 | `1` on both |
 
 Check 4 is the one most likely to be skipped and the most likely to hide a defect. Do not mark this task complete without it.
+
+Check 6 is not redundant. **Checks 1–5 pass identically whether the tablet migrated or silently fell back to the old key**, because the old key is still accepted at this point. The prefs entry is the only per-tablet evidence of migration; the `X-Auth-Check: tablet:match:new` header is checked once from curl in Step 3 and says nothing about any individual tablet.
 
 - [ ] **Step 8: The reboot test**
 
@@ -553,7 +581,9 @@ Wait ~5 minutes, then re-run checks 1 and 5 from Step 7.
 
 Leave both tablets until the next morning. Check the dashboard for new incidents on either room.
 
-**Rollback if anything fails:** remove the `tablet_key` line from that tablet's prefs XML, re-push it, restart the app. The tablet returns to the old key, which is still accepted. No APK change needed.
+**Rollback if anything fails:** force-stop the app, pull the prefs file, delete the `tablet_key` line, push it back with the same `chown`/`chmod`, start the app. Same ordering discipline as Step 4 — if the app is running, a runtime prefs write will restore the entry from the cached map and the rollback will appear not to work. The tablet returns to the old key, which is still accepted. No APK change needed.
+
+`localStorage` is not a rollback hazard: `index.html:3798-3800` overwrites `cfg.tabletKey` from the URL parameter on every page load, and `loadDisplay()` rebuilds that URL at every activity start.
 
 No commit. Ledger: A/B pair on the new key, all criteria passed including reboot and overnight.
 
@@ -584,22 +614,30 @@ Rooms and IPs:
 | Affogato | 10.0.54.111 | risaffogato@central.co.th |
 | Espresso | 10.0.54.112 | risespresso@central.co.th |
 
-For each: follow Task 5 Step 4 exactly, substituting that room's IP, email, display name, and **its own UID read fresh from that device**. UIDs differ per tablet; reusing Macchiato's will make the prefs unreadable.
+For each: follow Task 5 Step 4 exactly — **force-stop first, pull, insert the line, push back, chown, start** — substituting that room's IP and **its own UID read fresh from that device**. UIDs differ per tablet; reusing Macchiato's will make the prefs unreadable.
+
+Do not write a fresh prefs file from the runbook template on any of these. Each tablet's file holds its own runtime state (`enforce_one_app`, the `escalation_*` counters, `screen_rotated` where set), and replacing it resets that state.
+
+The room email and display name are already in each file — you are only inserting one line, so the table below is for identifying the tablet, not for retyping its values.
 
 Note `risdecaffeinato@central.co.th` — the email spelling does not match the room name "Decaffinato". Copy it from the table, do not derive it.
 
 **Latte (10.0.54.109) is Android 10, not 4.4.** Its `su` does not accept `-c` in the same way for all commands. If the `su -c 'cp … && chown …'` form fails there, run the steps individually and report what worked — do not improvise a different ownership model.
 
-- [ ] **Step 2: Restart the app on each**
+- [ ] **Step 2: Start the app on each and confirm the entry survived**
+
+Each tablet was force-stopped as part of its Step 1, so this starts it and then re-reads the file:
 
 ```bash
 cd /c/TEMP/platform-tools
 for IP in 10.0.54.101 10.0.54.102 10.0.54.103 10.0.54.104 10.0.54.105 10.0.54.108 10.0.54.109 10.0.54.110 10.0.54.111 10.0.54.112; do
-  MSYS_NO_PATHCONV=1 ./adb.exe connect $IP:5555
-  MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'am force-stop th.co.central.ris.bootlauncher'"
-  MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'am start -n th.co.central.ris.bootlauncher/.KioskWebViewActivity'"
+  MSYS_NO_PATHCONV=1 ./adb.exe connect $IP:5555 >/dev/null 2>&1
+  MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'am start -n th.co.central.ris.bootlauncher/.KioskWebViewActivity'" >/dev/null
+  N=$(MSYS_NO_PATHCONV=1 ./adb.exe -s $IP:5555 shell "su -c 'cat /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml'" | grep -c tablet_key)
+  echo "$IP tablet_key=$N"
 done
 ```
+Expected `tablet_key=1` on all ten. A `0` means a runtime prefs write clobbered the entry — redo that tablet's Step 1 with the app confirmed stopped.
 
 Run this in **Git Bash, not PowerShell** — bash `for` loops fail silently in PowerShell, and this project has lost an overnight capture to exactly that mistake.
 
@@ -702,3 +740,7 @@ git push
 - **Spec step 1.6** — purging the retired key from `README.md` (lines 108, 255, 289) and `RIS-IT-Admin-Guide.html:88`, and stopping the APK from being committed to the repo. Deliberately excluded. Safe to defer because Task 7 makes that value worthless, but it should be scheduled: leaving a retired key documented as live is a trap for the next person doing a rollout.
 - **Phase 2** — twelve distinct per-room keys in a `RIS_TABLET_KEYS` JSON secret. Planned for after one full weekend has elapsed following Task 7. The delivery mechanism built in Task 2 is what Phase 2 needs; Phase 2 becomes only the Worker-side lookup change plus twelve different prefs values.
 - **The `&tabletkey=` URL parameter.** The key still travels in a query string and can appear in WebView and proxy logs. Pre-existing, accepted in the spec's residual risks, unchanged by this work.
+
+- **Unescaped interpolation into a JS string literal**, `KioskWebViewActivity.java` `interceptNavigation()`: `"c.tabletKey='" + resolveTabletKey() + "';"`. A key containing `'` or `\` makes the injected snippet a parse error. The surrounding `try{}catch(e){}` does not catch it — a syntax error fails at parse time — so `localStorage` is silently never written while the URL-parameter path still carries a valid key. Latent today: the compiled constant is safe, and the Task 5 Step 1 generator emits alphanumerics only.
+
+  **This must be closed before phase 2**, where twelve keys are chosen and the chance of a hand-picked value containing a quote or backslash is real. Either escape the value before interpolation, or constrain generated keys to `[A-Za-z0-9-]` and assert it. `.trim()` does not help.
