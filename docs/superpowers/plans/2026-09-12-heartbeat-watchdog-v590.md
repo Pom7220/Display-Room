@@ -252,7 +252,7 @@ Health agent will send `perform_update` at next run, or trigger manually:
 
 ```bash
 for room in risaffogato@central.co.th risdecaffeinato@central.co.th rislatte@central.co.th rismacchiato@central.co.th rismocha@central.co.th risviennese@central.co.th; do
-  curl -s -X POST -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+  curl -s -X POST -H "X-Admin-Key: $RIS_ADMIN_KEY" \
     -H "Content-Type: application/json" \
     -d "{\"room\":\"$room\",\"command\":\"perform_update\",\"sentBy\":\"manual\"}" \
     https://ris-display.ris-display.workers.dev/api/command

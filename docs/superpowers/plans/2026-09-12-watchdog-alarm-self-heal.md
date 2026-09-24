@@ -221,32 +221,32 @@ Expected output contains `"versionCode": 589` and `"versionName": "5.89"`.
 Run the health agent manually or wait for the next scheduled run. Alternatively, trigger OTA directly for each tablet:
 
 ```bash
-curl -s -X POST -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+curl -s -X POST -H "X-Admin-Key: $RIS_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"room":"risaffogato@central.co.th","command":"perform_update","sentBy":"manual"}' \
   https://ris-display.ris-display.workers.dev/api/command
 
-curl -s -X POST -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+curl -s -X POST -H "X-Admin-Key: $RIS_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"room":"risdecaffeinato@central.co.th","command":"perform_update","sentBy":"manual"}' \
   https://ris-display.ris-display.workers.dev/api/command
 
-curl -s -X POST -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+curl -s -X POST -H "X-Admin-Key: $RIS_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"room":"rislatte@central.co.th","command":"perform_update","sentBy":"manual"}' \
   https://ris-display.ris-display.workers.dev/api/command
 
-curl -s -X POST -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+curl -s -X POST -H "X-Admin-Key: $RIS_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"room":"rismacchiato@central.co.th","command":"perform_update","sentBy":"manual"}' \
   https://ris-display.ris-display.workers.dev/api/command
 
-curl -s -X POST -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+curl -s -X POST -H "X-Admin-Key: $RIS_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"room":"rismocha@central.co.th","command":"perform_update","sentBy":"manual"}' \
   https://ris-display.ris-display.workers.dev/api/command
 
-curl -s -X POST -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+curl -s -X POST -H "X-Admin-Key: $RIS_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"room":"risviennese@central.co.th","command":"perform_update","sentBy":"manual"}' \
   https://ris-display.ris-display.workers.dev/api/command
@@ -257,7 +257,7 @@ curl -s -X POST -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
 Wait 10 minutes, then fetch diagnostics:
 
 ```bash
-curl -s -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+curl -s -H "X-Admin-Key: $RIS_ADMIN_KEY" \
   https://ris-display.ris-display.workers.dev/api/diagnostics
 ```
 
@@ -268,7 +268,7 @@ Expected: each room's `alarmLog` contains an `ota_install` entry with `apkVersio
 After 1 hour of normal operation, check alarmLog entries:
 
 ```bash
-curl -s -H "X-Admin-Key: RIS-ROOM-ADMIN2026" \
+curl -s -H "X-Admin-Key: $RIS_ADMIN_KEY" \
   https://ris-display.ris-display.workers.dev/api/diagnostics
 ```
 
