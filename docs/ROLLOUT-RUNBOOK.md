@@ -96,6 +96,13 @@ C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell "su -c 'cp /sdcard/ris_kiosk_p
 
 Replace `<roomname>` (lowercase) and `<RoomName>` (display name) with the room's values. Replace `u0_a49` with the actual UID suffix from Step 5/7.
 
+> Replace `<TABLET_KEY>` with the current tablet key. **Do not read it from this
+> repository** — the value in git history is the retired key. Get the live value
+> from the Cloudflare secret `RIS_TABLET_KEY_NEW`, or from the person who set it.
+> Omitting `tablet_key` entirely is safe on APK 5.112+ only while the retired
+> key is still accepted; after retirement the tablet will fail to load its
+> calendar.
+
 **Use `chown u0_aNN:u0_aNN`, with the group.** `chown u0_aNN` sets the owner only and
 leaves the group as whatever the file already had — on Cappuccino during the 2026-09-24
 key rotation that left `u0_a48:root`. Mode 660 still gives the owner access so the app
@@ -126,13 +133,6 @@ write prefs at runtime from a single cached in-memory map, and Android rewrites 
 *entire* XML on every `commit()`. A write landing after your copy silently reverts the
 file — and the tablet keeps working, so nothing looks wrong. Always re-read the file from
 the device after starting the app to confirm your change survived.
-
-> Replace `<TABLET_KEY>` with the current tablet key. **Do not read it from this
-> repository** — the value in git history is the retired key. Get the live value
-> from the Cloudflare secret `RIS_TABLET_KEY`, or from the person who set it.
-> Omitting `tablet_key` entirely is safe on APK 5.112+ only while the retired
-> key is still accepted; after retirement the tablet will fail to load its
-> calendar.
 
 ### 9. Disable MEET IN TOUCH
 
