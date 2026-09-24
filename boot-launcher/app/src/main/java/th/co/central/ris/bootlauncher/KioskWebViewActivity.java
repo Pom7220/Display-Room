@@ -113,11 +113,14 @@ public class KioskWebViewActivity extends Activity {
      * prefs have not been written keeps working during a rotation.
      * Both injection sites must use this — loadDisplay() puts it in the URL and
      * interceptNavigation() writes it into localStorage, and they must agree.
+     * The value is trimmed because it is hand-written into a prefs XML during rollout.
      */
     private String resolveTabletKey() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String k = prefs.getString("tablet_key", "");
-        return (k != null && k.length() > 0) ? k : TABLET_KEY;
+        if (k == null) return TABLET_KEY;
+        k = k.trim();
+        return (k.length() > 0) ? k : TABLET_KEY;
     }
 
     private void loadDisplay() {
