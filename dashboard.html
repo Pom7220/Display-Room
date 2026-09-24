@@ -290,7 +290,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.17 (2026-09-24)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.18 (2026-09-24)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -1206,7 +1206,7 @@ async function refreshAdmin() {
   try {
     // Fetch status, incidents, APK version, and latest web version in parallel
     const [statusResp, incResp, apkVerResp, webVerResp] = await Promise.all([
-      fetch(MONITOR_URL + 'status'),
+      fetch(MONITOR_URL + 'status', {headers: {'X-Admin-Key': adminKey}}),
       fetch(MONITOR_URL + 'incidents?limit=50', {headers: {'X-Admin-Key': adminKey}}),
       fetch(MONITOR_URL + 'version').catch(() => null),
       fetch('https://pom7220.github.io/Display-Room/index-version.json?nc=' + Date.now()).catch(() => null)
