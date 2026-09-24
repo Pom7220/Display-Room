@@ -2043,22 +2043,56 @@ function corsHeaders() {
 var AUTH_ENFORCE = true;
 var PILOT_STRICT_ROOMS = ['rismacchiato@central.co.th', 'risviennese@central.co.th'];
 
+// Canary complete 2026-09-24 — strict auth now applies to every room.
+//
+// Macchiato and Viennese ran enforced while the other ten stayed lenient. All
+// seven acceptance criteria passed: both tablets kept rendering meetings, the
+// dashboard showed their availability (exercising the Graph-verified Bearer
+// path), a booking succeeded from the tablet and another from the dashboard,
+// and bogus keys, forged tokens and missing credentials were all rejected while
+// non-pilot rooms were untouched.
+//
+// PILOT_STRICT_ROOMS is retained for the next canary: narrow this function back
+// to the list to scope a future auth change to a couple of rooms.
 function isPilotStrictRoom(room) {
-  return PILOT_STRICT_ROOMS.indexOf(String(room || '').toLowerCase()) > -1;
+  return true;
 }
 
 // Verifies the caller's token by using it against Graph. If Graph accepts it the
 // token is genuine, unexpired and org-issued; if not, it is worthless. This
 // replaces reading unverified claims, and returns the identity Microsoft
 // recognises rather than one asserted in the request body.
+// Verification is cached per token for 5 minutes. The dashboard fetches calendar
+// once per room, so without this a single refresh would make 12 Graph calls —
+// latency the user feels, and needless throttling risk. Only successes are
+// cached: caching failures would lock someone out for 5 minutes after a
+// transient Graph error. The trade-off is that a revoked token stays accepted
+// for up to 5 minutes, which is well inside its own lifetime.
+var _userVerifyCache = new Map();
+var USER_VERIFY_TTL_MS = 5 * 60 * 1000;
+
 async function verifyUserViaGraph(token) {
+  var now = Date.now();
+  // Key on the tail of the token rather than the whole thing — it is the
+  // signature segment, so it is unique per token, and the full credential is
+  // not held in memory.
+  var key = String(token || '').slice(-40);
+  var hit = _userVerifyCache.get(key);
+  if (hit && hit.exp > now) return hit.user;
+
   try {
     var r = await fetch('https://graph.microsoft.com/v1.0/me?$select=userPrincipalName,mail', {
       headers: { Authorization: 'Bearer ' + token }
     });
     if (!r.ok) return null;
     var j = await r.json();
-    return j.userPrincipalName || j.mail || null;
+    var who = j.userPrincipalName || j.mail || null;
+    if (who) {
+      // Bound the map — isolates are reused and this must not grow without limit.
+      if (_userVerifyCache.size > 300) _userVerifyCache.clear();
+      _userVerifyCache.set(key, { user: who, exp: now + USER_VERIFY_TTL_MS });
+    }
+    return who;
   } catch (e) { return null; }
 }
 
