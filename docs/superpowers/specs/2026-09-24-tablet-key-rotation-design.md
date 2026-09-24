@@ -74,6 +74,11 @@ keys as **phase 2 and the actual goal**.
   The `set_tablet_key` admin command only writes layer 3, so it is **temporary**
   — it survives until the next relaunch, and there is a 06:00 cold reboot daily.
   An APK release is therefore required for any permanent change.
+- **CI commits the built APK to the repo root** on every `boot-launcher/**`
+  push (`.github/workflows/build-apk.yml`). Anything compiled into the APK is
+  public within minutes. This is why the new key is delivered by prefs.
+- **Pushing `cloudflare-worker.js` to `main` auto-deploys it**
+  (`.github/workflows/deploy-worker.yml`). There is no staging environment.
 - **No KV reads or writes may be added to the auth path.** The daily budget is
   already a live concern (~501/1000 writes measured). Key material is carried
   in Worker secrets, which cost nothing per request.
@@ -101,29 +106,51 @@ The verdict string should distinguish which key matched (`tablet:match:old`
 vs `tablet:match:new`) so the admin panel can show migration progress and
 step 1.5 has an evidence basis rather than an assumption.
 
-### 1.2 New APK on the A/B pair
+### 1.2 New key delivered by prefs, not by the APK
 
-Set `TABLET_KEY` to the new value, release through CI, install on
-**Macchiato (10.0.54.106)** and **Viennese (10.0.54.107)** — the established
-A/B pair.
+**Revised 2026-09-24 during planning.** The original text put the new value in
+the Java constant. That is unworkable: CI commits the built APK to the repo
+root on every `boot-launcher/**` push, so a new constant would be public within
+minutes of the build — rotating one publicly-readable key for another.
 
-A/B is only possible because of 1.1. With a single shared secret the pilot
+Instead, ship the phase-2 delivery mechanism now. `KioskWebViewActivity` reads
+`tablet_key` from SharedPreferences, falling back to the existing constant,
+which keeps the **old** key. The new value never enters the repository; it
+lives only in a Cloudflare secret and in each tablet's prefs.
+
+This decouples the two changes:
+
+- **The APK is inert** without a prefs entry, so it can go fleet-wide safely
+  after a pilot check. Rollout: A/B pair, verify unchanged, then all twelve.
+- **The key switch is per-tablet and reversible** — remove the prefs entry and
+  restart, and that tablet is back on the old key, which is still accepted.
+  Rollout: A/B pair, verify against the full criteria including a cold reboot
+  and an overnight soak, then the remaining ten.
+
+A/B is only possible because of 1.1. With a single accepted secret the pilot
 tablets and the remaining ten cannot hold different keys.
 
 ### 1.3 Verify — see "Rollout criteria" below
 
 ### 1.4 Remaining ten
 
-Roll the same APK to the other ten tablets using the runbook procedure.
+Write prefs on the other ten using the runbook Step 8 procedure, which already
+pushes a prefs XML and fixes ownership. Each tablet's UID must be read fresh;
+they differ per device.
 
 ### 1.5 Remove the old secret
 
 **This step is the rotation.** Until `RIS_TABLET_KEY` is deleted from Cloudflare,
 the exposed value still authenticates and nothing has been achieved.
 
-Gate: the admin panel shows `tablet:match:new` for all twelve rooms, observed
-across at least one cold reboot. Then delete the old secret and confirm a
-request carrying the old value returns 401.
+Gate: all twelve tablets confirmed to carry `tablet_key` in prefs, observed
+across at least one cold reboot, with all twelve healthy on the dashboard.
+Then delete the old secret and confirm a request carrying the old value
+returns 401.
+
+Migration tracking needs no new code: `dashboard.html:1324` already badges any
+tablet not on the latest APK version, which covers the APK rollout, and the
+prefs entry itself is readable per device over ADB.
 
 This step must carry a date and an owner. A rotation that stops at 1.4 is
 strictly worse than no rotation — it costs a fleet-wide APK release and leaves
@@ -158,28 +185,23 @@ cannot read or book Macchiato.
 
 ### 2.2 Key delivery to the device
 
-Move the value out of the Java constant into SharedPreferences, alongside
-`room_email` and `room_name`, which `loadDisplay()` already reads by exactly
-this pattern (`KioskWebViewActivity.java:111-113`).
+**Already built in phase 1** (see revised 1.2). `KioskWebViewActivity` resolves
+`tablet_key` from SharedPreferences with the Java constant as fallback, both
+injection sites share the resolved value, and runbook Step 8 writes the entry.
 
-```java
-String tabletKey = prefs.getString("tablet_key", TABLET_KEY);
-```
-
-The constant remains as a fallback so a tablet whose prefs lack the entry
-keeps working on the shared key through the migration. Both `loadDisplay()`
-and `interceptNavigation()` must read the same resolved value — they inject
-the key separately and would otherwise diverge.
-
-Runbook Step 8 gains `tablet_key` in the prefs XML it already writes. No new
-tooling; the same `push` + `chown` sequence.
+Phase 2 therefore requires no Android change at all — only twelve different
+values in the prefs files that phase 1 already writes.
 
 ### 2.3 Migration and fallback
 
-The Worker accepts a per-room key **or** the shared key during migration.
-Tablets convert one at a time as prefs are written. When all twelve carry
-their own key, the shared fallback is removed from both the Worker and the
-Java constant.
+The Worker accepts a per-room key **or** the phase-1 shared key during
+migration. Tablets convert one at a time as prefs are rewritten. When all
+twelve carry their own key, the shared key is removed from the Worker and the
+Java constant is emptied.
+
+Timing: activate after one full weekend has elapsed following phase 1 step 1.5.
+A weekend is the specific condition a weekday soak cannot reach — no 06:00
+reboot, a different alarm chain, and 60 hours between launches.
 
 ### 2.4 Revocation
 
@@ -198,7 +220,7 @@ the shared fallback.
 
 | Check | Why it is here |
 |---|---|
-| `/api/calendar` returns 200 with verdict `tablet:match:new` | The verdict, not the visible screen — a cached render looks identical to a working fetch |
+| The tablet renders meetings after an app restart, with `tablet_key` confirmed present in its prefs | Not the visible screen alone — a cached render looks identical to a working fetch |
 | Instant booking creates a real Exchange event | POST `/api/book` |
 | **+30 min extend** persists after the next `fetchCal()` | PATCH `/api/event`; a failed PATCH reverts silently on refresh |
 | **End early / auto-release** DELETE returns < 400 | Fails silently on screen (`index.html:2651`). Must be read from the debug overlay or the Worker log |
@@ -225,10 +247,13 @@ The reboot is non-negotiable for that reason.
 
 ### Rollback
 
-At any point before 1.5, rollback is: reinstall the previous APK. The old key
-remains valid throughout, so a rolled-back tablet is immediately functional.
-After 1.5 there is no rollback — which is why 1.5 gates on all twelve
-confirmed rather than on elapsed time.
+At any point before 1.5, rollback is: remove the `tablet_key` entry from that
+tablet's prefs and restart the app. The old key remains valid throughout, so
+the tablet is immediately functional again — no APK change, and the rollback
+is per-device rather than fleet-wide.
+
+After 1.5 there is no rollback, which is why it gates on all twelve confirmed
+rather than on elapsed time.
 
 ---
 
@@ -244,15 +269,21 @@ confirmed rather than on elapsed time.
 
 ---
 
-## Open question for implementation planning
+## Decisions taken
 
-Whether phase 2 follows phase 1 immediately or after a settling period. The
-argument for immediate: it reuses the same APK release cycle and avoids a
-second fleet-wide install. The argument for waiting: two changes to the auth
-path in one week, on a system where the most recent auth change (Tier 2
-strict auth) already produced one regression — the admin panel's own status
-fetch missing its key, commit 18752be.
+**Phase 2 timing — decided 2026-09-24: separate deployment, activated after
+one full weekend has elapsed following step 1.5.**
 
-Recommendation: run them as separate deployments, but plan phase 2 before
-phase 1 ships, so the Java change in 2.2 can be folded into the same APK with
-the prefs entry simply absent until phase 2 activates it.
+Waiting is nearly free, because the prefs-read ships in the phase 1 APK, so
+phase 2 costs no fleet-wide install. Rushing is not free: if phase 2 activates
+while phase 1 is still settling, a 401 has three candidate causes on the same
+request path — wrong shared key, missing prefs entry, malformed key map — all
+producing an identical symptom. Separated, each failure has one explanation.
+
+The weekend specifically, rather than a day count, because it is the one
+condition a weekday soak cannot reach: no 06:00 cold reboot, a different alarm
+chain, and roughly 60 hours between app launches.
+
+**Key delivery — decided 2026-09-24: prefs, not the Java constant.** See the
+revised 1.2. Discovered during planning; the original approach would have
+published the new key via CI.
