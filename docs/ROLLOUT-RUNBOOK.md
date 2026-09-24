@@ -96,6 +96,37 @@ C:\TEMP\platform-tools\adb.exe -s <IP>:5555 shell "su -c 'cp /sdcard/ris_kiosk_p
 
 Replace `<roomname>` (lowercase) and `<RoomName>` (display name) with the room's values. Replace `u0_a49` with the actual UID suffix from Step 5/7.
 
+**Use `chown u0_aNN:u0_aNN`, with the group.** `chown u0_aNN` sets the owner only and
+leaves the group as whatever the file already had — on Cappuccino during the 2026-09-24
+key rotation that left `u0_a48:root`. Mode 660 still gives the owner access so the app
+works, but the fleet ends up inconsistent.
+
+**Latte (10.0.54.109, Android 10) needs different syntax.** Its `su` rejects `-c`
+(`su: invalid uid/gid '-c'`) and will not accept `&&` chaining inside one call. Use
+`su 0 <command>`, one `adb shell` per step:
+```
+C:\TEMP\platform-tools\adb.exe -s 10.0.54.109:5555 shell "su 0 cp /sdcard/ris_kiosk_prefs.xml /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml"
+C:\TEMP\platform-tools\adb.exe -s 10.0.54.109:5555 shell "su 0 chown u0_a241:u0_a241 /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml"
+C:\TEMP\platform-tools\adb.exe -s 10.0.54.109:5555 shell "su 0 chmod 660 /data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml"
+```
+
+### 8d. Changing prefs on a tablet already in service
+
+The template above is for **fresh provisioning only**. A live tablet's
+`ris_kiosk_prefs.xml` also holds runtime state the app writes itself —
+`enforce_one_app`, `screen_rotated`, `shortcut_requested`, `test_sleep_enabled`,
+`escalation_restart_count`, `escalation_first_restart_ms` and watchdog counters. Writing
+the template over it resets all of that; on Latte it would flip the screen orientation.
+
+So on an in-service tablet: **force-stop the app first**, pull the existing file, edit the
+one value, push it back, then start the app.
+
+Force-stopping first is not optional. `KioskWebViewActivity` and `ForegroundWatchService`
+write prefs at runtime from a single cached in-memory map, and Android rewrites the
+*entire* XML on every `commit()`. A write landing after your copy silently reverts the
+file — and the tablet keeps working, so nothing looks wrong. Always re-read the file from
+the device after starting the app to confirm your change survived.
+
 > Replace `<TABLET_KEY>` with the current tablet key. **Do not read it from this
 > repository** — the value in git history is the retired key. Get the live value
 > from the Cloudflare secret `RIS_TABLET_KEY`, or from the person who set it.
@@ -229,3 +260,5 @@ C:\TEMP\platform-tools\adb.exe disconnect <IP>:5555
 | `adb devices` shows `offline` but the display works fine | adbd handshake wedged. Port 5555 is open and the tablet is healthy — this is NOT a tablet fault, do not PoE cycle it | On the tablet: Settings → Developer Options → toggle USB debugging OFF then ON, then reconnect. No authorisation dialog appears and none is needed. `adb disconnect`/`connect` and `kill-server` do NOT fix it. A 06:00 cold reboot also clears it |
 | `adb connect` says "already connected" but commands fail | That message only means the host holds an entry, not that the device responds | Check `adb devices` — look for `device` vs `offline` |
 | Calendar never loads, display shows an error, but heartbeat is fine | `tablet_key` missing or wrong in prefs | Re-run Step 8 with the live key from the Cloudflare secret, then restart the app |
+| `su: invalid uid/gid '-c'` on Latte (10.0.54.109) | Android 10 `su` does not accept `-c` | Use `su 0 <command>`, one `adb shell` call per step — it also rejects `&&` chaining |
+| Prefs change appears to have been reverted | A runtime prefs write rewrote the whole XML from the app's cached map | Force-stop the app *before* editing prefs, and re-read the file after restarting to confirm — see Step 8d |
