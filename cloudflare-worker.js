@@ -2100,12 +2100,24 @@ async function verifyUserViaGraph(token) {
 async function authorizeRoomRequest(request, env, room) {
   var strict = isPilotStrictRoom(room);
   var tabletKey = request.headers.get('X-Tablet-Key') || '';
-  var expected = (env && env.RIS_TABLET_KEY) || '';
+  var expectedOld = (env && env.RIS_TABLET_KEY) || '';
+  var expectedNew = (env && env.RIS_TABLET_KEY_NEW) || '';
   var auth = request.headers.get('Authorization') || '';
 
+  // Two keys are accepted during rotation so the fleet migrates tablet by
+  // tablet instead of all at once. The verdict distinguishes which matched, so
+  // migration progress is observable before the old secret is withdrawn.
+  // Either secret may be unset: unset means "not a valid key", never "match".
   if (tabletKey) {
-    if (!expected) return { ok: !strict, via: 'tablet', verdict: 'tablet:secret-not-configured' };
-    if (tabletKey === expected) return { ok: true, via: 'tablet', verdict: 'tablet:match' };
+    if (!expectedOld && !expectedNew) {
+      return { ok: !strict, via: 'tablet', verdict: 'tablet:secret-not-configured' };
+    }
+    if (expectedOld && tabletKey === expectedOld) {
+      return { ok: true, via: 'tablet', verdict: 'tablet:match:old' };
+    }
+    if (expectedNew && tabletKey === expectedNew) {
+      return { ok: true, via: 'tablet', verdict: 'tablet:match:new' };
+    }
     return { ok: !strict, via: 'tablet', verdict: 'tablet:MISMATCH' };
   }
 
