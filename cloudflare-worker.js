@@ -93,7 +93,13 @@ export default {
       }
 
       // GET /api/status — admin reads all room statuses
+      // Admin-gated: this returns every room's mailbox address, the tablet's
+      // internal IP, APK/web versions, uptime, the last 10 debug log lines and
+      // captured JS errors. That is internal telemetry, and it was readable by
+      // anyone who knew the URL — which is printed as a QR code on every lobby
+      // tablet. No tablet calls this endpoint; only the dashboard does.
       if (path === '/api/status' && method === 'GET') {
+        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
         return handleStatus(env);
       }
 
@@ -1999,7 +2005,11 @@ function corsHeaders() {
 
 function checkAdminKey(request, env) {
   var adminKey = env.RIS_ADMIN_KEY || '';
-  if (!adminKey) return true; // No key configured = open access (backward compat)
+  // Fail CLOSED when unconfigured. This previously returned true, so deleting or
+  // mistyping the secret would silently open every admin endpoint — including
+  // /api/command, which can reload or reconfigure the tablets. A missing secret
+  // is a misconfiguration, not a reason to drop authentication.
+  if (!adminKey) return false;
   var provided = request.headers.get('X-Admin-Key') || '';
   return provided === adminKey;
 }

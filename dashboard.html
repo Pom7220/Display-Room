@@ -290,7 +290,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);overflo
   </div>
 
   <div class="dc-wrap">
-    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.16 (2026-09-23)</div>
+    <div style="text-align:right;font-size:10px;color:#3a4d6b;opacity:.6;margin-bottom:6px;font-family:monospace;">dashboard v3.17 (2026-09-24)</div>
     <div class="dc" id="detail-card">
       <div class="dc-top" id="dc-top">
         <div class="dc-row1">
@@ -404,6 +404,9 @@ var _lastAnalyzedRooms = [];
 var adminKey = localStorage.getItem('ris_admin_key') || '';
 
 let msalInst=null, account=null, _token=null, _tokenExp=0, _redirectInProgress=false;
+// Distinguishes "tablet is offline" from "we never loaded status". Without it,
+// a non-admin user would see a No heartbeat warning on all 12 rooms.
+let tabletStatusLoaded=false;
 let roomData={}, tabletStatus={}, selectedRoom=null, selDurMin=60, bookStart=null;
 
 const el=id=>document.getElementById(id);
@@ -587,15 +590,22 @@ async function fetchAllRooms(){
   var refBtn=document.querySelector('.ref-btn');
   if(refBtn)refBtn.textContent='↻ …';
   const tok = await getToken();
+  // /api/status is admin-gated — it carries internal telemetry (tablet IPs,
+  // versions, debug logs). Only request it when we hold the admin key; ordinary
+  // signed-in users simply do not get the tablet-health icons, which are an
+  // admin concern rather than something a room-booker needs.
   const [results, statusResp] = await Promise.all([
     Promise.all(ROOMS.map(r => fetchRoom(r, tok))),
-    fetch(MONITOR_URL + 'status').catch(() => null)
+    adminKey
+      ? fetch(MONITOR_URL + 'status', {headers:{'X-Admin-Key':adminKey}}).catch(() => null)
+      : Promise.resolve(null)
   ]);
   ROOMS.forEach((r,i) => { roomData[r.email] = results[i]; });
   if (statusResp && statusResp.ok) {
     const sd = await statusResp.json();
     tabletStatus = {};
     (sd.rooms || []).forEach(function(t) { tabletStatus[t.room] = t; });
+    tabletStatusLoaded = true;
   }
   const now=new Date();
   el('ref-txt').textContent=`Updated ${ft(now)}`;
@@ -786,7 +796,7 @@ function renderZone(cid,rooms){
     div.className='rt'+(isSel?' sel':'');
     div.innerHTML=`
       ${isSel?'<div class="sel-arrow"></div>':''}
-      <div class="rt-name">${room.name}${(function(){var t=tabletStatus[room.email];if(!t||!t.isOnline)return'<span title="No heartbeat" style="color:#ff5555;font-size:10px;vertical-align:middle;margin-left:3px">⚠</span>';if(t.status==='sleep')return'<span title="Standby" style="font-size:10px;vertical-align:middle;margin-left:3px">🌙</span>';return'';})()}</div>
+      <div class="rt-name">${room.name}${(function(){var t=tabletStatus[room.email];if(!tabletStatusLoaded)return'';if(!t||!t.isOnline)return'<span title="No heartbeat" style="color:#ff5555;font-size:10px;vertical-align:middle;margin-left:3px">⚠</span>';if(t.status==='sleep')return'<span title="Standby" style="font-size:10px;vertical-align:middle;margin-left:3px">🌙</span>';return'';})()}</div>
       <div class="rt-info"><span class="rt-dot" style="background:${sp.dot}"></span>${sp.info}</div>
       <div class="rt-bar" style="background:${sp.dot}"></div>`;
     div.addEventListener('click',()=>selectRoom(room));
