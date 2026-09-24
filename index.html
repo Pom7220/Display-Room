@@ -340,7 +340,16 @@ html,body{height:100%;width:100%;background:#000000;color:#ffffff;font-family:'I
 /* ── BOOKING MODAL ── */
 #booking-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:200;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;padding-top:16px;}
 #booking-modal.hidden{display:none;}
-.msheet{background:#13132a;border:2px solid #2a2a5a;-webkit-border-radius:24px;border-radius:24px;padding:20px 24px 24px;width:100%;max-width:520px;max-height:67vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+/* Two caps, because the constraint only exists while the keyboard is up.
+   The window never resizes for the soft keyboard (FLAG_FULLSCREEN makes
+   adjustResize a no-op), so the sheet must be short enough to sit above it —
+   but only then. A flat 67vh was too tight the rest of the time: expanding the
+   custom start-time slots adds ~96px, which pushed the sheet past the cap and
+   made it scroll mid-interaction. The keyboard only ever appears for the email
+   and title fields, never for the time or duration buttons, so .kb is applied
+   on focus and removed on blur. */
+.msheet{background:#13132a;border:2px solid #2a2a5a;-webkit-border-radius:24px;border-radius:24px;padding:20px 24px 24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.msheet.kb{max-height:67vh;}
 .mdrag{width:48px;height:5px;background:#333355;-webkit-border-radius:3px;border-radius:3px;margin:0 auto 12px;}
 .mtitle{font-size:28px;font-weight:900;color:#ffffff;margin-bottom:4px;}
 .msub{font-size:16px;color:#7788aa;margin-bottom:0;}
@@ -859,7 +868,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 226,
+  patch: 227,
   date: '2026-09-22',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -943,6 +952,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.227 2026-09-24 - Fix End early before a meeting starts (marker was written against the next meeting but only ever read against the current one, so the card re-offered Check In), and stop the sheet scrolling when custom start times expand (67vh cap now applies only while a text input is focused)
 // v3.10.226 2026-09-23 - Fix v3.10.225: promoted button CSS sat BEFORE the base .abtn-extend/.abtn-end-early/.abtn-teams rules, so those kept their old sizes fleet-wide. Block moved after all base variant rules
 // v3.10.225 2026-09-23 - Roll out action-button sizing to all 12 tablets. Pilot CSS promoted from .ab-big-checkin scope to defaults; AB_BIG_CHECKIN emptied but the gate mechanism kept for future pilots
 // v3.10.224 2026-09-23 - A/B pilot: Check In resized to match the +30 min / End early pills (200x70 vs 184x70 and 163x70) — 300x92 read as oversized on the wall; "or" separator between +30 min and End early with an 18px gap so they read as a choice
@@ -2555,20 +2565,37 @@ function updateCurrentCard(){
   var card=el('cur-card'),cont=el('cur-content');
   // Released-early state: meeting ended early by organizer tap
   var _ee=getEndedEarly();
-  if(_ee&&cur&&_ee.meetingId===cur.id&&_ee.room===activeRoom.email){
-    if(new Date()<cur.end){
+  // Match against the NEXT meeting as well as the current one. endMeetingEarly
+  // deliberately falls back to getNext() when someone has checked in early, so
+  // it can mark a meeting that has not started yet — but this reader only ever
+  // looked at getCur(), which is null before the start time. The marker was
+  // written and then ignored, so releasing a 12:00 meeting at 11:58 dropped
+  // straight back to the normal card and offered Check In for it again.
+  var _eeTarget=null;
+  if(_ee&&_ee.room===activeRoom.email){
+    if(cur&&_ee.meetingId===cur.id) _eeTarget=cur;
+    else if(nxt&&_ee.meetingId===nxt.id) _eeTarget=nxt;
+  }
+  if(_eeTarget){
+    // Deliberately NOT reassigning `cur` here — a `var cur` inside this block
+    // hoists to function scope and would corrupt the fall-through path below.
+    if(new Date()<_eeTarget.end){
       setTheme('available');
       el('status-txt').textContent='Released Early';
       el('sdot').className='sdot av';
       cont.innerHTML=
         '<div class="meet-tag avail">RELEASED</div>'+
-        '<div class="meet-title-lg">'+esc(cur.title)+'</div>'+
-        '<div class="meet-time-lg" style="color:#64b5f6">'+ft(cur.start)+' &ndash; '+ft(cur.end)+'</div>'+
-        (cur.organizer?'<div class="meet-org">'+svgUser(13)+esc(cur.organizer)+'<\/div>':'');
+        '<div class="meet-title-lg">'+esc(_eeTarget.title)+'</div>'+
+        '<div class="meet-time-lg" style="color:#64b5f6">'+ft(_eeTarget.start)+' &ndash; '+ft(_eeTarget.end)+'</div>'+
+        (_eeTarget.organizer?'<div class="meet-org">'+svgUser(13)+esc(_eeTarget.organizer)+'<\/div>':'');
       var releasedActionHtml='<div style="text-align:center;font-size:18px;font-weight:700;color:#44ee88;margin:10px 0">'+
         '&#10003;&nbsp;Room released early &middot; Available now</div>';
-      // If next meeting is within 15 min, offer early check-in even from released state
+      // Offer early check-in only for a DIFFERENT upcoming meeting. When the
+      // released meeting has not started yet it is still what getNext() returns,
+      // so without this guard the card offers to check into the very meeting
+      // just released — the same loop, one step later.
       var nxtForRelease=getNext();
+      if(nxtForRelease&&nxtForRelease.id===_eeTarget.id) nxtForRelease=null;
       var nxtRelEarly=nxtForRelease&&(nxtForRelease.start-new Date())/60000<=15;
       if(nxtRelEarly&&!checkedIn){
         releasedActionHtml+='<div class="action-row"><button class="abtn abtn-checkin" id="checkin-btn">Check In</button></div>';
@@ -3054,6 +3081,26 @@ function joinTeams(url){
 // ══════════════════════════════════════
 function openModal(){
   _bookingName='';el('book-email').value='';el('book-title').value='';
+  // Shrink the sheet only while a text field is focused, so it clears the soft
+  // keyboard then and has room for the expanded time slots otherwise. Bound once
+  // per open on the sheet itself; focusin/focusout bubble, so this covers both
+  // inputs without wiring each one.
+  try{
+    var _sh=document.querySelector('#booking-modal .msheet');
+    if(_sh&&!_sh._kbBound){
+      _sh._kbBound=true;
+      _sh.addEventListener('focusin',function(e){
+        if(e.target&&e.target.tagName==='INPUT')_sh.className='msheet kb';
+      });
+      _sh.addEventListener('focusout',function(){
+        setTimeout(function(){
+          var a=document.activeElement;
+          if(!a||a.tagName!=='INPUT')_sh.className='msheet';
+        },80);
+      });
+    }
+    if(_sh)_sh.className='msheet';
+  }catch(e){}
   el('modal-title').textContent='Book '+activeRoom.name;
   el('modal-sub').textContent=activeRoom.email;
   // Room-specific QR — opens THIS room's availability on the phone rather than
