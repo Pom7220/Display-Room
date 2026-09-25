@@ -868,8 +868,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 227,
-  date: '2026-09-22',
+  patch: 228,
+  date: '2026-09-25',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -952,6 +952,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.228 2026-09-25 - Fix "+30 min" refused with "next meeting already started" when checked in early. extendMeeting compared the meeting against itself: a not-yet-started meeting is exactly what getNext() returns, so nxt === cur and the gap came out negative. New getNextAfter(ref) excludes the meeting being acted on; getNext() delegates to it so there is one filter, not two that can drift. Same early-check-in trap as .227
 // v3.10.227 2026-09-24 - Fix End early before a meeting starts (marker was written against the next meeting but only ever read against the current one, so the card re-offered Check In), and stop the sheet scrolling when custom start times expand (67vh cap now applies only while a text input is focused)
 // v3.10.226 2026-09-23 - Fix v3.10.225: promoted button CSS sat BEFORE the base .abtn-extend/.abtn-end-early/.abtn-teams rules, so those kept their old sizes fleet-wide. Block moved after all base variant rules
 // v3.10.225 2026-09-23 - Roll out action-button sizing to all 12 tablets. Pilot CSS promoted from .ab-big-checkin scope to defaults; AB_BIG_CHECKIN emptied but the gate mechanism kept for future pilots
@@ -2547,12 +2548,19 @@ function getCur(){
   var needsApproval=activeRoom&&activeRoom.approval;
   return meetings.find(function(m){return (!m.isPending||!needsApproval)&&m.start<=n&&m.end>=n;})||null;
 }
-function getNext(){
+// The next upcoming meeting, optionally ignoring one you are already acting on.
+// Needed because a meeting you have checked into EARLY has not started yet, so it is
+// still "upcoming" — without the exclusion, callers compare it against itself.
+function getNextAfter(ref){
   var n=new Date();
   var endOfToday=new Date();endOfToday.setHours(23,59,59,999);
   var needsApproval=activeRoom&&activeRoom.approval;
-  return meetings.find(function(m){return (!m.isPending||!needsApproval)&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday;})||null;
+  return meetings.find(function(m){
+    return (!m.isPending||!needsApproval)&&!isAllDay(m)&&m.start>n&&m.start<=endOfToday
+      &&!(ref&&m.id===ref.id);
+  })||null;
 }
+function getNext(){return getNextAfter(null);}
 
 function fmtMmSs(secs){
   var m=Math.floor(secs/60),s=secs%60;
@@ -3033,7 +3041,10 @@ function endMeeting(){
 }
 function extendMeeting(){
   var cur=getCur();if(!cur&&checkedIn)cur=getNext();if(!cur)return;
-  var nxt=getNext();
+  // Exclude cur: when checked in early, cur IS the next upcoming meeting, and comparing
+  // it against itself gave a negative gap and a false "next meeting already started".
+  // Harmless in the normal path — a meeting already running is never returned by getNext.
+  var nxt=getNextAfter(cur);
   var proposed=new Date(cur.end.getTime()+30*60000);
   // Block if extension would overlap next meeting
   if(nxt&&proposed>nxt.start){
