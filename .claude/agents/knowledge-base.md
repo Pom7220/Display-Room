@@ -483,8 +483,81 @@ Tablet should appear with heartbeat and correct room name within ~5 minutes of r
 - agent action: before adding any per-heartbeat or per-poll KV write, do the arithmetic against 1000/day. 12 tablets x 48 beats = 576, so ANY unconditional per-heartbeat write consumes over half the daily budget on its own.
 - note: reads are not the constraint — ~23.7k/day against 100k. `pollCommand` (12 x 960) and `/api/diagnostics` (up to 200 reads per call) are the main read consumers and both are fine.
 
+### [2026-09-23] Dashboard auth model — three latches, do not break them
+- status: confirmed (built and verified 2026-09-23)
+- The dashboard sign-in flow carries three independent flags. They interact, and each exists because of a specific failure:
+
+| Key | Store | Purpose | Cleared when |
+|---|---|---|---|
+| `ris_deeplink` | sessionStorage | `?room=&book=1` from a tablet QR. Survives the MSAL redirect, which drops the query string | applied after data loads |
+| `ris_signin_tried` | sessionStorage | one auto-redirect attempt per tab — prevents the AADSTS50196 loop | on successful sign-in |
+| `ris_force_login` | localStorage | makes the NEXT sign-in use `prompt:'login'` after an explicit sign-out | on successful sign-in, NOT on use |
+
+- **`prompt` values matter.** `'none'` caused the AADSTS50196 Safari loop — never use it. `'select_account'` shows the picker but does NOT re-authenticate: with a live Microsoft session in the browser a token is issued the instant the account is picked, no password, no MFA. `'login'` forces credential re-entry (and MFA where Conditional Access applies).
+- **Sign-out is deliberately local.** `msalInst.logout()` would end the Microsoft session browser-wide and sign the user out of Outlook Web and Teams. Instead `signOutLocal()` clears the MSAL localStorage cache, `roomdisplay_loginhint`, **`ris_admin_key`** (admin access belongs to the person, not the device) and both sessionStorage latches, then sets `ris_force_login` AFTER the clear loop — setting it before would wipe it.
+- `ris_force_login` clears on SUCCESS, not on use. Clearing on use would let a cancelled forced prompt fall back to silent `select_account` on the next attempt, reopening the hole.
+- note: MSAL config has `storeAuthStateInCookie:true`. `signOutLocal` does not clear cookies. No evidence this matters (those are short-lived redirect-state cookies, and `document.cookie` was empty in testing) but it is the first place to look if sign-out ever leaks state.
+- agent action: if you touch any sign-in path, route it through `signInPrompt()` rather than hardcoding a prompt value, and re-check all three latches together.
+
+### [2026-09-23] Web changes: hard-reload before judging a test result
+- status: confirmed (cost one wrong diagnosis 2026-09-23)
+- A forced-reauth fix was reported as "asked for password the 2nd time, not the 1st". The code was correct; the first attempt had run the PREVIOUS version, because the page was loaded before the new one published. After a hard reload it behaved correctly on the first attempt.
+- The Worker proxies GitHub Pages, so a deploy is not visible to an already-open page, and phones hold pages open for a long time.
+- agent action: before concluding a web fix failed, confirm the page is actually running the new version — check the version label in the footer, or `APP_VERSION.patch`. Ask the user to hard-reload. Do not start diagnosing the code until the version is confirmed.
+
 ---
 
 ## Retired Patterns
 
 <!-- Patterns not seen in 30+ days are moved here by the agent. -->
+
+## 2026-09-25 — Tablet key rotated (phase 1 complete)
+
+`RIS-TABLET-KEY2026` is **retired**. It was committed to a public repo (source, the
+built APK, `README.md`, `RIS-IT-Admin-Guide.html`) and is now rejected by the Worker —
+it exists only in git history and is worthless there.
+
+**Where the live key lives now:** the Cloudflare secret `RIS_TABLET_KEY_NEW`, and each
+tablet's `ris_kiosk_prefs.xml` under `tablet_key`. It is not in the repo, not in any
+file on disk, and cannot be read back out of Cloudflare. It can be recovered from any
+tablet's prefs over ADB — which is also the residual risk phase 2 addresses.
+
+**How it is delivered.** APK 5.112 added `resolveTabletKey()` in `KioskWebViewActivity`:
+reads `tablet_key` from prefs, trims it, falls back to the compiled-in constant. The
+constant still holds the retired key, so it is now a dead fallback — a tablet without
+the prefs entry will fail to load its calendar.
+
+The key is deliberately NOT compiled in, because CI commits the built APK to a public
+repo on every `boot-launcher/**` push. Anything in the APK is public within minutes.
+
+**Worker:** `authorizeRoomRequest` accepts `RIS_TABLET_KEY` or `RIS_TABLET_KEY_NEW`,
+reporting `tablet:match:old` / `tablet:match:new` in `X-Auth-Check`. Only the `_NEW`
+secret now exists. The dual-accept path stays for the next rotation.
+
+**Lessons worth keeping:**
+
+- Editing prefs on an in-service tablet requires **force-stopping the app first**.
+  Android rewrites the whole XML from a cached in-memory map on any `commit()`, so a
+  runtime write silently reverts your change — and the tablet keeps working, so nothing
+  looks wrong. Always re-read the file after restarting.
+- Never push the provisioning template over a live prefs file. Latte held
+  `screen_rotated=true` and `shortcut_requested=true`; others held `test_sleep_enabled`
+  and `enforce_one_app`. A template push would have flipped Latte's screen.
+- Latte (Android 10) needs `su 0 <cmd>`, one adb call per step; `su -c` fails and `&&`
+  chaining does not work.
+- `chown u0_aNN` sets the owner only — use `u0_aNN:u0_aNN`.
+- UIDs differ per tablet and must be read fresh each time.
+- The "confirm 200 with the new key before deleting the old secret" gate caught a real
+  problem: the saved copy of the key was the wrong one. Keep that gate in any future
+  rotation.
+
+**Regression watch retired.** The `ris-standby-capture` scheduled task was deleted and
+the on-tablet logcat captures stopped. It was a weaker instrument than simply reading the
+cause directly:
+
+```bash
+adb -s <IP>:5555 shell pm list packages -d me.exzy.meetingroom   # must print the package
+adb -s <IP>:5555 shell dumpsys device_policy | grep -ci exzy     # must be 0
+```
+
+Confirmed clean on all 12 on 2026-09-25.
