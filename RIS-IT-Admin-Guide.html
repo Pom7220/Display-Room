@@ -85,10 +85,11 @@ tr:nth-child(even) td { background:#fafafa; }
 <tr><td class="mono">RIS_TENANT_ID</td><td>Azure AD tenant ID: <span class="mono">817e531d-191b-4cf5-8812-f0061d89b53d</span></td></tr>
 <tr><td class="mono">RIS_CLIENT_ID</td><td>Azure AD app client ID: <span class="mono">80648895-4acf-4ac5-b4a3-c5bf6bc98983</span></td></tr>
 <tr><td class="mono">RIS_CLIENT_SECRET</td><td>Azure AD app client secret (from App Registration → Certificates &amp; secrets)</td></tr>
-<tr><td class="mono">RIS_TABLET_KEY</td><td>Tablet auth key: <span class="mono">RIS-TABLET-KEY2026</span></td></tr>
+<tr><td class="mono">RIS_TABLET_KEY_NEW</td><td>Tablet auth key. Value deliberately not recorded here &mdash; see the note below the table. Also written to each tablet's <span class="mono">tablet_key</span> preference.</td></tr>
 <tr><td class="mono">RIS_ADMIN_KEY</td><td>Admin key for dashboard remote commands (set any strong value)</td></tr>
 </table>
 <div class="warn">⚠ Cloudflare does not export secret values. Keep a secure record of these values before handover. If any secret is lost, it must be reset in its source system and re-entered here.</div>
+<div class="warn">⚠ <b>Do not write secret values into this guide or the repository.</b> The previous tablet key was published here in plain text and had to be rotated on 2026-09-25. It is retired and now rejected. The live tablet key can be recovered from any tablet's <span class="mono">/data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml</span> over ADB if the password-manager copy is lost.</div>
 
 <h2>Exchange: room mailbox delegation</h2>
 <p><strong>Path:</strong> Exchange Admin Center → Mailboxes → select room → Delegation → Full Access → add <span class="mono">rismeetingroomsystem@central.co.th</span></p>

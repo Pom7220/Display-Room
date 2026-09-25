@@ -105,7 +105,8 @@ Meeting started → no check-in within releaseMin (default 10 min)
 
 **Boot sequence (tablet/WebView):**
 ```
-APK loads Worker URL ?tabletkey=RIS-TABLET-KEY2026&webview=1&room=...
+APK reads tablet_key from SharedPreferences (resolveTabletKey)
+→ loads Worker URL ?tabletkey=<key>&webview=1&room=...
 → cfg.tabletKey set → proxy mode (no MSAL)
 → sessionStorage ris_from_reload='1' → enterKiosk() skips tap overlay
 → fetchCal() → XHR to Worker /api/calendar with X-Tablet-Key header
@@ -252,7 +253,7 @@ This covers alarms firing from cold process (no main app running).
 Tablet powers on → BootReceiver fires
 → 90s delay (WiFi settle)
 → KioskWebViewActivity launches → schedule() registers alarm chain
-→ Loads Worker URL ?tabletkey=RIS-TABLET-KEY2026&webview=1&room=...
+→ Loads Worker URL ?tabletkey=<key from prefs>&webview=1&room=...
 → index.html loads → proxy mode → fetchCal → display shown
 ```
 
@@ -286,8 +287,21 @@ Tablet powers on → BootReceiver fires
 | `RIS_TENANT_ID` | Azure AD tenant ID |
 | `RIS_CLIENT_ID` | Azure AD app client ID |
 | `RIS_CLIENT_SECRET` | Azure AD app client secret |
-| `RIS_TABLET_KEY` | Tablet auth key (`RIS-TABLET-KEY2026`) |
+| `RIS_TABLET_KEY_NEW` | Tablet auth key. **Value is not recorded here** — see note below |
 | `RIS_ADMIN_KEY` | Admin operations key — for dashboard remote commands |
+
+> **Secret values are deliberately not documented in this repository.** The previous
+> tablet key `RIS-TABLET-KEY2026` was published here in plain text and had to be rotated
+> on 2026-09-25; it is retired and now rejected by the Worker. Anything written down here
+> is public. Keep the live values in a password manager.
+>
+> The tablet key is delivered to each device through SharedPreferences (`tablet_key`),
+> not compiled into the APK — CI commits the built APK to this public repo, so anything
+> inside it is public too. The constant still in `KioskWebViewActivity` is the retired
+> key, kept only as a dead fallback. See `docs/ROLLOUT-RUNBOOK.md` step 8.
+>
+> If the live key is lost it can be read from any tablet's
+> `/data/data/th.co.central.ris.bootlauncher/shared_prefs/ris_kiosk_prefs.xml` over ADB.
 
 **GitHub Secrets** (for CI/CD auto-deploy):
 

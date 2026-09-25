@@ -161,9 +161,18 @@ the exposure intact.
 - Remove the literal from `README.md` (3 occurrences) and
   `RIS-IT-Admin-Guide.html:88`; replace with a reference to the Cloudflare
   secret name.
-- Stop committing `ris-boot-launcher.apk` to the tree; publish it as a CI
-  build artifact or GitHub Release instead, and update the runbook's
-  "APK source" note accordingly.
+- ~~Stop committing `ris-boot-launcher.apk` to the tree; publish it as a CI
+  build artifact or GitHub Release instead.~~ **Withdrawn 2026-09-25.** The OTA
+  updater depends on it: `handleApk()` (`cloudflare-worker.js:1963`) fetches
+  `https://pom7220.github.io/Display-Room/ris-boot-launcher.apk`, so removing the
+  APK from the tree breaks `perform_update` on all twelve tablets. It would also
+  achieve little — the tablets download it unauthenticated, so the binary has to
+  be publicly reachable wherever it lives.
+
+  The right conclusion is the one already acted on: **the APK is public, so no
+  secret may be compiled into it.** That is why the tablet key moved to prefs.
+  Revisit only if hosting moves, and then move the APK to R2 or Workers assets
+  and repoint `handleApk()` in the same change.
 
 Git history still contains the old value. That is acceptable **only because
 step 1.5 has already made it worthless** — the ordering matters.
