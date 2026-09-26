@@ -561,3 +561,51 @@ adb -s <IP>:5555 shell dumpsys device_policy | grep -ci exzy     # must be 0
 ```
 
 Confirmed clean on all 12 on 2026-09-25.
+
+## 2026-09-26 — Weekend security validation: two open findings
+
+Full external-surface probe run from outside the office (22 checks). Posture after the
+key rotation is sound: the retired key `RIS-TABLET-KEY2026` is rejected on `/api/calendar`,
+`/api/book`, `PATCH /api/event` and `DELETE /api/event`; no-credential, bogus key, empty
+header, garbage Bearer and a **forged unsigned JWT carrying the real tenant ID** are all
+401; every admin route is gated including with a wrong key (`/api/status`,
+`/api/diagnostics`, `/api/incidents`, `/api/reports`, `/api/fix-log`, `/api/noshow`,
+`/api/admin/update`, `/api/reports/generate`, both send-email endpoints, `/api/test-reauth`).
+
+Two unauthenticated routes remain. Neither is new; neither was touched by the rotation.
+
+### FINDING 1 (high) — `GET /api/command?room=<email>` is unauthenticated
+
+`handleCommandGet` (`cloudflare-worker.js:677`) takes only a `room` query param, returns
+the queued command, and **deletes it on read** (one-time delivery).
+
+One queued command is `inject_tokens`, whose payload contains a live Graph
+**access_token and refresh_token** for the service account (`cloudflare-worker.js:652`,
+queued by `handleRemoteReauth`). Scopes include `Calendars.ReadWrite`,
+`Calendars.ReadWrite.Shared` and `Mail.Send`.
+
+Impact: anyone who knows a room email — all twelve are in the public README — can poll
+this endpoint. If an admin runs `re_auth_remote`, the first poller receives the tokens and
+the tablet never does. An attacker can also consume any other command (`reload`,
+`clear_tokens`, …), so admin actions silently appear not to work.
+
+This is a larger exposure than the tablet key was: it yields tenant Graph credentials,
+not room-calendar access. Window is the command TTL (1800s), but polling is free.
+
+Fix direction: require `X-Tablet-Key` on the GET. Tablets already send it everywhere else,
+so this is a Worker-only change — no APK, no prefs. Verify the OTA fallback path
+(`cmd:perform_update:ab` / `:all`) still works after gating.
+
+### FINDING 2 (moderate) — `POST /api/incident` is unauthenticated and writes to KV
+
+Free KV writes for anyone. Budget is 1,000/day against ~500/day measured, and an incident
+costs several writes. Exhausting it stops heartbeat persistence fleet-wide and the
+dashboard goes stale. Also lets an attacker fabricate incidents.
+
+Fix direction: same tablet-key gate. Note the dashboard also resolves incidents — check
+which callers need which credential before gating.
+
+**Housekeeping:** one junk incident was created while probing this — type `authtest`,
+room Macchiato, reportedBy `probe`, 2026-09-26. Delete it when convenient.
+
+Agreed 2026-09-26 to fix both properly on Monday 2026-09-28, before phase 2.
