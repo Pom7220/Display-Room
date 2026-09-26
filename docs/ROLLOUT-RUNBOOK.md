@@ -262,3 +262,62 @@ C:\TEMP\platform-tools\adb.exe disconnect <IP>:5555
 | Calendar never loads, display shows an error, but heartbeat is fine | `tablet_key` missing or wrong in prefs | Re-run Step 8 with the live key from the Cloudflare secret, then restart the app |
 | `su: invalid uid/gid '-c'` on Latte (10.0.54.109) | Android 10 `su` does not accept `-c` | Use `su 0 <command>`, one `adb shell` call per step — it also rejects `&&` chaining |
 | Prefs change appears to have been reverted | A runtime prefs write rewrote the whole XML from the app's cached map | Force-stop the app *before* editing prefs, and re-read the file after restarting to confirm — see Step 8d |
+
+---
+
+## Working remotely (VPN) — what can and cannot be hotfixed
+
+Established 2026-09-26 from off-site over VPN. Keep this current: it decides whether an
+urgent fix needs someone in the building.
+
+### Works over VPN — no office presence needed
+
+| Capability | How | Reaches the tablets when? |
+|---|---|---|
+| **Web app fix** (`index.html`, `dashboard.html`) | push to `main` → GitHub Pages → Worker proxy | tablets pick up on their own update check; force with **Reload** from the dashboard |
+| **Worker fix** (`cloudflare-worker.js`) | push to `main` → `deploy-worker.yml` auto-deploys | immediately, next request |
+| **Cloudflare secrets** | `npx wrangler secret put/delete` from the repo directory | immediately |
+| **APK release** | push `boot-launcher/**` → CI builds and commits the APK | trigger **Update all** / **A/B** from the dashboard; 30-min command TTL |
+| **Remote commands** | dashboard admin panel | on the tablet's next heartbeat (≤30 min) |
+| **API verification** | `curl` against the Worker | immediately |
+
+Remote commands available (`cloudflare-worker.js:574`): `reload`, `clear_tokens`,
+`clear_config`, `force_fullscreen`, `re_auth`, `re_auth_remote`, `fetchcal`, `auto_tap`,
+`set_tablet_key`, `enable_test_sleep`, `perform_update`.
+
+**So most hotfixes are remote-capable**, including a full APK rollout. That is the
+important point: being off-site does not block the common cases.
+
+### Needs ADB — and ADB may not work over VPN
+
+Everything that touches device-local state:
+
+- SharedPreferences (`tablet_key`, `room_email`, `room_name`, rotation flags)
+- enabling/disabling packages (e.g. MEET IN TOUCH)
+- rebooting a specific tablet (**there is no `reboot` remote command**)
+- reading device state, `dumpsys`, `logcat`
+- recovering a tablet stuck on "Tap anywhere to continue"
+
+**`set_tablet_key` is not a substitute for a prefs write.** It only writes
+`localStorage`, which `loadDisplay()` overwrites from prefs at every app launch — so it
+survives until the next relaunch (including the daily 06:00 reboot) and no longer.
+Useful as an emergency stopgap, never as a fix.
+
+### The open question — ADB over VPN
+
+On 2026-09-26 (Saturday, off-site) all twelve tablets showed `offline`, while:
+
+- ICMP ping succeeded
+- TCP 5555 was open, and ports 5556 / 9999 / 12345 were closed — so the connection was
+  genuinely reaching `adbd`, not a firewall answering on its behalf
+- `adb kill-server` + fresh connect did not help, ruling out host-side staleness
+- the same commands had worked in the office the previous afternoon
+
+Two candidates, not yet separated: the VPN mangling the ADB stream after the TCP
+handshake (MTU/fragmentation would look exactly like this), or the documented wedged-
+`adbd` state — though twelve devices wedging at once would be a coincidence.
+
+**Test to run in the office, before Monday's 06:00 reboot clears the state:**
+`adb devices` on the same host, on the LAN. If tablets respond, it was the VPN path and
+ADB should be treated as office-only. If still `offline` and only a cold reboot clears it,
+it was the wedge. Record the answer here either way.
