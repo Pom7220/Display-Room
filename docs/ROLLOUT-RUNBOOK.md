@@ -282,7 +282,7 @@ urgent fix needs someone in the building.
 | **API verification** | `curl` against the Worker | immediately |
 
 Remote commands available (`cloudflare-worker.js:574`): `reload`, `clear_tokens`,
-`clear_config`, `force_fullscreen`, `re_auth`, `re_auth_remote`, `fetchcal`, `auto_tap`,
+`clear_config`, `force_fullscreen`, `re_auth`, `fetchcal`, `auto_tap`,
 `set_tablet_key`, `enable_test_sleep`, `perform_update`.
 
 **So most hotfixes are remote-capable**, including a full APK rollout. That is the

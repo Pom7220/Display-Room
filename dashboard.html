@@ -1652,7 +1652,6 @@ async function showOtaDebug() {
 const _pendingCmds = {};
 
 async function sendCmd(room, command) {
-  if (command === 're_auth_remote') { return sendReauth(room); }
   const key = room + ':' + command;
   if (_pendingCmds[key]) { showToast('Already pending...'); return; }
   _pendingCmds[key] = true;
@@ -1668,30 +1667,6 @@ async function sendCmd(room, command) {
     else { delete _pendingCmds[key]; showToast('✗ ' + (data.error||'Failed'), 'error'); }
   } catch(e) { delete _pendingCmds[key]; showToast('✗ ' + e.message, 'error'); }
 }
-
-async function sendReauth(room) {
-  const key = room + ':reauth';
-  if (_pendingCmds[key]) { showToast('Re-auth already in progress...'); return; }
-  _pendingCmds[key] = true;
-  const roomName = (RIS_ROOMS.find(function(r){return r.email===room;})||{}).name || room.split('@')[0];
-  showToast('🔐 Sending re-auth to ' + roomName + '...');
-  try {
-    const resp = await fetch(MONITOR_URL + 'command', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
-      body: JSON.stringify({room: room, command: 're_auth_remote', sentBy: 'admin-dashboard'})
-    });
-    const data = await resp.json();
-    if (!data.ok) {
-      delete _pendingCmds[key];
-      showToast('✗ Re-auth failed: ' + (data.error||'Unknown'), 'error');
-      return;
-    }
-    showToast('✓ Re-auth sent — auto-refresh in 15s');
-    setTimeout(function() { delete _pendingCmds[key]; refreshAdmin(); }, 15000);
-  } catch(e) { delete _pendingCmds[key]; showToast('✗ ' + e.message, 'error'); }
-}
-
 
 function analyzeRooms(rooms) {
   const issues = {
