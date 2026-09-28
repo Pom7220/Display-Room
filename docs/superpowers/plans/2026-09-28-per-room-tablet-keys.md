@@ -186,9 +186,23 @@ check "bogus key"                          $M nonsense           no
 exit $fail
 ```
 
-Expected: all eight PASS. The two CROSS-ROOM checks are the point of this task — they are the behaviour that did not exist before. Run this **before** the edit too and confirm the cross-room checks FAIL, proving the test discriminates.
+Expected after the edit: all eight PASS.
 
-Auth rejection is identified by the `Unauthorized` body rather than the status code: the local Worker has no Graph credentials, so a request that passes the gate fails downstream with its own distinct error, and both can surface as 401.
+**Run it before the edit too, and expect exactly this:** the two "own key on own room"
+checks FAIL, and the other six pass. That is the discriminating signal.
+
+Do **not** expect the CROSS-ROOM checks to fail beforehand. Before the edit there are no
+per-room keys at all, so `MACCHIATOLOCALTEST` is just an unrecognised key and is rejected
+for every room — the cross-room checks pass vacuously, for the wrong reason. They become
+meaningful only once the positive checks pass, which is why both halves are needed:
+the positive checks prove per-room keys are accepted, the cross-room checks prove they
+are scoped.
+
+Auth rejection is identified by the `Unauthorized` body rather than the status code: the
+local Worker has no Graph credentials, so a request that passes the gate fails downstream
+with its own distinct error, and both can surface as 401. The `X-Auth-Check` verdict
+header cannot be used here — it is only set on the 200 success path, which is unreachable
+without Graph credentials.
 
 - [ ] **Step 7: Commit**
 
