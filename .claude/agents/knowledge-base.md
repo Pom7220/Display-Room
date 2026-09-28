@@ -686,3 +686,42 @@ keys read off each device. Latte needed `su 0` throughout and kept `screen_rotat
 length 28, and the file's `room_email` matching the target tablet. That last check guards
 the only mistake that would stay invisible until the shared key is withdrawn — the right
 key written to the wrong tablet works fine on the fallback and fails later, fleet-wide.
+
+## 2026-09-28 — "End early" is a display state, not a room release
+
+`endMeetingEarly()` (`index.html`) sets a local marker, clears the checked-in flag and
+redraws the card. **It does not touch Exchange.** The booking stays held to its original
+end time, so `buildTimeSlots`/the booking sheet correctly pushes the next available start
+past it and Instant Booking refuses the slot.
+
+The card used to say "Room released early · Available now", which contradicted that —
+found by testing Instant Booking straight after an End early. Fixed in v3.10.230 by making
+the wording honest (badge FINISHED EARLY, line "Room is free to use · still booked until
+HH:MM"). **Wording only — no behaviour change.**
+
+**Why we did not make End early actually release the room**, having considered it:
+
+- The DELETE would target `/users/{room}/events/{id}` — the room mailbox's copy, freeing
+  the resource, not the organiser's meeting.
+- But the two booking origins differ. Instant bookings are created *in the room's calendar*
+  (`cloudflare-worker.js`, `handleBook`), so the room's copy IS the meeting and deleting it
+  is clean. A meeting organised in Outlook holds the room only as a resource, and what the
+  organiser then sees — a decline notice, a silently dropped room, lingering location text —
+  is Exchange resource-mailbox behaviour we have not tested.
+- Decided 2026-09-28: not worth the uncertainty, since ending early is rare. If revisited,
+  test first with a real Outlook-organised meeting before shipping anything.
+
+**Related correction.** The no-show path does NOT delete from Outlook by default either:
+the DELETE is gated on `cfg.noShowAction === 'cancel'` and the default is `'hold'`. On a
+default room a no-show shows "booking held" and Outlook is untouched. So the system is
+consistent — the tablet never modifies a calendar on release unless explicitly configured.
+
+**Known wording bug, not yet fixed:** the no-show countdown says "Check-in NOW, otherwise
+released in MM:SS", then on expiry says "booking held". It promises a release that a
+`hold` room never performs.
+
+**Idea parked 2026-09-28:** email the organiser at no-show instead of cancelling. No-shows
+are already recorded as `noshow` incidents with a weekly report emailed to
+vorutchapon@central.co.th. Before building, check the `lateCheckins` ratio — if most
+no-shows are people who check in late, the email would mostly reach someone sitting in the
+room and would train them to ignore it. Must also fire once per meeting, not per heartbeat.
