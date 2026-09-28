@@ -868,8 +868,8 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 228,
-  date: '2026-09-25',
+  patch: 229,
+  date: '2026-09-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
     return 'v'+this.major+'.'+this.minor+p+' ('+this.date+')';
@@ -952,6 +952,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.229 2026-09-28 - Remove inject_tokens handler and the re_auth_remote throttle. The Worker no longer mints Graph tokens into the command channel (both GET /api/command and POST /api/heartbeat returned it uncredentialed); tablets run in proxy mode and never read injected MSAL tokens
 // v3.10.228 2026-09-25 - Fix "+30 min" refused with "next meeting already started" when checked in early. extendMeeting compared the meeting against itself: a not-yet-started meeting is exactly what getNext() returns, so nxt === cur and the gap came out negative. New getNextAfter(ref) excludes the meeting being acted on; getNext() delegates to it so there is one filter, not two that can drift. Same early-check-in trap as .227
 // v3.10.227 2026-09-24 - Fix End early before a meeting starts (marker was written against the next meeting but only ever read against the current one, so the card re-offered Check In), and stop the sheet scrolling when custom start times expand (67vh cap now applies only while a text input is focused)
 // v3.10.226 2026-09-23 - Fix v3.10.225: promoted button CSS sat BEFORE the base .abtn-extend/.abtn-end-early/.abtn-teams rules, so those kept their old sizes fleet-wide. Block moved after all base variant rules
@@ -1966,11 +1967,6 @@ function executeCommand(cmd){
     dbg('Command ignored — duplicate '+action+' within 30s');
     return;
   }
-  // Prevent re_auth_remote within 60s of a reload (reload causes state change)
-  if(action==='re_auth_remote'&&_lastCmdAction==='reload'&&now-_lastCmdTime<60000){
-    dbg('re_auth_remote ignored — reload happened '+Math.round((now-_lastCmdTime)/1000)+'s ago, wait for page to settle');
-    return;
-  }
   _lastCmdTime=now;
   _lastCmdAction=action;
   dbg('Executing command: '+action);
@@ -2021,36 +2017,12 @@ function executeCommand(cmd){
   }
   else if(action==='re_auth'){
     if(cfg.tabletKey){
-      // Worker proxy flow — admin should use re_auth_remote (ROPC) instead
+      // Worker proxy flow — no MSAL token to refresh. A tablet that has lost its
+      // key needs a prefs write over ADB (runbook step 8d), not a remote re-auth.
       dbg('re_auth ignored — using Worker proxy, no MSAL redirect');
     } else {
       reportIncident('remote_reauth','Admin triggered re-authentication',true);
       doReauth();
-    }
-  }
-  else if(action==='inject_tokens'){
-    dbg('inject_tokens received from Worker');
-    var tokens=cmd.tokens;
-    if(tokens&&tokens.access_token){
-      dbg('inject_tokens: access_token present, expires_in='+tokens.expires_in);
-      var prefix='msal.'+cfg.client+'.';
-      var expiresAt=Math.floor(Date.now()/1000)+(parseInt(tokens.expires_in)||3600);
-      try{
-        localStorage.setItem(prefix+'access_token',tokens.access_token);
-        localStorage.setItem(prefix+'token_expires',String(expiresAt));
-        if(tokens.refresh_token)localStorage.setItem(prefix+'refresh_token',tokens.refresh_token);
-        if(tokens.id_token)localStorage.setItem(prefix+'id_token',tokens.id_token);
-      }catch(e){}
-      saveToken(tokens.access_token,expiresAt*1000);
-      dbg('Remote tokens injected — access:'+Math.round((expiresAt*1000-Date.now())/60000)+'m, refresh:'+(tokens.refresh_token?'yes':'no'));
-      reportIncident('remote_reauth_success','Tokens injected remotely via ROPC',true,function(key){
-        // Auto-resolve after 5s (give Worker time to store it)
-        setTimeout(function(){resolveIncident(key,'Tokens successfully injected and verified');},5000);
-      });
-      setTimeout(fetchCal,2000);
-      setTimeout(sendHeartbeat,3000);
-    } else {
-      dbg('inject_tokens: no access_token in payload');
     }
   }
   else if(action==='set_tablet_key'){
