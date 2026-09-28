@@ -22,6 +22,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import org.json.JSONObject;
 
 /**
  * Fullscreen WebView kiosk — loads room display via Cloudflare Worker.
@@ -267,11 +268,18 @@ public class KioskWebViewActivity extends Activity {
         if (url.startsWith("about:") || url.contains("ris-display.workers.dev")) {
             return false;
         }
+        // JSONObject.quote() returns the value already wrapped in double quotes and
+        // escaped, so it is safe to splice straight into the script. Concatenating the
+        // raw key into a single-quoted literal was injectable: a key containing ' or \
+        // made this a syntax error, which the surrounding try/catch does NOT catch —
+        // parse failures happen before the try exists. localStorage would then silently
+        // never be written while loadDisplay() still carried a valid key in the URL,
+        // leaving the two paths disagreeing with no visible symptom.
         view.evaluateJavascript(
             "(function(){try{" +
             "var k='roomdisplay_v5';" +
             "var c=JSON.parse(localStorage.getItem(k)||'{}');" +
-            "c.tabletKey='" + resolveTabletKey() + "';" +
+            "c.tabletKey=" + JSONObject.quote(resolveTabletKey()) + ";" +
             "localStorage.setItem(k,JSON.stringify(c));" +
             "}catch(e){}})();",
             new ValueCallback<String>() {
