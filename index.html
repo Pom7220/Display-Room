@@ -868,7 +868,7 @@ setInterval(checkForNewVersion, 15 * 60 * 1000); // 15 min — was 5 min
 var APP_VERSION = {
   major: 3,
   minor: 10,
-  patch: 230,
+  patch: 231,
   date: '2026-09-28',
   label: function(){
     var p=this.patch?'.'+this.patch:'';
@@ -952,6 +952,7 @@ var APP_VERSION = {
 // v3.10.184 2026-08-28 - Fix silentInstall() on Android 10: cp APK to /data/local/tmp/ before pm install (bypasses SELinux scoped storage block)
 // v3.10.183 2026-08-26 - Force Worker redeploy (fix /api/pkg + /api/ota-debug 404); remove "6 tablets" hardcoding from dashboard
 // v3.10.211 2026-09-20 - Dashboard auto-refresh 15s→5min to reduce KV read ops; manual refresh button unchanged
+// v3.10.231 2026-09-28 - Fix: after ending a meeting early, checking into the NEXT meeting did nothing visible. clearEndedEarly() only ran once the released meeting's original end time passed, so the released block re-rendered and returned — the check-in succeeded internally while the card never moved on. A check-in now ends the released state (endMeetingEarly always sets checkedIn=false, so checkedIn here can only mean a different meeting), and `cur` is dropped when it is the released meeting, since getCur() keeps returning it inside its own time range and the fall-through would otherwise show IN USE for the meeting that just ended. `meetings` is untouched — the slot is still booked in Exchange and the booking sheet must keep refusing it
 // v3.10.230 2026-09-28 - Honest wording after End early. The card claimed "Room released early - Available now", but endMeetingEarly() only sets a local display marker: the Exchange booking is untouched, so the slot stays held to its original end and Instant Booking rightly refuses it — which read as a contradiction to anyone who tried to book the free-looking room. Badge RELEASED -> FINISHED EARLY, status "Released Early" -> "Finished Early", and the line now states both facts: "Room is free to use - still booked until HH:MM". Confirmation overlay "Room released" -> "Meeting ended". Wording only, no behaviour change
 // v3.10.229 2026-09-28 - Remove inject_tokens handler and the re_auth_remote throttle. The Worker no longer mints Graph tokens into the command channel (both GET /api/command and POST /api/heartbeat returned it uncredentialed); tablets run in proxy mode and never read injected MSAL tokens
 // v3.10.228 2026-09-25 - Fix "+30 min" refused with "next meeting already started" when checked in early. extendMeeting compared the meeting against itself: a not-yet-started meeting is exactly what getNext() returns, so nxt === cur and the gap came out negative. New getNextAfter(ref) excludes the meeting being acted on; getNext() delegates to it so there is one filter, not two that can drift. Same early-check-in trap as .227
@@ -2556,6 +2557,25 @@ function updateCurrentCard(){
   if(_ee&&_ee.room===activeRoom.email){
     if(cur&&_ee.meetingId===cur.id) _eeTarget=cur;
     else if(nxt&&_ee.meetingId===nxt.id) _eeTarget=nxt;
+  }
+  // A new check-in ends the released state. endMeetingEarly() always sets
+  // checkedIn=false, so checkedIn being true here can only mean the user has since
+  // checked into a DIFFERENT meeting — the released card offers exactly that when the
+  // next one is within 15 minutes. Without this the block below re-rendered the
+  // released card and returned, so the check-in succeeded internally while the
+  // display never moved on: the button appeared to do nothing.
+  //
+  // Dropping `cur` matters as much as clearing the marker. The released meeting is
+  // still within its own time range, so getCur() keeps returning it, and falling
+  // through with it set would render IN USE for the meeting that just ended instead
+  // of the one just checked into. Assigning the existing function-scope `cur` is safe;
+  // what the note below warns against is DECLARING a shadowing `var cur` in the block.
+  // `meetings` is deliberately left alone — the slot is still booked in Exchange, and
+  // the booking sheet reads `meetings` to refuse it.
+  if(_eeTarget&&checkedIn){
+    clearEndedEarly();
+    if(cur&&cur.id===_eeTarget.id)cur=null;
+    _eeTarget=null;
   }
   if(_eeTarget){
     // Deliberately NOT reassigning `cur` here — a `var cur` inside this block
