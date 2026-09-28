@@ -652,3 +652,37 @@ on both read paths — that is acceptable only because nothing sensitive travels
   the preferred direction; undecided.
 - `re_auth` and `doReauth()` are inert in proxy mode — separate cleanup.
 - ROPC → client credentials: one fewer call site now; `getServiceToken()` remains.
+
+## 2026-09-28 — Phase 2 in progress: per-room keys live, shared key still accepted
+
+**Current auth state.** Each of the twelve rooms has its own 28-char key, held in the
+Cloudflare secret `RIS_TABLET_KEYS` (a JSON map of room email to key) and in that tablet's
+`tablet_key` preference. `authorizeRoomRequest` checks the per-room key first, then falls
+back to the shared key `RIS_TABLET_KEY_NEW`. Verdicts are `tablet:match:room` and
+`tablet:match:shared`.
+
+**The shared key is still accepted.** Until it is deleted, a key lifted from any tablet
+still opens all twelve rooms through the fallback — the weakness phase 2 exists to remove.
+Deleting it is Task 4 of `docs/superpowers/plans/2026-09-28-per-room-tablet-keys.md`, gated
+on an overnight soak. Until then, rollback is per tablet: restore the shared key in its
+prefs and restart.
+
+**Verified 2026-09-28:** all twelve tablets `own room 200 / other room 401`, checked with
+keys read off each device. Latte needed `su 0` throughout and kept `screen_rotated` and
+`shortcut_requested` through the round trip.
+
+**Worker details worth knowing:**
+- The key map is parsed once per isolate and cached. Secrets cannot change without a
+  redeploy, and a redeploy makes a new isolate, so the cache cannot go stale.
+- A malformed `RIS_TABLET_KEYS` degrades to an empty map rather than throwing. An exception
+  in that function would 500 every authenticated request on the fleet.
+- The lookup uses `Object.prototype.hasOwnProperty.call`, because `room` is attacker-
+  controlled and a bare index would resolve `__proto__` or `constructor` to a truthy value.
+- A **non-string** value in the map (a number, or an accidental `null`) makes that room fall
+  back to the shared key and report `tablet:match:shared` — indistinguishable from "not yet
+  migrated". Watch for that if a room appears not to convert.
+
+**Procedure note.** Every prefs push was prechecked for: exactly one `tablet_key`, key
+length 28, and the file's `room_email` matching the target tablet. That last check guards
+the only mistake that would stay invisible until the shared key is withdrawn — the right
+key written to the wrong tablet works fine on the fallback and fails later, fleet-wide.
