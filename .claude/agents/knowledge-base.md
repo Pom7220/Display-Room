@@ -609,3 +609,46 @@ which callers need which credential before gating.
 room Macchiato, reportedBy `probe`, 2026-09-26. Delete it when convenient.
 
 Agreed 2026-09-26 to fix both properly on Monday 2026-09-28, before phase 2.
+
+## 2026-09-28 — Finding 1 CLOSED: remote token injection removed
+
+Supersedes the "FINDING 1 (high)" entry of 2026-09-26. **Fixed by deletion, not by adding
+auth**, and with no APK change.
+
+`re_auth_remote` minted a Graph access + refresh token via ROPC into `cmd:<room>`. Two
+unauthenticated endpoints returned it: `GET /api/command`, and — less obviously —
+`POST /api/heartbeat`, which also returns the pending command
+(`cloudflare-worker.js`, the `command:` field of the heartbeat response). Gating the GET
+alone would have moved the attack, not closed it, and gating the heartbeat would have
+needed an APK release because `postJsonFire`
+(`KioskWebViewActivity.java:595`) sends only `Content-Type` and the OkHttp callers send no
+headers at all.
+
+The tokens were never used. Every tablet runs Worker-proxy mode (`cfg.tabletKey` set), where
+the MSAL refresh timer is skipped (`index.html:1659`) and `re_auth` is ignored. `inject_tokens`
+wrote credentials into localStorage MSAL keys that nothing reads.
+
+Removed: `handleRemoteReauth()`, the `re_auth_remote` dispatch and command value, and
+`GET /api/test-reauth` (Worker); `sendReauth()` and its dispatch (dashboard — it had no UI
+caller, the admin Fix button sends `reload`/`auto_tap` despite its `.adm-act.reauth` class);
+the `inject_tokens` branch and the `re_auth_remote` throttle (`index.html`, v3.10.229).
+
+Verified: `/api/test-reauth` 401 → **404**; `POST /api/command` with `re_auth_remote` →
+**400 Invalid command** listing the remaining ten; neighbouring routes `/api/reports` and
+`/api/reports/generate` still 401 rather than 404, proving no adjacent `if` was swallowed;
+tablet-facing paths unchanged.
+
+**Do not reintroduce a credential into the command channel.** It is still unauthenticated
+on both read paths — that is acceptable only because nothing sensitive travels through it.
+
+### Still open
+
+- **`GET /api/command` / `POST /api/heartbeat` unauthenticated.** Now only ordinary commands.
+  Someone could consume one so an admin action silently does nothing. Needs the APK to send
+  `X-Tablet-Key`; fold into the next APK release.
+- **Finding 2** (`/api/incident`, `/api/alarm`, `/api/heartbeat` as unauthenticated KV
+  writers) — unchanged. Impact is budget exhaustion → lost monitoring, not lost service,
+  since `/api/calendar`, `/api/book` and `/api/event` do not need KV. Edge rate limiting was
+  the preferred direction; undecided.
+- `re_auth` and `doReauth()` are inert in proxy mode — separate cleanup.
+- ROPC → client credentials: one fewer call site now; `getServiceToken()` remains.
