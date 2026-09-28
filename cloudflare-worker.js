@@ -170,43 +170,6 @@ export default {
         return handleReportsList(url, env);
       }
 
-      // GET /api/test-reauth — test ROPC credentials without sending to tablet
-      if (path === '/api/test-reauth' && method === 'GET') {
-        if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
-        var svcUser = env.RIS_SVC_USER || '';
-        var svcPass = env.RIS_SVC_PASSWORD || '';
-        var tenantId = env.RIS_TENANT_ID || '';
-        var clientId = env.RIS_CLIENT_ID || '';
-        if (!svcUser || !svcPass || !tenantId || !clientId) {
-          return jsonResponse({ error: 'Missing secrets', have: {
-            RIS_SVC_USER: !!svcUser, RIS_SVC_PASSWORD: !!svcPass,
-            RIS_TENANT_ID: !!tenantId, RIS_CLIENT_ID: !!clientId
-          }});
-        }
-        try {
-          var tokenUrl = 'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token';
-          var clientSecret = env.RIS_CLIENT_SECRET || '';
-          var body = 'client_id=' + encodeURIComponent(clientId)
-            + (clientSecret ? '&client_secret=' + encodeURIComponent(clientSecret) : '')
-            + '&scope=' + encodeURIComponent('Calendars.ReadWrite openid offline_access')
-            + '&username=' + encodeURIComponent(svcUser)
-            + '&password=' + encodeURIComponent(svcPass)
-            + '&grant_type=password';
-          var resp = await fetch(tokenUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body
-          });
-          var data = await resp.json();
-          if (data.error) {
-            return jsonResponse({ ok: false, error: data.error, description: data.error_description });
-          }
-          return jsonResponse({ ok: true, message: 'ROPC works', has_access_token: !!data.access_token, has_refresh_token: !!data.refresh_token });
-        } catch(e) {
-          return jsonResponse({ ok: false, error: e.message });
-        }
-      }
-
       // POST /api/reports/generate — manually trigger report generation
       if (path === '/api/reports/generate' && method === 'POST') {
         if (!checkAdminKey(request, env)) return jsonResponse({ error: 'Unauthorized' }, 401);
@@ -571,14 +534,12 @@ async function handleCommandSet(request, env) {
       return jsonResponse({ error: 'Missing room or command' }, 400);
     }
 
-    var validCommands = ['reload', 'clear_tokens', 'clear_config', 'force_fullscreen', 're_auth', 're_auth_remote', 'fetchcal', 'auto_tap', 'set_tablet_key', 'enable_test_sleep', 'perform_update'];
+    // re_auth_remote removed 2026-09-28: it minted a Graph access+refresh token into
+    // cmd:<room>, which both GET /api/command and POST /api/heartbeat return without any
+    // credential. Tablets run in Worker-proxy mode and never read injected MSAL tokens.
+    var validCommands = ['reload', 'clear_tokens', 'clear_config', 'force_fullscreen', 're_auth', 'fetchcal', 'auto_tap', 'set_tablet_key', 'enable_test_sleep', 'perform_update'];
     if (validCommands.indexOf(data.command) === -1) {
       return jsonResponse({ error: 'Invalid command. Valid: ' + validCommands.join(', ') }, 400);
-    }
-
-    // Special handling for re_auth_remote — fetch tokens server-side via ROPC
-    if (data.command === 're_auth_remote') {
-      return handleRemoteReauth(data.room, data.sentBy || 'admin', env);
     }
 
     var cmd = {
@@ -597,80 +558,6 @@ async function handleCommandSet(request, env) {
     return jsonResponse({ ok: true, command: cmd });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
-  }
-}
-
-// ═══════════════════════════════════════
-// REMOTE RE-AUTH — ROPC flow server-side
-// ═══════════════════════════════════════
-// Authenticates with Azure AD using stored service account credentials.
-// Returns tokens to the tablet via the command channel.
-// Password NEVER touches the tablet — stays in Cloudflare secrets.
-
-async function handleRemoteReauth(room, sentBy, env) {
-  var svcUser = env.RIS_SVC_USER || '';
-  var svcPass = env.RIS_SVC_PASSWORD || '';
-  var tenantId = env.RIS_TENANT_ID || '';
-  var clientId = env.RIS_CLIENT_ID || '';
-
-  if (!svcUser || !svcPass || !tenantId || !clientId) {
-    return jsonResponse({
-      error: 'Remote re-auth not configured. Set RIS_SVC_USER, RIS_SVC_PASSWORD, RIS_TENANT_ID, RIS_CLIENT_ID in Worker secrets.'
-    }, 400);
-  }
-
-  try {
-    // ROPC token request to Azure AD
-    var tokenUrl = 'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token';
-    var clientSecret = env.RIS_CLIENT_SECRET || '';
-    var body = 'client_id=' + encodeURIComponent(clientId)
-      + (clientSecret ? '&client_secret=' + encodeURIComponent(clientSecret) : '')
-      + '&scope=' + encodeURIComponent('Calendars.ReadWrite Calendars.ReadWrite.Shared Mail.Send User.Read openid profile offline_access')
-      + '&username=' + encodeURIComponent(svcUser)
-      + '&password=' + encodeURIComponent(svcPass)
-      + '&grant_type=password';
-
-    var resp = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body
-    });
-
-    var tokenData = await resp.json();
-
-    if (tokenData.error) {
-      return jsonResponse({
-        error: 'Azure AD rejected ROPC: ' + (tokenData.error_description || tokenData.error)
-      }, 401);
-    }
-
-    // Build inject_tokens command with the fresh tokens
-    var cmd = {
-      command: 'inject_tokens',
-      sentBy: sentBy,
-      sentAt: new Date().toISOString(),
-      tokens: {
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token || '',
-        id_token: tokenData.id_token || '',
-        expires_in: tokenData.expires_in || 3600
-      }
-    };
-
-    // Store command for the tablet to pick up
-    await env.RIS_KV.put(
-      'cmd:' + room,
-      JSON.stringify(cmd),
-      { expirationTtl: 1800 }
-    );
-
-    return jsonResponse({
-      ok: true,
-      message: 'Tokens fetched via ROPC and queued for ' + room,
-      command: { command: 'inject_tokens', sentBy: sentBy, sentAt: cmd.sentAt }
-    });
-  } catch (e) {
-    return jsonResponse({ error: 'ROPC failed: ' + e.message }, 500);
   }
 }
 
