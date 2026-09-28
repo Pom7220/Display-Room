@@ -281,7 +281,7 @@ urgent fix needs someone in the building.
 | **Remote commands** | dashboard admin panel | on the tablet's next heartbeat (≤30 min) |
 | **API verification** | `curl` against the Worker | immediately |
 
-Remote commands available (`cloudflare-worker.js:574`): `reload`, `clear_tokens`,
+Remote commands available (the `validCommands` array in `cloudflare-worker.js`): `reload`, `clear_tokens`,
 `clear_config`, `force_fullscreen`, `re_auth`, `fetchcal`, `auto_tap`,
 `set_tablet_key`, `enable_test_sleep`, `perform_update`.
 
