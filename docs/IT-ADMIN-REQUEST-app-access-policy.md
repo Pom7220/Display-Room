@@ -135,3 +135,24 @@ confirmed.
 
 Any questions to Vorutchapon. Happy to join a call or test alongside you while the policy
 is applied.
+
+---
+
+## OUTCOME — 2026-09-29: no action needed
+
+IT admin confirmed (in Thai): policy control is already implemented; the application can
+manage **only** the RIS Meeting Room mailboxes, and `rismeetingroomsystem@central.co.th`
+likewise has rights over only those mailboxes.
+
+**So the concern in this document does not apply.** The portal's "Read and write calendars
+in all mailboxes" text describes what the permission *type* allows, not its effective
+scope — an access policy already constrains it. This document was written from the portal
+view alone, which does not show that policy.
+
+No change requested. Keeping this on file because:
+
+- it records the permission model and why it is safe, for whoever reviews it next;
+- the verification commands remain useful if the scoping is ever in doubt
+  (`Test-ApplicationAccessPolicy` against an ordinary mailbox should return **Denied**);
+- Q3 (the Conditional Access / MFA exclusion on the service account) was not answered and
+  is still worth knowing, though it is low priority.
