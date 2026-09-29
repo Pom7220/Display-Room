@@ -153,8 +153,8 @@ view alone, which does not show that policy.
 
 | Mailbox | Result |
 |---|---|
-|  (ordinary user) | **Denied** |
-|  (meeting room) | **Granted** |
+| `vorutchapon@central.co.th` (ordinary user) | **Denied** |
+| `rismacchiato@central.co.th` (meeting room) | **Granted** |
 
 Both cases matter: Denied alone could also mean the app reaches nothing at all. The pair
 demonstrates the scoping is correct in both directions.
