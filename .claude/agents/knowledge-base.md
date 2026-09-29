@@ -725,3 +725,44 @@ are already recorded as `noshow` incidents with a weekly report emailed to
 vorutchapon@central.co.th. Before building, check the `lateCheckins` ratio — if most
 no-shows are people who check in late, the email would mostly reach someone sitting in the
 room and would train them to ignore it. Must also fire once per meeting, not per heartbeat.
+
+## 2026-09-29 — Phase 2 COMPLETE: per-room tablet keys, shared key withdrawn
+
+Each of the twelve rooms now has its own 28-char key. **There is no shared tablet
+credential any more.** A key lifted from one tablet opens that room and nothing else.
+
+**Where the keys live:** the Cloudflare secret `RIS_TABLET_KEYS` — a JSON map of room
+email to key — and each tablet's `tablet_key` preference. Plus the operator's password
+manager. Cloudflare cannot read a secret back; the recovery route is ADB off a tablet.
+
+**`RIS_TABLET_KEY_NEW` and `RIS_TABLET_KEY` are both deleted.** Only `RIS_TABLET_KEYS`
+(plural) remains. Those names were confusingly close — `_NEW` was the *old* shared key,
+named relative to the 2026-09-25 rotation. If a future rotation needs a transitional
+secret, do not reuse `_NEW`; name it for what it is.
+
+**Verified after withdrawal:** all 12 own-room 200 / other-room 401; the withdrawn shared
+key 401 on every room tested; the retired `RIS-TABLET-KEY2026` 401; no-credential 401.
+
+**Revocation is now cheap.** To re-key one room: change its entry in `RIS_TABLET_KEYS`,
+write that tablet's prefs, restart the app. No APK, no OTA, no effect on the other eleven.
+That capability was the point of the whole exercise.
+
+### ADB wedge on LG tablets — open, cause unknown
+
+2026-09-29: eleven of twelve showed `offline` on the LAN while Latte (Android 10) was fine.
+Ports open, ping fine, `kill-server` no help. **A cold reboot does NOT clear it** — all
+twelve had booted at 06:00 and had 6.5h uptime. The runbook's claim otherwise is wrong.
+
+**The fix is toggling USB debugging off and on** in Developer Options, per tablet. Ten
+seconds each, restores access immediately.
+
+Ruled out: VPN (2026-09-26 was off-site, but 09-29 was on the LAN with the same symptom),
+host-side staleness, tablet health (all were booting, waking, heartbeating and serving).
+
+Unproven pattern worth testing: 2026-09-28 was fine after its 06:00 reboot, following an
+idle Sunday; 2026-09-29 was wedged after its 06:00 reboot, following a Monday of heavy ADB
+use (dozens of connects, force-stops, prefs pushes, a fleet APK install). That suggests
+heavy ADB use leaves `adbd` in a state a reboot does not clear — two data points, not
+evidence. Cheap test: check `adb devices` first thing after a light-usage day.
+
+This costs management access, not service. The displays are unaffected throughout.
