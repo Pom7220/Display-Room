@@ -98,10 +98,19 @@ Replace `<roomname>` (lowercase) and `<RoomName>` (display name) with the room's
 
 > Replace `<TABLET_KEY>` with the current tablet key. **Do not read it from this
 > repository** — the value in git history is the retired key. Get the live value
-> from the Cloudflare secret `RIS_TABLET_KEY_NEW`, or from the person who set it.
-> Omitting `tablet_key` entirely is safe on APK 5.112+ only while the retired
-> key is still accepted; after retirement the tablet will fail to load its
-> calendar.
+> from the Cloudflare secret `RIS_TABLET_KEYS` (a JSON map of room email to key —
+> use the entry for THIS room), or from the person who set it.
+> **Omitting `tablet_key` no longer works.** Since 2026-09-29 there is no shared
+> fallback — the compiled-in constant holds the retired key and is rejected. A
+> tablet without its own entry will show an error card instead of a calendar.
+>
+> **A NEW room needs a new key added to `RIS_TABLET_KEYS` first**, before this
+> step. Generate 28 alphanumeric characters, add the `"<room email>": "<key>"`
+> pair to the map, re-upload the whole secret with
+> `npx wrangler secret put RIS_TABLET_KEYS`, and save it to the password manager.
+> Cloudflare cannot read a secret back, so the existing twelve entries must be
+> re-supplied in the same upload — take them from the password manager, or read
+> each from its tablet over ADB.
 
 **Use `chown u0_aNN:u0_aNN`, with the group.** `chown u0_aNN` sets the owner only and
 leaves the group as whatever the file already had — on Cappuccino during the 2026-09-24
@@ -257,7 +266,7 @@ C:\TEMP\platform-tools\adb.exe disconnect <IP>:5555
 | MEET IN TOUCH black screen, no heartbeat | MEET IN TOUCH registered as Device Admin with force-lock | `pm disable me.exzy.meetingroom` then reboot |
 | Boot loop (uptime < 90s repeatedly) | LGKioskMode schedule firing immediately after off-hours reboot | `su -c "pm clear com.lge.lgkioskmode"` |
 | OTA not firing after "Update all" | Command TTL (30 min) expired before tablet heartbeated | Resend "Update all" while tablet is awake (07:00–20:30 BKK on weekdays) |
-| `adb devices` shows `offline` but the display works fine | adbd handshake wedged. Port 5555 is open and the tablet is healthy — this is NOT a tablet fault, do not PoE cycle it | On the tablet: Settings → Developer Options → toggle USB debugging OFF then ON, then reconnect. No authorisation dialog appears and none is needed. `adb disconnect`/`connect` and `kill-server` do NOT fix it. A 06:00 cold reboot also clears it |
+| `adb devices` shows `offline` but the display works fine | adbd handshake wedged — LG Android 4.4 only, Latte has never done it. Port 5555 is open, ping works and the tablet is healthy. This is NOT a tablet fault: **do not PoE cycle it**, and it does not affect the displays | On the tablet: Settings → Developer Options → toggle USB debugging OFF then ON, then reconnect. No authorisation dialog appears and none is needed. `adb disconnect`/`connect` and `kill-server` do NOT fix it, and **a cold reboot does NOT fix it either** — on 2026-09-29 eleven tablets were wedged with 6.5h uptime after a clean 06:00 reboot. It can affect most of the fleet at once |
 | `adb connect` says "already connected" but commands fail | That message only means the host holds an entry, not that the device responds | Check `adb devices` — look for `device` vs `offline` |
 | Calendar never loads, display shows an error, but heartbeat is fine | `tablet_key` missing or wrong in prefs | Re-run Step 8 with the live key from the Cloudflare secret, then restart the app |
 | `su: invalid uid/gid '-c'` on Latte (10.0.54.109) | Android 10 `su` does not accept `-c` | Use `su 0 <command>`, one `adb shell` call per step — it also rejects `&&` chaining |
