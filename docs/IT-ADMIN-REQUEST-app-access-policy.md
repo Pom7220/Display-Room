@@ -149,6 +149,16 @@ in all mailboxes" text describes what the permission *type* allows, not its effe
 scope — an access policy already constrains it. This document was written from the portal
 view alone, which does not show that policy.
 
+**Verified by test, 2026-09-29.** IT ran both checks:
+
+| Mailbox | Result |
+|---|---|
+|  (ordinary user) | **Denied** |
+|  (meeting room) | **Granted** |
+
+Both cases matter: Denied alone could also mean the app reaches nothing at all. The pair
+demonstrates the scoping is correct in both directions.
+
 No change requested. Keeping this on file because:
 
 - it records the permission model and why it is safe, for whoever reviews it next;

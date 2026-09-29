@@ -774,9 +774,11 @@ The app registration `RIS OAuth Meeting Room Kiosk`
 permission `Calendars.ReadWrite`, described in the portal as "Read and write calendars in
 all mailboxes". That wording describes the permission *type*, not the effective scope.
 
-**IT admin confirmed 2026-09-29 that policy control is already in place**: the application
-can manage only the RIS Meeting Room mailboxes, and `rismeetingroomsystem@central.co.th`
-is likewise scoped to those mailboxes only.
+**Verified 2026-09-29, not merely asserted.** IT admin confirmed policy control is in
+place, and ran Test-ApplicationAccessPolicy for both cases: an ordinary user mailbox
+returned **Denied**, rismacchiato@central.co.th returned **Granted**. The application can
+reach only the RIS Meeting Room mailboxes, and `rismeetingroomsystem@central.co.th` is
+likewise scoped to those mailboxes only.
 
 Do not re-raise this from the portal view alone — the portal does not show the access
 policy, and it looks alarming without it. To check the real scope:
