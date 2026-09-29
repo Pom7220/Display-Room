@@ -766,3 +766,32 @@ heavy ADB use leaves `adbd` in a state a reboot does not clear — two data poin
 evidence. Cheap test: check `adb devices` first thing after a light-usage day.
 
 This costs management access, not service. The displays are unaffected throughout.
+
+## 2026-09-29 — Graph permission scope: already constrained (closed)
+
+The app registration `RIS OAuth Meeting Room Kiosk`
+(client `80648895-4acf-4ac5-b4a3-c5bf6bc98983`) shows an admin-consented **Application**
+permission `Calendars.ReadWrite`, described in the portal as "Read and write calendars in
+all mailboxes". That wording describes the permission *type*, not the effective scope.
+
+**IT admin confirmed 2026-09-29 that policy control is already in place**: the application
+can manage only the RIS Meeting Room mailboxes, and `rismeetingroomsystem@central.co.th`
+is likewise scoped to those mailboxes only.
+
+Do not re-raise this from the portal view alone — the portal does not show the access
+policy, and it looks alarming without it. To check the real scope:
+
+```powershell
+Test-ApplicationAccessPolicy -Identity <ordinary user mailbox> -AppId "80648895-4acf-4ac5-b4a3-c5bf6bc98983"   # expect Denied
+Test-ApplicationAccessPolicy -Identity rismacchiato@central.co.th -AppId "80648895-4acf-4ac5-b4a3-c5bf6bc98983" # expect Granted
+```
+
+Same app registration serves both the Worker (delegated, service account) and the
+dashboard's interactive user sign-in. Full write-up:
+`docs/IT-ADMIN-REQUEST-app-access-policy.md`.
+
+**Consequence for the ROPC → client-credentials migration: demoted to low priority.** With
+both paths already scoped to the room mailboxes, the remaining gains are removing the MFA
+exclusion on the service account and getting ahead of Microsoft disabling password-based
+app sign-in. Neither is urgent. Note `Mail.Send` is Delegated only, so a migration would
+need it added as an Application permission or the weekly report emails would stop.
